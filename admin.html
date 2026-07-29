@@ -14,10 +14,14 @@
   header{background:var(--maroon);color:#fff;padding:14px 16px;text-align:center;position:sticky;top:0;z-index:10;box-shadow:0 2px 6px rgba(0,0,0,.15);}
   header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.3px;}
   header p{margin:2px 0 0;font-size:11px;opacity:.85;}
-  #settingsGear{cursor:pointer;}
   .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
   label{font-size:12px;font-weight:600;color:#6b5c50;display:block;margin-bottom:5px;}
   input[type=text]{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:15px;margin-bottom:10px;background:#fff;}
+  input[type=number]{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:15px;margin-bottom:10px;background:#fff;}
+  select{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:15px;margin-bottom:10px;background:#fff;}
+  .msg{font-size:13px;padding:10px 12px;border-radius:8px;margin-bottom:10px;display:none;}
+  .msg.ok{background:#e7f6ea;color:var(--ok);display:block;}
+  .msg.err{background:#fdecea;color:var(--warn);display:block;}
   input:focus{outline:none;border-color:var(--gold);}
   button{padding:10px 14px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
   .btn-primary{background:var(--maroon);color:#fff;}
@@ -44,31 +48,59 @@
 
 <header>
   <h1>🍬 RAGHUVIR SWEETS &amp; BAKERS</h1>
-  <p>Admin Dashboard — All Records <span id="settingsGear" onclick="openSettings()">⚙️</span></p>
+  <p>Admin Dashboard — All Records</p>
 </header>
 
-<div class="card" id="settingsCard" style="display:none;">
-  <label>Your Apps Script Web App URL (one-time setup)</label>
-  <input type="text" id="apiUrlInput" placeholder="https://script.google.com/macros/s/XXXXX/exec">
-  <button class="btn-primary" onclick="saveApiUrl()">💾 Save URL</button>
-  <p style="font-size:11px;color:#888;margin-top:8px;">
-    Find this under Apps Script → Deploy → Manage deployments → copy the Web app URL. Saved only in this browser.
-  </p>
-</div>
+<div class="msg" id="testMsg" style="margin:14px;"></div>
 
 <div class="tabs" id="tabBar"></div>
 
-<div class="toolbar">
+<div class="toolbar" id="toolbarView">
   <input type="text" id="searchBox" placeholder="🔍 Search this table…" oninput="applyFilter()">
   <button class="btn-secondary" onclick="loadCurrentTable()">🔄 Refresh</button>
   <span class="count-badge" id="countBadge"></span>
 </div>
 
-<div class="table-wrap">
+<div class="table-wrap" id="tableView">
   <table id="dataTable">
     <thead><tr><th>Loading…</th></tr></thead>
     <tbody></tbody>
   </table>
+</div>
+
+<div class="card" id="addItemView" style="display:none;max-width:1100px;margin:10px auto 24px;">
+  <label>Item Name</label>
+  <input type="text" id="addName" placeholder="e.g. Kaju Katli Box - 500g">
+  <label>Category</label>
+  <input type="text" id="addCategory" placeholder="e.g. Packing Box, Ribbon, Sticker">
+
+  <label>Storage Type</label>
+  <select id="addStorageType">
+    <option value="racked">Racked (stored on a rack)</option>
+    <option value="nonracked">Non-Racked (loose storage zone)</option>
+  </select>
+
+  <label id="addLocationLabel">Rack Code</label>
+  <select id="addLocation"><option value="">Loading…</option></select>
+
+  <label>Unit</label>
+  <input type="text" id="addUnit" placeholder="e.g. Pcs, Box, Roll" value="Pcs">
+  <label>Reorder Level</label>
+  <input type="number" id="addReorder" placeholder="e.g. 50" value="0">
+
+  <label>Barcode</label>
+  <select id="addBarcodeMode">
+    <option value="generate">Generate a new QR sticker (we print &amp; stick it)</option>
+    <option value="existing">Use existing vendor barcode (already on the box)</option>
+  </select>
+
+  <div id="addExistingBarcodeBlock" style="display:none;">
+    <label>Existing barcode value</label>
+    <input type="text" id="addExistingBarcode" placeholder="Type or scan the existing barcode">
+  </div>
+
+  <div class="msg" id="addMsg"></div>
+  <button class="btn-primary" id="addSubmitBtn" onclick="submitAddItem()" style="width:100%;">✅ Create Item</button>
 </div>
 
 <script>
@@ -81,36 +113,33 @@ const TABLES = [
   { key: 'Branches',      label: '🏬 Branches' },
   { key: 'Racks',         label: '🗄️ Racks' }
 ];
+const ADD_ITEM_KEY = 'AddItem'; // special tab - shows a form instead of a table
 
-let API_URL = localStorage.getItem('ims_api_url') || '';
+// ============================= PASTE YOUR WEB APP URL BELOW ======================================
+// After deploying WebApp.gs in Apps Script (Deploy > New deployment > Web app), copy the URL
+// it gives you and paste it between the quotes here. That's the only setup this file needs.
+const API_URL = "https://script.google.com/macros/s/AKfycbzRyb3a1UBD2HfiA3_OYPEVghv3Bu4yMkPMfqncCv6ScWFsVh77lxwp7Z2_WQiVaGT_/exec";
+// Example: const API_URL = "https://script.google.com/macros/s/AKfycb.../exec";
+
 let currentTableKey = TABLES[0].key;
 let currentHeaders = [];
 let currentRows = [];
 
-function openSettings() {
-  document.getElementById('apiUrlInput').value = API_URL;
-  document.getElementById('settingsCard').style.display = 'block';
-}
-
-function saveApiUrl() {
-  const url = document.getElementById('apiUrlInput').value.trim();
-  if (!url) { alert('Please paste your Web App URL.'); return; }
-  API_URL = url;
-  localStorage.setItem('ims_api_url', url);
-  document.getElementById('settingsCard').style.display = 'none';
-  loadCurrentTable();
-}
-
 function callApi(action, data) {
-  if (!API_URL) {
-    openSettings();
-    return Promise.reject(new Error('Please set your Web App URL first (⚙️ icon, top right).'));
+  if (!API_URL || API_URL.indexOf('PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE') !== -1) {
+    return Promise.reject(new Error('Open this HTML file\'s code and paste your deployed Web App URL into the API_URL constant near the top of the <script> section.'));
   }
   return fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(Object.assign({ action: action }, data || {}))
-  }).then(r => r.json()).then(res => {
+  }).then(r => r.text()).then(text => {
+    let res;
+    try {
+      res = JSON.parse(text);
+    } catch (e) {
+      throw new Error('Server did not return valid data - check the Web App URL and that it has been redeployed (Deploy > Manage deployments > New version).');
+    }
     if (res && res.error) throw new Error(res.error);
     return res;
   });
@@ -118,7 +147,8 @@ function callApi(action, data) {
 
 function buildTabs() {
   const bar = document.getElementById('tabBar');
-  bar.innerHTML = TABLES.map(t =>
+  const allTabs = TABLES.concat([{ key: ADD_ITEM_KEY, label: '➕ Add Item' }]);
+  bar.innerHTML = allTabs.map(t =>
     '<div class="tab' + (t.key === currentTableKey ? ' active' : '') + '" data-key="' + t.key + '">' + t.label + '</div>'
   ).join('');
   bar.querySelectorAll('.tab').forEach(tab => {
@@ -126,9 +156,27 @@ function buildTabs() {
       currentTableKey = tab.dataset.key;
       document.getElementById('searchBox').value = '';
       buildTabs();
-      loadCurrentTable();
+      if (currentTableKey === ADD_ITEM_KEY) {
+        showAddItemView();
+      } else {
+        showTableView();
+        loadCurrentTable();
+      }
     });
   });
+}
+
+function showTableView() {
+  document.getElementById('toolbarView').style.display = 'flex';
+  document.getElementById('tableView').style.display = 'block';
+  document.getElementById('addItemView').style.display = 'none';
+}
+
+function showAddItemView() {
+  document.getElementById('toolbarView').style.display = 'none';
+  document.getElementById('tableView').style.display = 'none';
+  document.getElementById('addItemView').style.display = 'block';
+  loadRacksForAddItem();
 }
 
 function loadCurrentTable() {
@@ -171,8 +219,92 @@ function applyFilter() {
 
 window.onload = function() {
   buildTabs();
-  if (!API_URL) openSettings(); else loadCurrentTable();
+  document.getElementById('addStorageType').addEventListener('change', refreshLocationOptions);
+  document.getElementById('addBarcodeMode').addEventListener('change', toggleBarcodeModeUI);
+
+  if (API_URL.indexOf('PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE') !== -1) {
+    const el = document.getElementById('testMsg');
+    el.className = 'msg err';
+    el.style.display = 'block';
+    el.textContent = '⚠️ Web App URL not set yet - open this file\'s code and paste your deployed URL into the API_URL constant near the top of the <script> section.';
+  } else {
+    loadCurrentTable();
+  }
 };
+
+// ---------------- ADD ITEM FORM ----------------
+let allRacks = [];
+
+function loadRacksForAddItem() {
+  callApi('getRacks').then(list => {
+    allRacks = list;
+    refreshLocationOptions();
+  }).catch(err => {
+    document.getElementById('addLocation').innerHTML = '<option value="">⚠️ Could not load racks: ' + err.message + '</option>';
+  });
+}
+
+function refreshLocationOptions() {
+  const isRacked = document.getElementById('addStorageType').value === 'racked';
+  document.getElementById('addLocationLabel').textContent = isRacked ? 'Rack Code' : 'Non-Rack Zone Code';
+  const filtered = allRacks.filter(r => isRacked ? r.toUpperCase().startsWith('RACK-') : !r.toUpperCase().startsWith('RACK-'));
+  const sel = document.getElementById('addLocation');
+  sel.innerHTML = filtered.length
+    ? filtered.map(r => '<option value="' + r + '">' + r + '</option>').join('')
+    : '<option value="">No ' + (isRacked ? 'racks' : 'zones') + ' found - add one in the Racks sheet first</option>';
+}
+
+function toggleBarcodeModeUI() {
+  const existing = document.getElementById('addBarcodeMode').value === 'existing';
+  document.getElementById('addExistingBarcodeBlock').style.display = existing ? 'block' : 'none';
+}
+
+function submitAddItem() {
+  const payload = {
+    itemName: document.getElementById('addName').value.trim(),
+    category: document.getElementById('addCategory').value.trim(),
+    isRacked: document.getElementById('addStorageType').value === 'racked',
+    locationCode: document.getElementById('addLocation').value,
+    unit: document.getElementById('addUnit').value.trim() || 'Pcs',
+    reorder: document.getElementById('addReorder').value || 0,
+    barcodeMode: document.getElementById('addBarcodeMode').value,
+    existingBarcode: document.getElementById('addExistingBarcode').value.trim()
+  };
+
+  const msgEl = document.getElementById('addMsg');
+  function showAddMsg(cls, text) {
+    msgEl.className = 'msg ' + cls;
+    msgEl.textContent = text;
+    msgEl.style.display = 'block';
+  }
+
+  if (!payload.itemName) { showAddMsg('err', '⚠️ Item name is required.'); return; }
+  if (!payload.locationCode) { showAddMsg('err', '⚠️ Please choose a rack / zone code.'); return; }
+  if (payload.barcodeMode === 'existing' && !payload.existingBarcode) {
+    showAddMsg('err', '⚠️ Scan or type the existing barcode.'); return;
+  }
+
+  const btn = document.getElementById('addSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Creating…';
+  callApi('addItem', { payload: payload }).then(res => {
+    btn.disabled = false;
+    btn.textContent = '✅ Create Item';
+    if (res.success) {
+      showAddMsg('ok', '✅ ' + res.message);
+      document.getElementById('addName').value = '';
+      document.getElementById('addCategory').value = '';
+      document.getElementById('addExistingBarcode').value = '';
+      document.getElementById('addReorder').value = 0;
+    } else {
+      showAddMsg('err', '❌ ' + res.message);
+    }
+  }).catch(err => {
+    btn.disabled = false;
+    btn.textContent = '✅ Create Item';
+    showAddMsg('err', '❌ ' + err.message);
+  });
+}
 </script>
 </body>
 </html>
