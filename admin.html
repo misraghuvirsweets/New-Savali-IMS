@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Raghuvir IMS - Admin Dashboard</title>
+<style>
+  :root{
+    --maroon:#6d2932; --maroon-dark:#4e1e25; --gold:#c98a2c; --bg:#faf6f1;
+    --ok:#2f8f4e; --warn:#c0392b; --card:#ffffff; --line:#e7ddd2;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:#2a2a2a;}
+  header{background:var(--maroon);color:#fff;padding:14px 16px;text-align:center;position:sticky;top:0;z-index:10;box-shadow:0 2px 6px rgba(0,0,0,.15);}
+  header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.3px;}
+  header p{margin:2px 0 0;font-size:11px;opacity:.85;}
+  #settingsGear{cursor:pointer;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  label{font-size:12px;font-weight:600;color:#6b5c50;display:block;margin-bottom:5px;}
+  input[type=text]{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:15px;margin-bottom:10px;background:#fff;}
+  input:focus{outline:none;border-color:var(--gold);}
+  button{padding:10px 14px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
+  .btn-primary{background:var(--maroon);color:#fff;}
+  .btn-secondary{background:#efe6db;color:var(--maroon-dark);}
+
+  .tabs{display:flex;flex-wrap:wrap;gap:6px;padding:12px 14px 0;max-width:1100px;margin:0 auto;}
+  .tab{padding:9px 14px;font-size:13px;border-radius:8px 8px 0 0;color:var(--maroon-dark);cursor:pointer;background:#efe1d3;border:1px solid var(--line);border-bottom:none;}
+  .tab.active{background:var(--card);font-weight:700;color:var(--maroon);}
+
+  .toolbar{max-width:1100px;margin:0 auto;padding:0 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .toolbar input{flex:1;min-width:180px;margin-bottom:0;}
+  .count-badge{font-size:12px;color:#777;white-space:nowrap;}
+
+  .table-wrap{max-width:1100px;margin:10px auto 24px;padding:0 14px;overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;}
+  th{background:#f1e6d8;color:var(--maroon-dark);font-weight:700;position:sticky;top:0;}
+  tr:hover td{background:#fbf6ee;}
+  .lowstock{color:var(--warn);font-weight:700;}
+  .empty-msg{padding:20px;text-align:center;color:#999;font-size:13px;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🍬 RAGHUVIR SWEETS &amp; BAKERS</h1>
+  <p>Admin Dashboard — All Records <span id="settingsGear" onclick="openSettings()">⚙️</span></p>
+</header>
+
+<div class="card" id="settingsCard" style="display:none;">
+  <label>Your Apps Script Web App URL (one-time setup)</label>
+  <input type="text" id="apiUrlInput" placeholder="https://script.google.com/macros/s/XXXXX/exec">
+  <button class="btn-primary" onclick="saveApiUrl()">💾 Save URL</button>
+  <p style="font-size:11px;color:#888;margin-top:8px;">
+    Find this under Apps Script → Deploy → Manage deployments → copy the Web app URL. Saved only in this browser.
+  </p>
+</div>
+
+<div class="tabs" id="tabBar"></div>
+
+<div class="toolbar">
+  <input type="text" id="searchBox" placeholder="🔍 Search this table…" oninput="applyFilter()">
+  <button class="btn-secondary" onclick="loadCurrentTable()">🔄 Refresh</button>
+  <span class="count-badge" id="countBadge"></span>
+</div>
+
+<div class="table-wrap">
+  <table id="dataTable">
+    <thead><tr><th>Loading…</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+const TABLES = [
+  { key: 'Item_Master',   label: '📦 Item Master' },
+  { key: 'Stock_Ledger',  label: '📊 Stock Ledger' },
+  { key: 'Inward_Entry',  label: '📥 Inward Log' },
+  { key: 'Outward_Entry', label: '📤 Outward Log' },
+  { key: 'Branch_Ledger', label: '🏬 Branch Ledger' },
+  { key: 'Branches',      label: '🏬 Branches' },
+  { key: 'Racks',         label: '🗄️ Racks' }
+];
+
+let API_URL = localStorage.getItem('ims_api_url') || '';
+let currentTableKey = TABLES[0].key;
+let currentHeaders = [];
+let currentRows = [];
+
+function openSettings() {
+  document.getElementById('apiUrlInput').value = API_URL;
+  document.getElementById('settingsCard').style.display = 'block';
+}
+
+function saveApiUrl() {
+  const url = document.getElementById('apiUrlInput').value.trim();
+  if (!url) { alert('Please paste your Web App URL.'); return; }
+  API_URL = url;
+  localStorage.setItem('ims_api_url', url);
+  document.getElementById('settingsCard').style.display = 'none';
+  loadCurrentTable();
+}
+
+function callApi(action, data) {
+  if (!API_URL) {
+    openSettings();
+    return Promise.reject(new Error('Please set your Web App URL first (⚙️ icon, top right).'));
+  }
+  return fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({ action: action }, data || {}))
+  }).then(r => r.json()).then(res => {
+    if (res && res.error) throw new Error(res.error);
+    return res;
+  });
+}
+
+function buildTabs() {
+  const bar = document.getElementById('tabBar');
+  bar.innerHTML = TABLES.map(t =>
+    '<div class="tab' + (t.key === currentTableKey ? ' active' : '') + '" data-key="' + t.key + '">' + t.label + '</div>'
+  ).join('');
+  bar.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      currentTableKey = tab.dataset.key;
+      document.getElementById('searchBox').value = '';
+      buildTabs();
+      loadCurrentTable();
+    });
+  });
+}
+
+function loadCurrentTable() {
+  document.getElementById('dataTable').innerHTML = '<thead><tr><th>Loading…</th></tr></thead><tbody></tbody>';
+  document.getElementById('countBadge').textContent = '';
+  callApi('getSheetData', { sheetName: currentTableKey }).then(res => {
+    currentHeaders = res.headers || [];
+    currentRows = res.rows || [];
+    renderTable(currentRows);
+  }).catch(err => {
+    document.getElementById('dataTable').innerHTML =
+      '<thead><tr><th>Error</th></tr></thead><tbody><tr><td>' + err.message + '</td></tr></tbody>';
+  });
+}
+
+function renderTable(rows) {
+  const thead = '<thead><tr>' + currentHeaders.map(h => '<th>' + h + '</th>').join('') + '</tr></thead>';
+  let tbody;
+  if (!rows.length) {
+    tbody = '<tbody><tr><td colspan="' + Math.max(currentHeaders.length, 1) + '" class="empty-msg">No records yet.</td></tr></tbody>';
+  } else {
+    tbody = '<tbody>' + rows.map(r =>
+      '<tr>' + r.map((c, i) => {
+        const isStatusCol = currentHeaders[i] === 'Status' && String(c).indexOf('LOW') !== -1;
+        return '<td' + (isStatusCol ? ' class="lowstock"' : '') + '>' + (c === null || c === undefined ? '' : c) + '</td>';
+      }).join('') + '</tr>'
+    ).join('') + '</tbody>';
+  }
+  document.getElementById('dataTable').innerHTML = thead + tbody;
+  document.getElementById('countBadge').textContent = rows.length + ' row' + (rows.length === 1 ? '' : 's');
+}
+
+function applyFilter() {
+  const q = document.getElementById('searchBox').value.trim().toLowerCase();
+  if (!q) { renderTable(currentRows); return; }
+  const filtered = currentRows.filter(r => r.some(c => String(c || '').toLowerCase().indexOf(q) !== -1));
+  renderTable(filtered);
+  document.getElementById('countBadge').textContent = filtered.length + ' of ' + currentRows.length + ' rows';
+}
+
+window.onload = function() {
+  buildTabs();
+  if (!API_URL) openSettings(); else loadCurrentTable();
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{
+    --maroon:#6d2932; --maroon-dark:#4e1e25; --gold:#c98a2c; --bg:#faf6f1;
+    --ok:#2f8f4e; --warn:#c0392b; --card:#ffffff; --line:#e7ddd2;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:#2a2a2a;}
+  header{background:var(--maroon);color:#fff;padding:14px 16px;text-align:center;position:sticky;top:0;z-index:10;box-shadow:0 2px 6px rgba(0,0,0,.15);}
+  header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.3px;}
+  header p{margin:2px 0 0;font-size:11px;opacity:.85;}
+  .tabs{display:flex;background:var(--maroon-dark);position:sticky;top:52px;z-index:9;}
+  .tab{flex:1;text-align:center;padding:11px 4px;font-size:13px;color:#f0d9d2;cursor:pointer;border-bottom:3px solid transparent;}
+  .tab.active{color:#fff;border-bottom:3px solid var(--gold);font-weight:600;}
+  .page{display:none;padding:14px;max-width:520px;margin:0 auto;}
+  .page.active{display:block;}
+
+  /* ---- Home screen ---- */
+  #pageHome{padding:28px 20px;max-width:560px;margin:0 auto;}
+  .home-title{font-size:24px;font-weight:700;color:#2a1a15;text-align:center;margin:10px 0 4px;font-family:Georgia,'Times New Roman',serif;}
+  .home-subtitle{font-size:14px;color:#8a7a6d;text-align:center;margin:0 0 30px;}
+  .big-btn{
+    display:block;width:100%;padding:26px 18px;margin-bottom:22px;border:none;border-radius:16px;
+    font-size:22px;font-weight:700;color:#fff;cursor:pointer;text-align:center;
+    box-shadow:0 3px 8px rgba(0,0,0,.15);transition:transform .08s ease, box-shadow .08s ease;
+  }
+  .big-btn:active{transform:scale(0.98);box-shadow:0 1px 4px rgba(0,0,0,.15);}
+  .big-btn.stock-in{background:#3f6b2e;}
+  .big-btn.stock-out{background:#a8421f;}
+  .back-link{display:inline-block;margin-bottom:12px;color:var(--maroon);font-weight:600;font-size:14px;cursor:pointer;}
+  .back-link:active{opacity:.6;}
+
+  .top-add-btn{
+    position:fixed;top:10px;right:10px;z-index:20;width:auto;
+    padding:9px 16px;border-radius:22px;font-size:13px;font-weight:700;
+    background:var(--gold);color:#3a2508;box-shadow:0 2px 8px rgba(0,0,0,.3);
+    display:none;border:none;cursor:pointer;
+  }
+  .top-add-btn:disabled{opacity:.5;}
+  .top-add-btn.show{display:block;}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  label{font-size:12px;font-weight:600;color:#6b5c50;display:block;margin-bottom:5px;}
+  select, input[type=text], input[type=number]{
+    width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:15px;margin-bottom:10px;background:#fff;
+  }
+  select:focus, input:focus{outline:none;border-color:var(--gold);}
+  button{
+    width:100%;padding:12px;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;
+  }
+  .btn-primary{background:var(--maroon);color:#fff;}
+  .btn-primary:active{background:var(--maroon-dark);}
+  .btn-secondary{background:#efe6db;color:var(--maroon-dark);margin-bottom:10px;}
+  .btn-submit{background:var(--gold);color:#3a2508;}
+  .btn-submit:disabled{opacity:.5;}
+  #reader{width:100%;border-radius:10px;overflow:hidden;margin-bottom:10px;display:none;}
+  .item-box{border:1px dashed var(--gold);background:#fff8ec;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:none;}
+  .item-box .name{font-weight:700;font-size:15px;color:var(--maroon-dark);}
+  .item-box .meta{font-size:12px;color:#777;margin-top:2px;}
+  .msg{font-size:13px;padding:10px 12px;border-radius:8px;margin-bottom:10px;display:none;}
+  .msg.ok{background:#e7f6ea;color:var(--ok);display:block;}
+  .msg.err{background:#fdecea;color:var(--warn);display:block;}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;}
+  .stat{flex:1;min-width:120px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center;}
+  .stat .num{font-size:22px;font-weight:700;color:var(--maroon);}
+  .stat .lbl{font-size:11px;color:#777;margin-top:2px;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th,td{text-align:left;padding:6px 4px;border-bottom:1px solid var(--line);}
+  th{color:#8a7a6d;font-weight:600;}
+  .lowstock{color:var(--warn);font-weight:700;}
+  .section-title{font-size:13px;font-weight:700;color:var(--maroon-dark);margin:14px 0 8px;}
+  .queue-row-del{background:none;border:none;color:var(--warn);font-weight:700;width:auto;padding:2px 8px;cursor:pointer;}
+  .queue-empty{font-size:12px;color:#999;padding:6px 0;}
+  .queue-summary{font-size:12px;color:#6b5c50;margin-bottom:8px;}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🍬 RAGHUVIR SWEETS &amp; BAKERS</h1>
+  <p>Godown Dashboard <span id="testGear" onclick="testConnection()" style="cursor:pointer;">🔧</span></p>
+</header>
+
+<button class="top-add-btn" id="topAddBtn" disabled onclick="topAddEntry()">➕ Add Entry</button>
+
+<div class="msg" id="testMsg" style="margin:14px;"></div>
+
+<!-- ================= HOME PAGE ================= -->
+<div class="page active" id="pageHome">
+  <div class="home-title">Raghuvir Sweets &amp; Bakers</div>
+  <div class="home-subtitle">Godown Dashboard</div>
+  <button class="big-btn stock-in" onclick="showPage('pageIn')">📥 Stock In</button>
+  <button class="big-btn stock-out" onclick="showPage('pageOut')">📤 Stock Out</button>
+</div>
+
+<!-- ================= INWARD PAGE ================= -->
+<div class="page" id="pageIn">
+  <div class="card">
+    <span class="back-link" onclick="showPage('pageHome')">← Back</span>
+    <label>Scan or type SKU / Barcode</label>
+    <input type="text" id="inSku" placeholder="Scan here, or type SKU and press Enter" autocomplete="off">
+    <button class="btn-secondary" onclick="lookupSku('in')">🔍 Look Up Item</button>
+    <button class="btn-secondary" onclick="toggleCamera('in')">📷 Use Camera Scanner</button>
+    <div id="reader-in" class="reader-slot" style="display:none;"><div id="reader"></div></div>
+
+    <div class="msg" id="inMsg"></div>
+    <div class="item-box" id="inItemBox">
+      <div class="name" id="inItemName"></div>
+      <div class="meta" id="inItemMeta"></div>
+    </div>
+
+    <label>Quantity Received</label>
+    <input type="number" id="inQty" placeholder="e.g. 10" min="1">
+    <label>📷 Photo (optional)</label>
+    <input type="file" accept="image/*" capture="environment" id="inPhotoInput" style="display:none;" onchange="handlePhotoCapture('in', this)">
+    <button class="btn-secondary" onclick="document.getElementById('inPhotoInput').click()">📷 Capture Photo</button>
+    <div id="inPhotoStatus" style="display:none;margin-bottom:10px;">
+      <span style="font-size:12px;color:var(--ok);font-weight:600;">✅ Photo attached</span>
+      <span class="back-link" style="margin-left:10px;font-size:12px;color:var(--warn);" onclick="clearPhoto('in')">✕ Remove Photo</span>
+    </div>
+    <button class="btn-submit" id="inSubmitBtn" disabled onclick="addToQueue('in')">➕ Add Entry</button>
+  </div>
+
+  <div class="card">
+    <div class="section-title">📋 Entries to Submit</div>
+    <div class="queue-summary" id="inQueueSummary">No entries added yet.</div>
+    <table id="inQueueTable"></table>
+    <button class="btn-primary" id="inFinalSubmitBtn" disabled onclick="finalSubmit('in')" style="margin-top:10px;">✅ Final Submit</button>
+  </div>
+</div>
+
+<!-- ================= OUTWARD PAGE ================= -->
+<div class="page" id="pageOut">
+  <div class="card">
+    <span class="back-link" onclick="showPage('pageHome')">← Back</span>
+    <label>🏬 Branch <span class="back-link" style="margin:0 0 0 8px;font-size:12px;" onclick="loadBranches()">🔄 Retry</span></label>
+    <select id="outBranch"><option value="">Loading branches…</option></select>
+
+    <label>Scan or type SKU / Barcode</label>
+    <input type="text" id="outSku" placeholder="Scan here, or type SKU and press Enter" autocomplete="off">
+    <button class="btn-secondary" onclick="lookupSku('out')">🔍 Look Up Item</button>
+    <button class="btn-secondary" onclick="toggleCamera('out')">📷 Use Camera Scanner</button>
+    <div id="reader-out" class="reader-slot" style="display:none;"><div id="reader2"></div></div>
+
+    <div class="msg" id="outMsg"></div>
+    <div class="item-box" id="outItemBox">
+      <div class="name" id="outItemName"></div>
+      <div class="meta" id="outItemMeta"></div>
+    </div>
+
+    <label>Quantity Going Out</label>
+    <input type="number" id="outQty" placeholder="e.g. 5" min="1">
+    <label>📷 Photo (optional)</label>
+    <input type="file" accept="image/*" capture="environment" id="outPhotoInput" style="display:none;" onchange="handlePhotoCapture('out', this)">
+    <button class="btn-secondary" onclick="document.getElementById('outPhotoInput').click()">📷 Capture Photo</button>
+    <div id="outPhotoStatus" style="display:none;margin-bottom:10px;">
+      <span style="font-size:12px;color:var(--ok);font-weight:600;">✅ Photo attached</span>
+      <span class="back-link" style="margin-left:10px;font-size:12px;color:var(--warn);" onclick="clearPhoto('out')">✕ Remove Photo</span>
+    </div>
+    <button class="btn-submit" id="outSubmitBtn" disabled onclick="addToQueue('out')">➕ Add Entry</button>
+  </div>
+
+  <div class="card">
+    <div class="section-title">📋 Entries to Submit</div>
+    <div class="queue-summary" id="outQueueSummary">No entries added yet.</div>
+    <table id="outQueueTable"></table>
+    <button class="btn-primary" id="outFinalSubmitBtn" disabled onclick="finalSubmit('out')" style="margin-top:10px;">✅ Final Submit</button>
+  </div>
+</div>
+
+
+<script>
+// ---------------- PAGE NAVIGATION ----------------
+let currentMode = null; // 'in' | 'out' | null (home)
+
+function showPage(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(pageId).classList.add('active');
+  stopCamera();
+
+  if (pageId === 'pageIn') { currentMode = 'in'; document.getElementById('inSku').focus(); }
+  else if (pageId === 'pageOut') { currentMode = 'out'; document.getElementById('outSku').focus(); }
+  else { currentMode = null; }
+
+  syncTopButton();
+}
+
+// Mirrors the in-form "Add Entry" button's enabled/disabled state onto the fixed top-corner
+// button, and shows it only while on the Inward/Outward pages (hidden on Home).
+function syncTopButton() {
+  const topBtn = document.getElementById('topAddBtn');
+  if (!currentMode) {
+    topBtn.classList.remove('show');
+    return;
+  }
+  topBtn.classList.add('show');
+  topBtn.disabled = document.getElementById(currentMode + 'SubmitBtn').disabled;
+}
+
+function topAddEntry() {
+  if (currentMode) addToQueue(currentMode);
+}
+
+// ============================= PASTE YOUR WEB APP URL BELOW ======================================
+// After deploying WebApp.gs in Apps Script (Deploy > New deployment > Web app), copy the URL
+// it gives you and paste it between the quotes here. That's the only setup this file needs -
+// no settings screen, nothing to enter on each device.
+const API_URL = "https://script.google.com/macros/s/AKfycbzRyb3a1UBD2HfiA3_OYPEVghv3Bu4yMkPMfqncCv6ScWFsVh77lxwp7Z2_WQiVaGT_/exec";
+// Example: const API_URL = "https://script.google.com/macros/s/AKfycb.../exec";
+
+function testConnection() {
+  const el = document.getElementById('testMsg');
+  el.className = 'msg';
+  el.style.display = 'block';
+  el.textContent = 'Testing…';
+  callApi('ping').then(res => {
+    const issues = [];
+    if (res.missingSheets && res.missingSheets.length) {
+      issues.push('Missing sheet(s): ' + res.missingSheets.join(', ') + ' - run 📦 IMS Tools > 🚀 Setup System (Run Once) in the Google Sheet.');
+    }
+    if (!res.driveOk) {
+      issues.push('Drive access not authorized yet - run "oneTimeAuthorizeDriveAccess" in Apps Script, then redeploy. (' + (res.driveError || '') + ')');
+    }
+    if (issues.length) {
+      el.className = 'msg err';
+      el.textContent = '⚠️ ' + issues.join('  |  ');
+    } else {
+      el.className = 'msg ok';
+      el.textContent = '✅ Connected, all sheets found, and photo storage (Drive) is authorized. Everything should work.';
+    }
+  }).catch(err => {
+    el.className = 'msg err';
+    el.textContent = '❌ Could not connect: ' + err.message;
+  });
+}
+
+// Sends Content-Type: text/plain so the browser treats it as a "simple request" and skips the
+// CORS preflight (OPTIONS) that Apps Script Web Apps don't handle - the JSON is still parsed
+// fine server-side via JSON.parse(e.postData.contents).
+function callApi(action, data) {
+  if (!API_URL || API_URL.indexOf('PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE') !== -1) {
+    return Promise.reject(new Error('Open this HTML file\'s code and paste your deployed Web App URL into the API_URL constant near the top of the <script> section.'));
+  }
+  return fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({ action: action }, data || {}))
+  }).then(r => r.text()).then(text => {
+    let res;
+    try {
+      res = JSON.parse(text);
+    } catch (e) {
+      // The server sent back an HTML page instead of JSON - usually a pending Google
+      // permission approval (Drive access for photos) or a stale deployment.
+      throw new Error('Server did not return valid data. In Apps Script, run "oneTimeAuthorizeDriveAccess" once to grant permission, then redeploy (Deploy > Manage deployments > New version).');
+    }
+    if (res && res.error) throw new Error(res.error);
+    return res;
+  });
+}
+
+// ---------------- INIT ----------------
+function initData() {
+  loadBranches();
+}
+
+function loadBranches() {
+  const sel = document.getElementById('outBranch');
+  sel.innerHTML = '<option value="">Loading branches…</option>';
+  callApi('getBranches').then(list => {
+    if (!list || !list.length) {
+      sel.innerHTML = '<option value="">⚠️ No active branches found - check Branches sheet</option>';
+      return;
+    }
+    populateBranches(list);
+  }).catch(err => {
+    sel.innerHTML = '<option value="">⚠️ Could not load - tap 🔄 Retry (' + err.message + ')</option>';
+  });
+}
+
+window.onload = function() {
+  if (API_URL.indexOf('PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE') !== -1) {
+    document.getElementById('testMsg').className = 'msg err';
+    document.getElementById('testMsg').style.display = 'block';
+    document.getElementById('testMsg').textContent =
+      '⚠️ Web App URL not set yet - open this file\'s code and paste your deployed URL into the API_URL constant near the top of the <script> section.';
+  } else {
+    initData();
+  }
+
+  document.getElementById('inSku').addEventListener('keydown', e => { if (e.key === 'Enter') lookupSku('in'); });
+  document.getElementById('outSku').addEventListener('keydown', e => { if (e.key === 'Enter') lookupSku('out'); });
+  // Fallback for phone keyboards that don't fire a clean "Enter" keydown (common with predictive/
+  // transliteration keyboards) - firing on blur/change means the Look Up button or camera scan
+  // are never the only way in.
+  document.getElementById('inSku').addEventListener('change', () => lookupSku('in'));
+  document.getElementById('outSku').addEventListener('change', () => lookupSku('out'));
+};
+
+function populateBranches(list) {
+  const sel = document.getElementById('outBranch');
+  sel.innerHTML = '<option value="">-- Select Branch --</option>';
+  list.forEach(b => { const o = document.createElement('option'); o.value = b; o.textContent = b; sel.appendChild(o); });
+}
+
+// ---------------- CAMERA SCANNER ----------------
+let html5QrCode = null;
+let currentCameraMode = null;
+
+const READER_IDS = { in: 'reader', out: 'reader2' };
+const TARGET_FIELD = { in: 'inSku', out: 'outSku' };
+
+function toggleCamera(mode) {
+  const slot = document.getElementById('reader-' + mode);
+  if (slot.style.display === 'block') {
+    stopCamera();
+    return;
+  }
+  ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; });
+  if (html5QrCode) stopCamera();
+
+  slot.style.display = 'block';
+  currentCameraMode = mode;
+  html5QrCode = new Html5Qrcode(READER_IDS[mode]);
+  html5QrCode.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: 220 },
+    (decodedText) => {
+      document.getElementById(TARGET_FIELD[mode]).value = decodedText;
+      stopCamera();
+      lookupSku(mode);
+    },
+    () => {} // ignore per-frame scan failures
+  ).catch(err => {
+    alert('Camera error: ' + err + '\\nYou can still type/scan into the text box with a USB scanner.');
+    slot.style.display = 'none';
+  });
+}
+
+function stopCamera() {
+  if (html5QrCode) {
+    html5QrCode.stop().then(() => { html5QrCode.clear(); html5QrCode = null; }).catch(() => {});
+  }
+  ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; });
+}
+
+// ---------------- LOOKUP ----------------
+function lookupSku(mode) {
+  const sku = document.getElementById(mode + 'Sku').value.trim();
+  if (!sku) return;
+  showMsg(mode, '', '');
+  callApi('lookupItem', { sku: sku }).then(res => showItem(mode, res)).catch(err => showMsg(mode, 'err', '❌ ' + err.message));
+}
+
+function showItem(mode, res) {
+  const box = document.getElementById(mode + 'ItemBox');
+  const submitBtn = document.getElementById(mode + 'SubmitBtn');
+  if (!res.found) {
+    box.style.display = 'none';
+    submitBtn.disabled = true;
+    showMsg(mode, 'err', '❌ SKU "' + res.sku + '" not found in Item_Master.');
+    syncTopButton();
+    return;
+  }
+  document.getElementById(mode + 'ItemName').textContent = res.name;
+  document.getElementById(mode + 'ItemMeta').textContent =
+    'SKU: ' + res.sku + '  |  Location: ' + res.location + '  |  Current stock: ' + res.currentStock;
+  box.style.display = 'block';
+  submitBtn.disabled = false;
+  syncTopButton();
+}
+
+function showMsg(mode, cls, text) {
+  const el = document.getElementById(mode + 'Msg');
+  el.className = 'msg' + (cls ? ' ' + cls : '');
+  el.textContent = text;
+  el.style.display = cls ? 'block' : 'none';
+}
+
+// ---------------- PHOTO CAPTURE ----------------
+const photoData = { in: null, out: null };
+
+function handlePhotoCapture(mode, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    resizeImage(e.target.result, 800, 0.7, function(resizedDataUrl) {
+      photoData[mode] = resizedDataUrl;
+      // Photo is captured and stored, but we only show a small confirmation - not a full preview.
+      document.getElementById(mode + 'PhotoStatus').style.display = 'block';
+    });
+  };
+  reader.readAsDataURL(file);
+  input.value = ''; // allow capturing the same file again if needed
+}
+
+// Shrinks the photo client-side (max 800px wide, JPEG ~70% quality) before it's sent, so a
+// batch of several entries doesn't turn into a huge upload.
+function resizeImage(dataUrl, maxWidth, quality, callback) {
+  const img = new Image();
+  img.onload = function() {
+    let w = img.width, h = img.height;
+    if (w > maxWidth) { h = Math.round(h * (maxWidth / w)); w = maxWidth; }
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    callback(canvas.toDataURL('image/jpeg', quality));
+  };
+  img.src = dataUrl;
+}
+
+function clearPhoto(mode) {
+  photoData[mode] = null;
+  document.getElementById(mode + 'PhotoStatus').style.display = 'none';
+}
+
+// ---------------- ENTRY QUEUE (add multiple rows, then submit all at once) ----------------
+const queues = { in: [], out: [] };
+
+function addToQueue(mode) {
+  const sku = document.getElementById(mode + 'Sku').value.trim();
+  const name = document.getElementById(mode + 'ItemName').textContent;
+  const qty = Number(document.getElementById(mode + 'Qty').value);
+
+  if (!sku || !name) { showMsg(mode, 'err', '❌ Scan an item first.'); return; }
+  if (!qty || qty <= 0) { showMsg(mode, 'err', '❌ Enter a valid quantity.'); return; }
+
+  const row = { sku: sku, name: name, qty: qty, photo: photoData[mode] };
+  if (mode === 'out') {
+    const branch = document.getElementById('outBranch').value;
+    if (!branch) { showMsg('out', 'err', '⚠️ Please select a branch first.'); return; }
+    row.branch = branch;
+  }
+
+  queues[mode].push(row);
+  renderQueue(mode);
+  showMsg(mode, 'ok', '✅ Added to list: ' + name + ' x ' + qty);
+  resetForm(mode);
+}
+
+function removeQueueRow(mode, index) {
+  queues[mode].splice(index, 1);
+  renderQueue(mode);
+}
+
+function renderQueue(mode) {
+  const list = queues[mode];
+  const table = document.getElementById(mode + 'QueueTable');
+  const summary = document.getElementById(mode + 'QueueSummary');
+  const finalBtn = document.getElementById(mode + 'FinalSubmitBtn');
+
+  if (!list.length) {
+    table.innerHTML = '';
+    summary.textContent = 'No entries added yet.';
+    finalBtn.disabled = true;
+    return;
+  }
+
+  const branchCol = mode === 'out' ? '<th>Branch</th>' : '';
+  const rowsHtml = list.map((r, i) => {
+    const branchCell = mode === 'out' ? '<td>' + r.branch + '</td>' : '';
+    const photoCell = '<td>' + (r.photo ? '📷' : '—') + '</td>';
+    const nameCell = '<td>' + r.name + (r.lastError ? '<br><span style="color:var(--warn);font-size:11px;">⚠️ ' + r.lastError + '</span>' : '') + '</td>';
+    return '<tr>' + nameCell + '<td>' + r.qty + '</td>' + branchCell + photoCell +
+      '<td><button class="queue-row-del" onclick="removeQueueRow(\'' + mode + '\',' + i + ')">✕</button></td></tr>';
+  }).join('');
+
+  table.innerHTML = '<tr><th>Item</th><th>Qty</th>' + branchCol + '<th>Photo</th><th></th></tr>' + rowsHtml;
+  summary.textContent = list.length + ' item' + (list.length === 1 ? '' : 's') + ' ready to submit.';
+  finalBtn.disabled = false;
+}
+
+// Submits every queued row one by one, shows progress, and clears only the ones that succeed
+// (failed rows stay in the list so nothing gets silently lost).
+function finalSubmit(mode) {
+  const list = queues[mode];
+  if (!list.length) return;
+
+  const finalBtn = document.getElementById(mode + 'FinalSubmitBtn');
+  finalBtn.disabled = true;
+  const stillFailed = [];
+  let successCount = 0;
+
+  function submitNext(i) {
+    if (i >= list.length) {
+      queues[mode] = stillFailed;
+      renderQueue(mode);
+      finalBtn.textContent = '✅ Final Submit';
+      if (stillFailed.length) {
+        showMsg(mode, 'err', '⚠️ ' + successCount + ' submitted, ' + stillFailed.length +
+          ' failed. See the error under each failed item below - tap ⚙️ → 🔧 Test Connection to diagnose.');
+      } else {
+        showMsg(mode, 'ok', '✅ All ' + successCount + ' entries submitted successfully.');
+      }
+      return;
+    }
+    finalBtn.innerHTML = '<span class="spinner"></span>Submitting ' + (i + 1) + ' of ' + list.length + '…';
+    const row = list[i];
+    const action = mode === 'in' ? 'logInward' : 'logOutward';
+    const payload = mode === 'in'
+      ? { sku: row.sku, qty: row.qty, photo: row.photo }
+      : { sku: row.sku, qty: row.qty, branch: row.branch, photo: row.photo };
+
+    callApi(action, payload).then(res => {
+      if (res.success) {
+        successCount++;
+      } else {
+        row.lastError = res.message || 'Unknown error';
+        stillFailed.push(row);
+      }
+      submitNext(i + 1);
+    }).catch(err => {
+      row.lastError = err.message;
+      stillFailed.push(row);
+      submitNext(i + 1);
+    });
+  }
+
+  submitNext(0);
+}
+
+function resetForm(mode) {
+  document.getElementById(mode + 'Sku').value = '';
+  document.getElementById(mode + 'Qty').value = '';
+  clearPhoto(mode);
+  document.getElementById(mode + 'ItemBox').style.display = 'none';
+  document.getElementById(mode + 'SubmitBtn').disabled = true;
+  document.getElementById(mode + 'Sku').focus();
+  syncTopButton();
+}
+</script>
+</body>
+</html>
