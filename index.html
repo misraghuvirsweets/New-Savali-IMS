@@ -57,7 +57,7 @@
   .btn-secondary{background:#efe6db;color:var(--maroon-dark);margin-bottom:10px;}
   .btn-submit{background:var(--gold);color:#3a2508;}
   .btn-submit:disabled{opacity:.5;}
-  #reader{width:100%;border-radius:10px;overflow:hidden;margin-bottom:10px;display:none;}
+  .qr-reader-box{width:100%;min-height:260px;border-radius:10px;overflow:hidden;margin-bottom:10px;background:#000;}
   .item-box{border:1px dashed var(--gold);background:#fff8ec;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:none;}
   .item-box .name{font-weight:700;font-size:15px;color:var(--maroon-dark);}
   .item-box .meta{font-size:12px;color:#777;margin-top:2px;}
@@ -107,7 +107,7 @@
     <input type="text" id="inSku" placeholder="Scan here, or type SKU and press Enter" autocomplete="off">
     <button class="btn-secondary" onclick="lookupSku('in')">🔍 Look Up Item</button>
     <button class="btn-secondary" onclick="toggleCamera('in')">📷 Use Camera Scanner</button>
-    <div id="reader-in" class="reader-slot" style="display:none;"><div id="reader"></div></div>
+    <div id="reader-in" class="reader-slot" style="display:none;"><div id="reader" class="qr-reader-box"></div></div>
 
     <div class="msg" id="inMsg"></div>
     <div class="item-box" id="inItemBox">
@@ -146,7 +146,7 @@
     <input type="text" id="outSku" placeholder="Scan here, or type SKU and press Enter" autocomplete="off">
     <button class="btn-secondary" onclick="lookupSku('out')">🔍 Look Up Item</button>
     <button class="btn-secondary" onclick="toggleCamera('out')">📷 Use Camera Scanner</button>
-    <div id="reader-out" class="reader-slot" style="display:none;"><div id="reader2"></div></div>
+    <div id="reader-out" class="reader-slot" style="display:none;"><div id="reader2" class="qr-reader-box"></div></div>
 
     <div class="msg" id="outMsg"></div>
     <div class="item-box" id="outItemBox">
@@ -211,7 +211,7 @@ function topAddEntry() {
 // After deploying WebApp.gs in Apps Script (Deploy > New deployment > Web app), copy the URL
 // it gives you and paste it between the quotes here. That's the only setup this file needs -
 // no settings screen, nothing to enter on each device.
-const API_URL = "https://script.google.com/macros/s/AKfycbzRyb3a1UBD2HfiA3_OYPEVghv3Bu4yMkPMfqncCv6ScWFsVh77lxwp7Z2_WQiVaGT_/exec";
+const API_URL = "PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE";
 // Example: const API_URL = "https://script.google.com/macros/s/AKfycb.../exec";
 
 function testConnection() {
@@ -322,23 +322,58 @@ function toggleCamera(mode) {
     stopCamera();
     return;
   }
+
+  // Mobile browsers (Chrome/Android, Safari/iOS) block camera access entirely on plain HTTP -
+  // only HTTPS (or true localhost on the SAME device) is allowed. Testing this page via a local
+  // dev server IP (e.g. 127.0.0.1:5500 or 192.168.x.x:5500) opened from a PHONE will silently
+  // fail here - host on GitHub Pages / Netlify (HTTPS) for the camera to work on mobile.
+  if (!window.isSecureContext) {
+    alert('Camera needs a secure (HTTPS) page to work on mobile. This page is currently loaded over ' +
+      'an insecure connection, which phone browsers block camera access on by default. ' +
+      'Host this file on GitHub Pages or Netlify (both give a free https:// URL) and open it from there. ' +
+      'You can still type or use a USB scanner into the text box for now.');
+    return;
+  }
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    alert('This browser does not support camera access. Please use a recent Chrome or Safari, or type/scan into the text box with a USB scanner.');
+    return;
+  }
+
   ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; });
   if (html5QrCode) stopCamera();
 
   slot.style.display = 'block';
   currentCameraMode = mode;
   html5QrCode = new Html5Qrcode(READER_IDS[mode]);
-  html5QrCode.start(
-    { facingMode: "environment" },
-    { fps: 10, qrbox: 220 },
-    (decodedText) => {
-      document.getElementById(TARGET_FIELD[mode]).value = decodedText;
-      stopCamera();
-      lookupSku(mode);
-    },
-    () => {} // ignore per-frame scan failures
-  ).catch(err => {
-    alert('Camera error: ' + err + '\\nYou can still type/scan into the text box with a USB scanner.');
+
+  const onScanSuccess = (decodedText) => {
+    document.getElementById(TARGET_FIELD[mode]).value = decodedText;
+    stopCamera();
+    lookupSku(mode);
+  };
+  const config = { fps: 10, qrbox: { width: 230, height: 230 }, aspectRatio: 1.0 };
+
+  // Prefer an explicit rear/back camera by device label (more reliable on Android than the
+  // generic facingMode constraint, which some devices/browsers ignore); fall back to facingMode
+  // if enumeration isn't available or no camera list comes back.
+  Html5Qrcode.getCameras().then(cameras => {
+    if (!cameras || !cameras.length) throw new Error('NoCamerasFound');
+    const back = cameras.find(c => /back|rear|environment/i.test(c.label)) || cameras[cameras.length - 1];
+    return html5QrCode.start(back.id, config, onScanSuccess, () => {});
+  }).catch(() => {
+    // Enumeration failed or returned nothing usable - fall back to the standard constraint.
+    return html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess, () => {});
+  }).catch(err => {
+    let msg = 'Camera error: ' + err;
+    const errStr = String(err);
+    if (errStr.indexOf('NotAllowedError') !== -1 || errStr.indexOf('Permission') !== -1) {
+      msg = 'Camera permission was denied. Check your browser\'s site settings and allow camera access for this page, then try again.';
+    } else if (errStr.indexOf('NotFoundError') !== -1 || errStr.indexOf('NoCamerasFound') !== -1) {
+      msg = 'No camera was found on this device.';
+    } else if (errStr.indexOf('NotReadableError') !== -1) {
+      msg = 'The camera is already in use by another app. Close other camera apps/tabs and try again.';
+    }
+    alert(msg + '\nYou can still type or use a USB scanner into the text box.');
     slot.style.display = 'none';
   });
 }
