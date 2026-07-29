@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" onerror="this.dataset.failed='1'; var s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js'; document.head.appendChild(s);"></script>
 <style>
   :root{
     --maroon:#6d2932; --maroon-dark:#4e1e25; --gold:#c98a2c; --bg:#faf6f1;
@@ -90,6 +90,16 @@
 <button class="top-add-btn" id="topAddBtn" disabled onclick="topAddEntry()">➕ Add Entry</button>
 
 <div class="msg" id="testMsg" style="margin:14px;"></div>
+
+<div class="card" id="urlSetupCard" style="display:none;margin:14px;">
+  <label>⚠️ Web App URL not set - paste it here to continue</label>
+  <input type="text" id="urlSetupInput" placeholder="https://script.google.com/macros/s/XXXXX/exec">
+  <button class="btn-primary" onclick="saveUrlFallback()">💾 Save &amp; Continue</button>
+  <p style="font-size:11px;color:#888;margin-top:8px;">
+    This is saved only in this browser/device. To make it permanent for everyone, edit the
+    API_URL line near the top of this file's code instead.
+  </p>
+</div>
 
 <!-- ================= HOME PAGE ================= -->
 <div class="page active" id="pageHome">
@@ -209,10 +219,27 @@ function topAddEntry() {
 
 // ============================= PASTE YOUR WEB APP URL BELOW ======================================
 // After deploying WebApp.gs in Apps Script (Deploy > New deployment > Web app), copy the URL
-// it gives you and paste it between the quotes here. That's the only setup this file needs -
-// no settings screen, nothing to enter on each device.
+// it gives you and paste it between the quotes here. This is the recommended permanent setup -
+// everyone who opens this hosted file gets it automatically, nothing to type on each device.
 const API_URL = "https://script.google.com/macros/s/AKfycbzRyb3a1UBD2HfiA3_OYPEVghv3Bu4yMkPMfqncCv6ScWFsVh77lxwp7Z2_WQiVaGT_/exec";
 // Example: const API_URL = "https://script.google.com/macros/s/AKfycb.../exec";
+
+// If the line above was never edited, fall back to a URL saved earlier in this browser (via the
+// on-page box that appears below), so the app still works instead of just showing an error.
+const URL_PLACEHOLDER = 'https://script.google.com/macros/s/AKfycbzRyb3a1UBD2HfiA3_OYPEVghv3Bu4yMkPMfqncCv6ScWFsVh77lxwp7Z2_WQiVaGT_/exec';
+function getEffectiveApiUrl() {
+  if (API_URL.indexOf(URL_PLACEHOLDER) === -1 && API_URL.trim() !== '') return API_URL.trim();
+  return (localStorage.getItem('ims_api_url_fallback') || '').trim();
+}
+
+function saveUrlFallback() {
+  const url = document.getElementById('urlSetupInput').value.trim();
+  if (!url) { alert('Please paste your Web App URL.'); return; }
+  localStorage.setItem('ims_api_url_fallback', url);
+  document.getElementById('urlSetupCard').style.display = 'none';
+  document.getElementById('testMsg').style.display = 'none';
+  initData();
+}
 
 function testConnection() {
   const el = document.getElementById('testMsg');
@@ -244,10 +271,12 @@ function testConnection() {
 // CORS preflight (OPTIONS) that Apps Script Web Apps don't handle - the JSON is still parsed
 // fine server-side via JSON.parse(e.postData.contents).
 function callApi(action, data) {
-  if (!API_URL || API_URL.indexOf('PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE') !== -1) {
-    return Promise.reject(new Error('Open this HTML file\'s code and paste your deployed Web App URL into the API_URL constant near the top of the <script> section.'));
+  const url = getEffectiveApiUrl();
+  if (!url) {
+    document.getElementById('urlSetupCard').style.display = 'block';
+    return Promise.reject(new Error('Web App URL not set yet - paste it in the box above, or edit the API_URL constant in the code.'));
   }
-  return fetch(API_URL, {
+  return fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(Object.assign({ action: action }, data || {}))
@@ -285,11 +314,8 @@ function loadBranches() {
 }
 
 window.onload = function() {
-  if (API_URL.indexOf('PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE') !== -1) {
-    document.getElementById('testMsg').className = 'msg err';
-    document.getElementById('testMsg').style.display = 'block';
-    document.getElementById('testMsg').textContent =
-      '⚠️ Web App URL not set yet - open this file\'s code and paste your deployed URL into the API_URL constant near the top of the <script> section.';
+  if (!getEffectiveApiUrl()) {
+    document.getElementById('urlSetupCard').style.display = 'block';
   } else {
     initData();
   }
@@ -323,6 +349,15 @@ function toggleCamera(mode) {
     return;
   }
 
+  // If the scanner library script failed to load (blocked CDN, offline, slow network), calling
+  // "new Html5Qrcode(...)" would throw silently and the button would appear to do nothing.
+  if (typeof Html5Qrcode === 'undefined') {
+    alert('The camera scanner library has not finished loading yet (or failed to load - check your ' +
+      'internet connection). Wait a moment and try again, reload the page, or type/scan into the ' +
+      'text box with a USB scanner in the meantime.');
+    return;
+  }
+
   // Mobile browsers (Chrome/Android, Safari/iOS) block camera access entirely on plain HTTP -
   // only HTTPS (or true localhost on the SAME device) is allowed. Testing this page via a local
   // dev server IP (e.g. 127.0.0.1:5500 or 192.168.x.x:5500) opened from a PHONE will silently
@@ -339,43 +374,48 @@ function toggleCamera(mode) {
     return;
   }
 
-  ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; });
-  if (html5QrCode) stopCamera();
+  try {
+    ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; });
+    if (html5QrCode) stopCamera();
 
-  slot.style.display = 'block';
-  currentCameraMode = mode;
-  html5QrCode = new Html5Qrcode(READER_IDS[mode]);
+    slot.style.display = 'block';
+    currentCameraMode = mode;
+    html5QrCode = new Html5Qrcode(READER_IDS[mode]);
 
-  const onScanSuccess = (decodedText) => {
-    document.getElementById(TARGET_FIELD[mode]).value = decodedText;
-    stopCamera();
-    lookupSku(mode);
-  };
-  const config = { fps: 10, qrbox: { width: 230, height: 230 }, aspectRatio: 1.0 };
+    const onScanSuccess = (decodedText) => {
+      document.getElementById(TARGET_FIELD[mode]).value = decodedText;
+      stopCamera();
+      lookupSku(mode);
+    };
+    const config = { fps: 10, qrbox: { width: 230, height: 230 }, aspectRatio: 1.0 };
 
-  // Prefer an explicit rear/back camera by device label (more reliable on Android than the
-  // generic facingMode constraint, which some devices/browsers ignore); fall back to facingMode
-  // if enumeration isn't available or no camera list comes back.
-  Html5Qrcode.getCameras().then(cameras => {
-    if (!cameras || !cameras.length) throw new Error('NoCamerasFound');
-    const back = cameras.find(c => /back|rear|environment/i.test(c.label)) || cameras[cameras.length - 1];
-    return html5QrCode.start(back.id, config, onScanSuccess, () => {});
-  }).catch(() => {
-    // Enumeration failed or returned nothing usable - fall back to the standard constraint.
-    return html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess, () => {});
-  }).catch(err => {
-    let msg = 'Camera error: ' + err;
-    const errStr = String(err);
-    if (errStr.indexOf('NotAllowedError') !== -1 || errStr.indexOf('Permission') !== -1) {
-      msg = 'Camera permission was denied. Check your browser\'s site settings and allow camera access for this page, then try again.';
-    } else if (errStr.indexOf('NotFoundError') !== -1 || errStr.indexOf('NoCamerasFound') !== -1) {
-      msg = 'No camera was found on this device.';
-    } else if (errStr.indexOf('NotReadableError') !== -1) {
-      msg = 'The camera is already in use by another app. Close other camera apps/tabs and try again.';
-    }
-    alert(msg + '\nYou can still type or use a USB scanner into the text box.');
+    // Prefer an explicit rear/back camera by device label (more reliable on Android than the
+    // generic facingMode constraint, which some devices/browsers ignore); fall back to facingMode
+    // if enumeration isn't available or no camera list comes back.
+    Html5Qrcode.getCameras().then(cameras => {
+      if (!cameras || !cameras.length) throw new Error('NoCamerasFound');
+      const back = cameras.find(c => /back|rear|environment/i.test(c.label)) || cameras[cameras.length - 1];
+      return html5QrCode.start(back.id, config, onScanSuccess, () => {});
+    }).catch(() => {
+      // Enumeration failed or returned nothing usable - fall back to the standard constraint.
+      return html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess, () => {});
+    }).catch(err => {
+      let msg = 'Camera error: ' + err;
+      const errStr = String(err);
+      if (errStr.indexOf('NotAllowedError') !== -1 || errStr.indexOf('Permission') !== -1) {
+        msg = 'Camera permission was denied. Check your browser\'s site settings and allow camera access for this page, then try again.';
+      } else if (errStr.indexOf('NotFoundError') !== -1 || errStr.indexOf('NoCamerasFound') !== -1) {
+        msg = 'No camera was found on this device.';
+      } else if (errStr.indexOf('NotReadableError') !== -1) {
+        msg = 'The camera is already in use by another app. Close other camera apps/tabs and try again.';
+      }
+      alert(msg + '\nYou can still type or use a USB scanner into the text box.');
+      slot.style.display = 'none';
+    });
+  } catch (err) {
+    alert('Could not start the camera scanner: ' + err.message + '\nYou can still type or use a USB scanner into the text box.');
     slot.style.display = 'none';
-  });
+  }
 }
 
 function stopCamera() {
