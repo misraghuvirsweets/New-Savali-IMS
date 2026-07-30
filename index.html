@@ -1,576 +1,710 @@
-/*************************************************************************************************
- *  WEB APP LAYER — Raghuvir Sweets & Bakers IMS
- *  Add this file to the SAME Apps Script project as your existing Code.gs
- *  (it reuses the SHEETS constants and helper functions already defined there).
- *
- *  DEPLOY:
- *  1. In the Apps Script editor: File -> New -> Script file -> name it "WebApp" -> paste this.
- *  2. Also add "Index" as an HTML file (File -> New -> HTML file -> name exactly "Index")
- *     and paste the Index.html content given separately.
- *  3. Click "Deploy" -> "New deployment" -> gear icon -> select type "Web app".
- *     - Execute as: Me
- *     - Who has access: Anyone with the link (or "Anyone within [your domain]" if using
- *       Google Workspace, for extra security)
- *  4. Click Deploy -> copy the Web App URL.
- *  5. Open that URL on any phone/tablet/laptop browser. On phone: use browser menu ->
- *     "Add to Home Screen" so it opens full-screen like a real app.
- *  6. Every time you edit the code, you must create a "New deployment" (or use "Manage
- *     deployments" -> edit -> new version) for changes to go live on the same URL.
- *************************************************************************************************/
-
-// ============================= ONE-TIME AUTHORIZATION HELPER =====================================
-// Photo capture needs Google Drive access, which is a NEW permission scope beyond what the sheet
-// already had. Apps Script can't grant a brand-new scope in response to an anonymous web request
-// (fetch from godown.html) - it just fails and Google returns an HTML page instead of your JSON,
-// which shows up in the browser as "Unexpected token '<', <!DOCTYPE...' is not valid JSON".
-//
-// FIX (one-time, takes 30 seconds):
-// 1. In this Apps Script editor, use the function dropdown (top toolbar) and select
-//    "oneTimeAuthorizeDriveAccess".
-// 2. Click the ▶ Run button.
-// 3. A popup will ask for permission - click "Continue" / "Advanced > Go to project (unsafe)" >
-//    "Allow". (It's your own script on your own account - this warning is normal for scripts
-//    that aren't published on the Marketplace.)
-// 4. Then go to Deploy -> Manage deployments -> Edit (pencil) -> New version -> Deploy, so the
-//    live Web App URL picks up the authorized code.
-function oneTimeAuthorizeDriveAccess() {
-  const folder = getOrCreatePhotosFolder();
-  Logger.log('Drive access authorized. Photos folder: ' + folder.getUrl());
-}
-
-// ============================= DIAGNOSTICS =======================================================
-// A lightweight action to test the connection and check whether Drive access (needed for photos)
-// has been authorized, without having to submit a real stock entry to find out.
-function webPing() {
-  let driveOk = false, driveError = '';
-  try {
-    getOrCreatePhotosFolder();
-    driveOk = true;
-  } catch (err) {
-    driveError = err.message;
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" onerror="this.dataset.failed='1'; var s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js'; document.head.appendChild(s);"></script>
+<style>
+  :root{
+    --maroon:#6d2932; --maroon-dark:#4e1e25; --gold:#c98a2c; --bg:#faf6f1;
+    --ok:#2f8f4e; --warn:#c0392b; --card:#ffffff; --line:#e7ddd2;
   }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:#2a2a2a;overflow-x:hidden;}
+  header{background:var(--maroon);color:#fff;padding:12px 16px;text-align:center;position:sticky;top:0;z-index:10;box-shadow:0 2px 6px rgba(0,0,0,.15);}
+  header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.3px;display:flex;align-items:center;justify-content:center;gap:8px;}
+  header p{margin:2px 0 0;font-size:11px;opacity:.85;}
+  .brand-logo{height:68px;width:68px;object-fit:contain;border-radius:12px;background:#fff;padding:4px;}
+  .tabs{display:flex;background:var(--maroon-dark);position:sticky;top:52px;z-index:9;}
+  .tab{flex:1;text-align:center;padding:11px 4px;font-size:13px;color:#f0d9d2;cursor:pointer;border-bottom:3px solid transparent;}
+  .tab.active{color:#fff;border-bottom:3px solid var(--gold);font-weight:600;}
+  .page{display:none;padding:14px;max-width:520px;margin:0 auto;}
+  .page.active{display:block;}
 
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const requiredSheets = ['Branches', 'Racks', 'Item_Master', 'Inward_Entry', 'Outward_Entry', 'Stock_Ledger', 'Branch_Ledger', 'Settings'];
-  const missingSheets = requiredSheets.filter(name => !ss.getSheetByName(name));
+  /* ---- Home screen ---- */
+  #pageHome{padding:28px 20px;max-width:560px;margin:0 auto;}
+  .home-title{font-size:24px;font-weight:700;color:#2a1a15;text-align:center;margin:10px 0 4px;font-family:Georgia,'Times New Roman',serif;}
+  .home-subtitle{font-size:14px;color:#8a7a6d;text-align:center;margin:0 0 30px;}
+  .big-btn{
+    display:block;width:100%;padding:26px 18px;margin-bottom:22px;border:none;border-radius:16px;
+    font-size:22px;font-weight:700;color:#fff;cursor:pointer;text-align:center;
+    box-shadow:0 3px 8px rgba(0,0,0,.15);transition:transform .08s ease, box-shadow .08s ease;
+  }
+  .big-btn:active{transform:scale(0.98);box-shadow:0 1px 4px rgba(0,0,0,.15);}
+  .big-btn.stock-in{background:#3f6b2e;}
+  .big-btn.stock-out{background:#a8421f;}
+  .back-link{display:inline-block;margin-bottom:12px;color:var(--maroon);font-weight:600;font-size:14px;cursor:pointer;}
+  .back-link:active{opacity:.6;}
 
-  return { ok: true, driveOk: driveOk, driveError: driveError, missingSheets: missingSheets };
+  .top-add-btn{
+    position:fixed;top:10px;right:10px;z-index:20;width:auto;
+    padding:9px 16px;border-radius:22px;font-size:13px;font-weight:700;
+    background:var(--gold);color:#3a2508;box-shadow:0 2px 8px rgba(0,0,0,.3);
+    display:none;border:none;cursor:pointer;
+  }
+  .top-add-btn:disabled{opacity:.5;}
+  .top-add-btn.show{display:block;}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  label{font-size:12px;font-weight:600;color:#6b5c50;display:block;margin-bottom:5px;}
+  select, input[type=text], input[type=number]{
+    width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;margin-bottom:10px;background:#fff;
+  }
+  select:focus, input:focus{outline:none;border-color:var(--gold);}
+  button{
+    width:100%;padding:12px;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;
+  }
+  .btn-primary{background:var(--maroon);color:#fff;}
+  .btn-primary:active{background:var(--maroon-dark);}
+  .btn-secondary{background:#efe6db;color:var(--maroon-dark);margin-bottom:10px;}
+  .btn-submit{background:var(--gold);color:#3a2508;}
+  .btn-submit:disabled{opacity:.5;}
+  .qr-reader-wrap{position:relative;margin-bottom:6px;}
+  .qr-reader-box{width:100%;min-height:260px;border-radius:10px;overflow:hidden;background:#000;}
+  .scan-detected-label{font-size:12px;color:var(--maroon-dark);text-align:center;min-height:16px;margin-bottom:10px;}
+  .item-box{border:1px dashed var(--gold);background:#fff8ec;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:none;}
+  .item-box .name{font-weight:700;font-size:15px;color:var(--maroon-dark);}
+  .item-box .meta{font-size:12px;color:#777;margin-top:2px;}
+  .msg{font-size:13px;padding:10px 12px;border-radius:8px;margin-bottom:10px;display:none;}
+  .msg.ok{background:#e7f6ea;color:var(--ok);display:block;}
+  .msg.err{background:#fdecea;color:var(--warn);display:block;}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;}
+  .stat{flex:1;min-width:120px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center;}
+  .stat .num{font-size:22px;font-weight:700;color:var(--maroon);}
+  .stat .lbl{font-size:11px;color:#777;margin-top:2px;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th,td{text-align:left;padding:6px 4px;border-bottom:1px solid var(--line);}
+  th{color:#8a7a6d;font-weight:600;}
+  .lowstock{color:var(--warn);font-weight:700;}
+  .section-title{font-size:13px;font-weight:700;color:var(--maroon-dark);margin:14px 0 8px;}
+  .queue-row-del{background:none;border:none;color:var(--warn);font-weight:700;width:auto;padding:2px 8px;cursor:pointer;}
+  .queue-empty{font-size:12px;color:#999;padding:6px 0;}
+  .queue-summary{font-size:12px;color:#6b5c50;margin-bottom:8px;}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1><img src="https://drive.google.com/thumbnail?id=18aiuiSN9uj-mJtOkGB1rNt4GP6yUbvuO&sz=w200" alt="Logo" class="brand-logo" onerror="this.style.display='none'"> RAGHUVIR SWEETS &amp; BAKERS</h1>
+  <p>Godown Dashboard <span id="testGear" onclick="testConnection()" style="cursor:pointer;">🔧</span></p>
+</header>
+
+<button class="top-add-btn" id="topAddBtn" disabled onclick="topAddEntry()">➕ Add Entry</button>
+
+<div class="msg" id="testMsg" style="margin:14px;"></div>
+
+<div class="card" id="urlSetupCard" style="display:none;margin:14px;">
+  <label>⚠️ Web App URL not set - paste it here to continue</label>
+  <input type="text" id="urlSetupInput" placeholder="https://script.google.com/macros/s/XXXXX/exec">
+  <button class="btn-primary" onclick="saveUrlFallback()">💾 Save &amp; Continue</button>
+  <p style="font-size:11px;color:#888;margin-top:8px;">
+    This is saved only in this browser/device. To make it permanent for everyone, edit the
+    API_URL line near the top of this file's code instead.
+  </p>
+</div>
+
+<!-- ================= HOME PAGE ================= -->
+<div class="page active" id="pageHome">
+  <div class="home-title">Raghuvir Sweets &amp; Bakers</div>
+  <div class="home-subtitle">Godown Dashboard</div>
+  <button class="big-btn stock-in" onclick="showPage('pageIn')">📥 Stock In</button>
+  <button class="big-btn stock-out" onclick="showPage('pageOut')">📤 Stock Out</button>
+</div>
+
+<!-- ================= INWARD PAGE ================= -->
+<div class="page" id="pageIn">
+  <div class="card">
+    <span class="back-link" onclick="showPage('pageHome')">← Back</span>
+    <label>Scan or type SKU / Barcode</label>
+    <input type="text" id="inSku" placeholder="Scan here, or type SKU and press Enter" autocomplete="off">
+    <button class="btn-secondary" onclick="lookupSku('in')">🔍 Look Up Item</button>
+    <button class="btn-secondary" onclick="toggleCamera('in')">📷 Use Camera Scanner</button>
+    <div id="reader-in" class="reader-slot" style="display:none;">
+      <div class="qr-reader-wrap">
+        <div id="reader" class="qr-reader-box"></div>
+      </div>
+      <div id="scanProgress-in" class="scan-detected-label"></div>
+    </div>
+
+    <div class="msg" id="inMsg"></div>
+    <div class="item-box" id="inItemBox">
+      <div class="name" id="inItemName"></div>
+      <div class="meta" id="inItemMeta"></div>
+    </div>
+
+    <label>Quantity Received</label>
+    <input type="number" id="inQty" placeholder="e.g. 10" min="1">
+    <label>📷 Photo (optional)</label>
+    <input type="file" accept="image/*" capture="environment" id="inPhotoInput" style="display:none;" onchange="handlePhotoCapture('in', this)">
+    <button class="btn-secondary" onclick="document.getElementById('inPhotoInput').click()">📷 Capture Photo</button>
+    <div id="inPhotoStatus" style="display:none;margin-bottom:10px;">
+      <span style="font-size:12px;color:var(--ok);font-weight:600;">✅ Photo attached</span>
+      <span class="back-link" style="margin-left:10px;font-size:12px;color:var(--warn);" onclick="clearPhoto('in')">✕ Remove Photo</span>
+    </div>
+    <button class="btn-submit" id="inSubmitBtn" disabled onclick="addToQueue('in')">➕ Add Entry</button>
+  </div>
+
+  <div class="card">
+    <div class="section-title">📋 Entries to Submit</div>
+    <div class="queue-summary" id="inQueueSummary">No entries added yet.</div>
+    <table id="inQueueTable"></table>
+    <button class="btn-primary" id="inFinalSubmitBtn" disabled onclick="finalSubmit('in')" style="margin-top:10px;">✅ Final Submit</button>
+  </div>
+</div>
+
+<!-- ================= OUTWARD PAGE ================= -->
+<div class="page" id="pageOut">
+  <div class="card">
+    <span class="back-link" onclick="showPage('pageHome')">← Back</span>
+    <label>🏬 Branch <span class="back-link" style="margin:0 0 0 8px;font-size:12px;" onclick="loadBranches()">🔄 Retry</span></label>
+    <select id="outBranch"><option value="">Loading branches…</option></select>
+
+    <label>Scan or type SKU / Barcode</label>
+    <input type="text" id="outSku" placeholder="Scan here, or type SKU and press Enter" autocomplete="off">
+    <button class="btn-secondary" onclick="lookupSku('out')">🔍 Look Up Item</button>
+    <button class="btn-secondary" onclick="toggleCamera('out')">📷 Use Camera Scanner</button>
+    <div id="reader-out" class="reader-slot" style="display:none;">
+      <div class="qr-reader-wrap">
+        <div id="reader2" class="qr-reader-box"></div>
+      </div>
+      <div id="scanProgress-out" class="scan-detected-label"></div>
+    </div>
+
+    <div class="msg" id="outMsg"></div>
+    <div class="item-box" id="outItemBox">
+      <div class="name" id="outItemName"></div>
+      <div class="meta" id="outItemMeta"></div>
+    </div>
+
+    <label>Quantity Going Out</label>
+    <input type="number" id="outQty" placeholder="e.g. 5" min="1">
+    <label>📷 Photo (optional)</label>
+    <input type="file" accept="image/*" capture="environment" id="outPhotoInput" style="display:none;" onchange="handlePhotoCapture('out', this)">
+    <button class="btn-secondary" onclick="document.getElementById('outPhotoInput').click()">📷 Capture Photo</button>
+    <div id="outPhotoStatus" style="display:none;margin-bottom:10px;">
+      <span style="font-size:12px;color:var(--ok);font-weight:600;">✅ Photo attached</span>
+      <span class="back-link" style="margin-left:10px;font-size:12px;color:var(--warn);" onclick="clearPhoto('out')">✕ Remove Photo</span>
+    </div>
+    <button class="btn-submit" id="outSubmitBtn" disabled onclick="addToQueue('out')">➕ Add Entry</button>
+  </div>
+
+  <div class="card">
+    <div class="section-title">📋 Entries to Submit</div>
+    <div class="queue-summary" id="outQueueSummary">No entries added yet.</div>
+    <table id="outQueueTable"></table>
+    <button class="btn-primary" id="outFinalSubmitBtn" disabled onclick="finalSubmit('out')" style="margin-top:10px;">✅ Final Submit</button>
+  </div>
+</div>
+
+
+<script>
+// ---------------- PAGE NAVIGATION ----------------
+let currentMode = null; // 'in' | 'out' | null (home)
+
+function showPage(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(pageId).classList.add('active');
+  stopCamera();
+
+  if (pageId === 'pageIn') { currentMode = 'in'; document.getElementById('inSku').focus(); }
+  else if (pageId === 'pageOut') { currentMode = 'out'; document.getElementById('outSku').focus(); }
+  else { currentMode = null; }
+
+  syncTopButton();
 }
 
-function doGet(e) {
-  return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('Raghuvir IMS - Scan Dashboard')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+// Mirrors the in-form "Add Entry" button's enabled/disabled state onto the fixed top-corner
+// button, and shows it only while on the Inward/Outward pages (hidden on Home).
+function syncTopButton() {
+  const topBtn = document.getElementById('topAddBtn');
+  if (!currentMode) {
+    topBtn.classList.remove('show');
+    return;
+  }
+  topBtn.classList.add('show');
+  topBtn.disabled = document.getElementById(currentMode + 'SubmitBtn').disabled;
 }
 
-// ============================= JSON API (for an externally-hosted scanning page) ================
-// Apps Script web apps render inside a Google iframe (script.googleusercontent.com), and browsers
-// often block camera access inside that embedded context. If camera scanning fails there, host
-// external.html (given separately) on GitHub Pages / Netlify instead — a normal top-level HTTPS
-// page has no such restriction — and point it at this doPost endpoint via fetch().
-//
-// Sending the request body as Content-Type: text/plain (done in external.html) avoids a CORS
-// preflight, so no extra CORS setup is needed on this side.
-function doPost(e) {
-  let result;
-  try {
-    const body = JSON.parse(e.postData.contents);
-    const action = body.action;
-    switch (action) {
-      case 'getBranches': result = webGetBranches(); break;
-      case 'getRacks':    result = webGetRacks(); break;
-      case 'lookupItem':  result = webLookupItem(body.sku); break;
-      case 'logInward':   result = webLogInward(body.sku, body.qty, body.photo); break;
-      case 'logOutward':  result = webLogOutward(body.sku, body.qty, body.branch, body.photo); break;
-      case 'logBatchInward':  result = webLogBatchInward(body.entries); break;
-      case 'logBatchOutward': result = webLogBatchOutward(body.entries); break;
-      case 'addItem':     result = webAddItem(body.payload); break;
-      case 'deleteItem':  result = webDeleteItem(body.sku); break;
-      case 'addBranch':   result = webAddBranch(body.branchName); break;
-      case 'deleteBranch':result = webDeleteBranch(body.branchName); break;
-      case 'getDashboard':result = webGetDashboard(); break;
-      case 'getLocationStock': result = webGetLocationStock(); break;
-      case 'logBranchStockOut': result = webLogBranchStockOut(body.branch, body.sku, body.qty, body.remarks); break;
-      case 'getSheetData':result = webGetSheetTable(body.sheetName); break;
-      case 'getAvailableTables': result = webGetAvailableTables(); break;
-      case 'ping': result = webPing(); break;
-      default: result = { error: 'Unknown action: ' + action };
+function topAddEntry() {
+  if (currentMode) addToQueue(currentMode);
+}
+
+// ============================= PASTE YOUR WEB APP URL BELOW ======================================
+// After deploying WebApp.gs in Apps Script (Deploy > New deployment > Web app), copy the URL
+// it gives you and paste it between the quotes here. This is the recommended permanent setup -
+// everyone who opens this hosted file gets it automatically, nothing to type on each device.
+const API_URL = "https://script.google.com/macros/s/AKfycbzRyb3a1UBD2HfiA3_OYPEVghv3Bu4yMkPMfqncCv6ScWFsVh77lxwp7Z2_WQiVaGT_/exec";
+// Example: const API_URL = "https://script.google.com/macros/s/AKfycb.../exec";
+
+// If the line above was never edited, fall back to a URL saved earlier in this browser (via the
+// on-page box that appears below), so the app still works instead of just showing an error.
+const URL_PLACEHOLDER = 'PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE';
+function getEffectiveApiUrl() {
+  if (API_URL.indexOf(URL_PLACEHOLDER) === -1 && API_URL.trim() !== '') return API_URL.trim();
+  return (localStorage.getItem('ims_api_url_fallback') || '').trim();
+}
+
+function saveUrlFallback() {
+  const url = document.getElementById('urlSetupInput').value.trim();
+  if (!url) { alert('Please paste your Web App URL.'); return; }
+  localStorage.setItem('ims_api_url_fallback', url);
+  document.getElementById('urlSetupCard').style.display = 'none';
+  document.getElementById('testMsg').style.display = 'none';
+  initData();
+}
+
+function testConnection() {
+  const el = document.getElementById('testMsg');
+  el.className = 'msg';
+  el.style.display = 'block';
+  el.textContent = 'Testing…';
+  callApi('ping').then(res => {
+    const issues = [];
+    if (res.missingSheets && res.missingSheets.length) {
+      issues.push('Missing sheet(s): ' + res.missingSheets.join(', ') + ' - run 📦 IMS Tools > 🚀 Setup System (Run Once) in the Google Sheet.');
     }
-  } catch (err) {
-    result = { error: err.message };
-  }
-  return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
-}
-
-// ============================= DATA FOR CLIENT ==================================================
-// Accepts a real boolean TRUE, or the common text equivalents ("TRUE", "Yes", "1") - Google Sheets
-// checkboxes normally store real booleans, but manually typed cells often don't, and the previous
-// strict "=== true" check silently returned zero branches whenever that happened.
-function isActiveFlag(val) {
-  if (val === true) return true;
-  if (val === false || val === '' || val === null || val === undefined) return false;
-  const s = String(val).trim().toUpperCase();
-  return s === 'TRUE' || s === 'YES' || s === '1';
-}
-
-function webGetBranches() {
-  const sh = getSheetOrThrow(SHEETS.BRANCHES);
-  const lastRow = sh.getLastRow();
-  const lastCol = sh.getLastColumn();
-  if (lastRow < 2 || lastCol < 1) return [];
-
-  // Read by HEADER NAME rather than a fixed column position - this makes it work correctly
-  // regardless of what order the Branch Code / Branch Name / Active columns happen to be in
-  // (a common cause of this silently returning zero branches was the columns being in a
-  // different order than the code assumed).
-  const headers = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h).trim().toLowerCase());
-  const codeIdx = headers.indexOf('branch code');
-  const nameIdx = headers.indexOf('branch name');
-  const activeIdx = headers.indexOf('active');
-
-  if (nameIdx === -1) {
-    throw new Error('Branches sheet needs a "Branch Name" column header - could not find one. Check row 1 of the Branches sheet.');
-  }
-
-  const data = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
-  return data
-    .filter(r => (codeIdx === -1 || r[codeIdx]) && (activeIdx === -1 || isActiveFlag(r[activeIdx])))
-    .map(r => String(r[nameIdx]).trim())
-    .filter(name => name); // drop any blank rows
-}
-
-function webLookupItem(sku) {
-  const item = findItem(sku);
-  if (!item) return { found: false, sku: sku };
-  const ledgerSh = getSheetOrThrow(SHEETS.LEDGER);
-  const ledgerData = ledgerSh.getLastRow() > 1 ? ledgerSh.getRange(2, 1, ledgerSh.getLastRow() - 1, 8).getValues() : [];
-  let currentStock = 0, reorder = 0;
-  for (const row of ledgerData) {
-    if (String(row[0]).trim().toUpperCase() === String(sku).trim().toUpperCase()) {
-      currentStock = row[5];
-      reorder = row[6];
-      break;
+    if (!res.driveOk) {
+      issues.push('Drive access not authorized yet - run "oneTimeAuthorizeDriveAccess" in Apps Script, then redeploy. (' + (res.driveError || '') + ')');
     }
-  }
-  return { found: true, sku: item.sku, name: item.name, location: item.location, currentStock: currentStock, reorder: reorder };
-}
-
-// ============================= PHOTO STORAGE =====================================================
-// Saves a base64 data-URL photo (e.g. "data:image/jpeg;base64,....") to a dedicated Drive folder
-// and returns a shareable view link, so the log sheet stores a link instead of the remarks text
-// that used to go there. Returns '' if no photo was captured for that entry.
-function savePhotoToDrive(base64DataUrl, filenamePrefix) {
-  if (!base64DataUrl) return '';
-  try {
-    const match = String(base64DataUrl).match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
-    if (!match) return '';
-    const mimeType = match[1];
-    const bytes = Utilities.base64Decode(match[2]);
-    const blob = Utilities.newBlob(bytes, mimeType, filenamePrefix + '.jpg');
-    const folder = getOrCreatePhotosFolder();
-    const file = folder.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    return file.getUrl();
-  } catch (err) {
-    return ''; // don't block the stock entry just because the photo failed to save
-  }
-}
-
-function getOrCreatePhotosFolder() {
-  const folderName = 'Raghuvir_IMS_Photos';
-  const existing = DriveApp.getFoldersByName(folderName);
-  if (existing.hasNext()) return existing.next();
-  return DriveApp.createFolder(folderName);
-}
-
-// ============================= LOGGING (called from web page) ==================================
-function webLogInward(sku, qty, photo) {
-  const item = findItem(sku);
-  if (!item) return { success: false, message: 'SKU "' + sku + '" not found in Item_Master.' };
-  qty = Number(qty);
-  if (!qty || qty <= 0) return { success: false, message: 'Invalid quantity.' };
-
-  const sh = getSheetOrThrow(SHEETS.INWARD);
-  const entryId = 'IN-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyMMdd') + '-' + nextCounter('B2');
-  const user = Session.getActiveUser().getEmail() || 'Web Scan User';
-  const lastRow = Math.max(sh.getLastRow() + 1, 5);
-  const photoUrl = savePhotoToDrive(photo, item.sku + '_IN_' + entryId);
-  sh.getRange(lastRow, 1, 1, 8).setValues([[new Date(), entryId, item.sku, item.name, item.location, qty, user, photoUrl || '—']]);
-
-  refreshStockLedger();
-  return { success: true, message: 'Logged: ' + item.name + '  x ' + qty, entryId: entryId };
-}
-
-function webLogOutward(sku, qty, branch, photo) {
-  if (!branch) return { success: false, message: 'Please select a branch.' };
-  const item = findItem(sku);
-  if (!item) return { success: false, message: 'SKU "' + sku + '" not found in Item_Master.' };
-  qty = Number(qty);
-  if (!qty || qty <= 0) return { success: false, message: 'Invalid quantity.' };
-
-  const sh = getSheetOrThrow(SHEETS.OUTWARD);
-  const entryId = 'OUT-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyMMdd') + '-' + nextCounter('B3');
-  const user = Session.getActiveUser().getEmail() || 'Web Scan User';
-  const lastRow = Math.max(sh.getLastRow() + 1, 5);
-  const photoUrl = savePhotoToDrive(photo, item.sku + '_OUT_' + entryId);
-  sh.getRange(lastRow, 1, 1, 9).setValues([[new Date(), entryId, item.sku, item.name, item.location, qty, branch, user, photoUrl || '—']]);
-
-  refreshStockLedger();
-  refreshBranchLedger();
-  return { success: true, message: 'Logged: ' + item.name + '  x ' + qty + '  -> ' + branch, entryId: entryId };
-}
-
-// ============================= ADD ITEM (registration from the web dashboard) ===================
-function webGetRacks() {
-  const sh = getSheetOrThrow(SHEETS.RACKS);
-  const data = sh.getRange(2, 1, Math.max(sh.getLastRow() - 1, 0), 1).getValues().flat().filter(String);
-  return data; // list of rack/zone codes, e.g. RACK-001-A, NR-STORE01
-}
-
-// payload = { itemName, category, isRacked, locationCode, unit, reorder, barcodeMode, existingBarcode }
-// barcodeMode is either 'existing' or 'generate'
-function webAddItem(payload) {
-  const itemSh = getSheetOrThrow(SHEETS.ITEM_MASTER);
-  const rackSh = getSheetOrThrow(SHEETS.RACKS);
-
-  if (!payload.itemName) return { success: false, message: 'Item name is required.' };
-  const locationCode = String(payload.locationCode || '').trim().toUpperCase();
-  if (!locationCode) return { success: false, message: 'Please choose a rack / zone code.' };
-
-  if (payload.isRacked) {
-    const rackCodes = rackSh.getRange(2, 1, Math.max(rackSh.getLastRow() - 1, 0), 1).getValues().flat();
-    if (rackCodes.map(r => String(r).toUpperCase()).indexOf(locationCode) === -1) {
-      return { success: false, message: 'Rack code "' + locationCode + '" does not exist. Add it first.' };
+    if (issues.length) {
+      el.className = 'msg err';
+      el.textContent = '⚠️ ' + issues.join('  |  ');
+    } else {
+      el.className = 'msg ok';
+      el.textContent = '✅ Connected, all sheets found, and photo storage (Drive) is authorized. Everything should work.';
     }
+  }).catch(err => {
+    el.className = 'msg err';
+    el.textContent = '❌ Could not connect: ' + err.message;
+  });
+}
+
+// Sends Content-Type: text/plain so the browser treats it as a "simple request" and skips the
+// CORS preflight (OPTIONS) that Apps Script Web Apps don't handle - the JSON is still parsed
+// fine server-side via JSON.parse(e.postData.contents).
+function callApi(action, data) {
+  const url = getEffectiveApiUrl();
+  if (!url) {
+    document.getElementById('urlSetupCard').style.display = 'block';
+    return Promise.reject(new Error('Web App URL not set yet - paste it in the box above, or edit the API_URL constant in the code.'));
   }
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({ action: action }, data || {}))
+  }).then(r => r.text()).then(text => {
+    let res;
+    try {
+      res = JSON.parse(text);
+    } catch (e) {
+      // The server sent back an HTML page instead of JSON - usually a pending Google
+      // permission approval (Drive access for photos) or a stale deployment.
+      throw new Error('Server did not return valid data. In Apps Script, run "oneTimeAuthorizeDriveAccess" once to grant permission, then redeploy (Deploy > Manage deployments > New version).');
+    }
+    if (res && res.error) throw new Error(res.error);
+    return res;
+  });
+}
 
-  // generate next sequence number for this location -> becomes the internal SKU Code
-  const existingLocations = itemSh.getRange(2, 5, Math.max(itemSh.getLastRow() - 1, 0), 1).getValues().flat();
-  const countForLocation = existingLocations.filter(loc => String(loc).trim().toUpperCase() === locationCode).length;
-  const seq = String(countForLocation + 1).padStart(3, '0');
-  const sku = locationCode + '-' + seq;
+// ---------------- INIT ----------------
+function initData() {
+  loadBranches();
+}
 
-  const useExisting = payload.barcodeMode === 'existing';
-  let barcodeSource, barcodeValue;
-  if (useExisting) {
-    if (!payload.existingBarcode) return { success: false, message: 'Please scan/enter the existing barcode.' };
-    barcodeSource = 'Existing Vendor Barcode';
-    barcodeValue = String(payload.existingBarcode).trim();
+function loadBranches() {
+  const sel = document.getElementById('outBranch');
+  sel.innerHTML = '<option value="">Loading branches…</option>';
+  callApi('getBranches').then(list => {
+    if (!list || !list.length) {
+      sel.innerHTML = '<option value="">⚠️ No active branches found - check Branches sheet</option>';
+      return;
+    }
+    populateBranches(list);
+  }).catch(err => {
+    sel.innerHTML = '<option value="">⚠️ Could not load - tap 🔄 Retry (' + err.message + ')</option>';
+  });
+}
+
+window.onload = function() {
+  if (!getEffectiveApiUrl()) {
+    document.getElementById('urlSetupCard').style.display = 'block';
   } else {
-    barcodeSource = 'Generated QR';
-    barcodeValue = sku;
+    initData();
   }
 
-  const unit = payload.unit || 'Pcs';
-  const reorder = Number(payload.reorder) || 0;
-
-  const newRow = itemSh.getLastRow() + 1;
-  itemSh.getRange(newRow, 1, 1, 10).setValues([[sku, payload.itemName, payload.category || '',
-    payload.isRacked ? 'Racked' : 'Non-Racked', locationCode, unit, reorder, 0, barcodeSource, barcodeValue]]);
-
-  if (!useExisting) {
-    itemSh.getRange(newRow, 11).setFormula(qrFormula('A' + newRow));
-  } else {
-    itemSh.getRange(newRow, 11).setValue('— vendor barcode, no label needed —');
-  }
-
-  refreshStockLedger();
-
-  return {
-    success: true,
-    sku: sku,
-    barcodeSource: barcodeSource,
-    barcodeValue: barcodeValue,
-    message: 'Item created: ' + payload.itemName + '  |  SKU: ' + sku +
-      (useExisting ? '  |  Scan the vendor barcode directly.' : '  |  Print the QR sticker from Item_Master column K.')
-  };
-}
-
-// ============================= BATCH LOGGING (fast multi-entry submit) ==========================
-// Submitting entries ONE AT A TIME (a separate round-trip to Apps Script per item, each followed
-// by a full ledger refresh) is what made "Final Submit" slow with several queued entries - every
-// round-trip pays Apps Script's per-call overhead, and the ledger was being recalculated from
-// scratch after every single row. These batch versions accept the WHOLE queue in one call, write
-// all rows in a single bulk setValues(), and refresh the ledger only ONCE at the end.
-function webLogBatchInward(entries) {
-  if (!entries || !entries.length) return [];
-  const sh = getSheetOrThrow(SHEETS.INWARD);
-  const user = Session.getActiveUser().getEmail() || 'Web Scan User';
-  const results = [];
-  const rows = [];
-
-  entries.forEach(e => {
-    const item = findItem(e.sku);
-    if (!item) { results.push({ success: false, message: 'SKU "' + e.sku + '" not found in Item_Master.' }); return; }
-    const qty = Number(e.qty);
-    if (!qty || qty <= 0) { results.push({ success: false, message: 'Invalid quantity for ' + e.sku + '.' }); return; }
-    const entryId = 'IN-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyMMdd') + '-' + nextCounter('B2');
-    const photoUrl = savePhotoToDrive(e.photo, item.sku + '_IN_' + entryId);
-    rows.push([new Date(), entryId, item.sku, item.name, item.location, qty, user, photoUrl || '—']);
-    results.push({ success: true, message: 'Logged: ' + item.name + '  x ' + qty });
-  });
-
-  if (rows.length) {
-    const lastRow = Math.max(sh.getLastRow() + 1, 5);
-    sh.getRange(lastRow, 1, rows.length, 8).setValues(rows);
-    refreshStockLedger();
-  }
-  return results;
-}
-
-function webLogBatchOutward(entries) {
-  if (!entries || !entries.length) return [];
-  const sh = getSheetOrThrow(SHEETS.OUTWARD);
-  const user = Session.getActiveUser().getEmail() || 'Web Scan User';
-  const results = [];
-  const rows = [];
-
-  entries.forEach(e => {
-    if (!e.branch) { results.push({ success: false, message: 'Branch missing for ' + e.sku + '.' }); return; }
-    const item = findItem(e.sku);
-    if (!item) { results.push({ success: false, message: 'SKU "' + e.sku + '" not found in Item_Master.' }); return; }
-    const qty = Number(e.qty);
-    if (!qty || qty <= 0) { results.push({ success: false, message: 'Invalid quantity for ' + e.sku + '.' }); return; }
-    const entryId = 'OUT-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyMMdd') + '-' + nextCounter('B3');
-    const photoUrl = savePhotoToDrive(e.photo, item.sku + '_OUT_' + entryId);
-    rows.push([new Date(), entryId, item.sku, item.name, item.location, qty, e.branch, user, photoUrl || '—']);
-    results.push({ success: true, message: 'Logged: ' + item.name + '  x ' + qty + '  -> ' + e.branch });
-  });
-
-  if (rows.length) {
-    const lastRow = Math.max(sh.getLastRow() + 1, 5);
-    sh.getRange(lastRow, 1, rows.length, 9).setValues(rows);
-    refreshStockLedger();
-    refreshBranchLedger();
-  }
-  return results;
-}
-
-// ============================= BRANCH STOCK-OUT (branch's own sales/dispatch/wastage) ===========
-function webLogBranchStockOut(branch, sku, qty, remarks) {
-  if (!branch) return { success: false, message: 'Branch is required.' };
-  const item = findItem(sku);
-  if (!item) return { success: false, message: 'SKU "' + sku + '" not found in Item_Master.' };
-  qty = Number(qty);
-  if (!qty || qty <= 0) return { success: false, message: 'Invalid quantity.' };
-
-  const sh = getSheetOrThrow(SHEETS.BRANCH_STOCKOUT);
-  const entryId = 'BOUT-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyMMdd') + '-' + nextCounter('B4');
-  const user = Session.getActiveUser().getEmail() || 'Admin';
-  sh.appendRow([new Date(), entryId, branch, item.sku, item.name, qty, remarks || '', user]);
-
-  return { success: true, message: 'Logged stock-out: ' + item.name + '  x ' + qty + '  from ' + branch };
-}
-
-// ============================= ADMIN: DELETE / MANAGE =============================================
-function webDeleteItem(sku) {
-  if (!sku) return { success: false, message: 'SKU is required.' };
-  const sh = getSheetOrThrow(SHEETS.ITEM_MASTER);
-  const data = sh.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][0]).trim().toUpperCase() === String(sku).trim().toUpperCase()) {
-      sh.deleteRow(i + 1);
-      refreshStockLedger();
-      return { success: true, message: 'Deleted item: ' + sku };
-    }
-  }
-  return { success: false, message: 'SKU not found: ' + sku };
-}
-
-// Reads/writes the Branches sheet by HEADER NAME (not fixed column position) - same reasoning
-// as webGetBranches: the physical column order isn't guaranteed, so this works either way.
-function webAddBranch(branchName) {
-  if (!branchName) return { success: false, message: 'Branch name is required.' };
-  const sh = getSheetOrThrow(SHEETS.BRANCHES);
-  const lastCol = Math.max(sh.getLastColumn(), 1);
-  const headers = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h).trim().toLowerCase());
-  const codeIdx = headers.indexOf('branch code');
-  const nameIdx = headers.indexOf('branch name');
-  const activeIdx = headers.indexOf('active');
-  if (nameIdx === -1) return { success: false, message: 'Branches sheet is missing a "Branch Name" column header.' };
-
-  const newRow = new Array(lastCol).fill('');
-  const branchCount = Math.max(sh.getLastRow() - 1, 0);
-  if (codeIdx !== -1) newRow[codeIdx] = 'BR-' + String(branchCount + 1).padStart(2, '0');
-  newRow[nameIdx] = branchName;
-  if (activeIdx !== -1) newRow[activeIdx] = true;
-  sh.appendRow(newRow);
-  return { success: true, message: 'Branch created: ' + branchName };
-}
-
-function webDeleteBranch(branchName) {
-  if (!branchName) return { success: false, message: 'Branch name is required.' };
-  const sh = getSheetOrThrow(SHEETS.BRANCHES);
-  const lastCol = Math.max(sh.getLastColumn(), 1);
-  const data = sh.getDataRange().getValues();
-  const headers = data[0].map(h => String(h).trim().toLowerCase());
-  const nameIdx = headers.indexOf('branch name');
-  if (nameIdx === -1) return { success: false, message: 'Branches sheet is missing a "Branch Name" column header.' };
-
-  for (let i = 1; i < data.length; i++) {
-    if (String(data[i][nameIdx]).trim().toLowerCase() === String(branchName).trim().toLowerCase()) {
-      sh.deleteRow(i + 1);
-      return { success: true, message: 'Deleted branch: ' + branchName };
-    }
-  }
-  return { success: false, message: 'Branch not found: ' + branchName };
-}
-
-// ============================= LOCATION-WISE STOCK (Godown vs each Branch) ======================
-// "Savali Godown Stock" = current stock at the warehouse itself: everything scanned IN, minus
-// everything scanned OUT to any branch (this is exactly Stock_Ledger's Current Stock column).
-//
-// Each branch's stock = everything that has been sent TO that branch via Outward entries (this
-// system doesn't track a branch's own further stock-out/sales yet - if that's tracked on another
-// platform, this number represents "total received at this branch so far", not a live net figure).
-function webGetLocationStock() {
-  // Rebuild both ledgers from the actual Inward/Outward log sheets FIRST, every time the
-  // Dashboard is opened - this is what guarantees it always reflects reality even if entries
-  // got into Outward_Entry/Inward_Entry some way that didn't already trigger a refresh (e.g.
-  // rows typed/pasted directly into the sheet rather than via a scan).
-  refreshStockLedger();
-  refreshBranchLedger();
-
-  const ledgerSh = getSheetOrThrow(SHEETS.LEDGER);
-  const branchLedgerSh = getSheetOrThrow(SHEETS.BRANCH_LEDGER);
-  const stockOutSh = getSheetOrThrow(SHEETS.BRANCH_STOCKOUT);
-
-  const ledgerData = ledgerSh.getLastRow() > 1 ? ledgerSh.getRange(2, 1, ledgerSh.getLastRow() - 1, 8).getValues() : [];
-  const godownItems = ledgerData
-    .filter(r => r[0] && Number(r[5]) !== 0)
-    .map(r => ({ sku: r[0], name: r[1], location: r[2], stock: Number(r[5]) || 0 }));
-  const godownTotal = godownItems.reduce((sum, it) => sum + it.stock, 0);
-
-  const branchData = branchLedgerSh.getLastRow() > 1 ? branchLedgerSh.getRange(2, 1, branchLedgerSh.getLastRow() - 1, 5).getValues() : [];
-  const stockOutData = stockOutSh.getLastRow() > 1 ? stockOutSh.getRange(2, 1, stockOutSh.getLastRow() - 1, 8).getValues() : [];
-  const branchNames = webGetBranches(); // every active branch shows up, even with 0 received so far
-
-  const branches = branchNames.map(name => {
-    // Received per SKU (from Branch_Ledger - built from Outward entries sent to this branch)
-    const receivedMap = {};
-    branchData.filter(r => String(r[2]).trim() === name).forEach(r => {
-      receivedMap[r[0]] = receivedMap[r[0]] || { sku: r[0], name: r[1], received: 0 };
-      receivedMap[r[0]].received += Number(r[3]) || 0;
-    });
-    // Stock-out per SKU (from Branch_Outward_Entry - the branch's own sales/dispatch/wastage entries)
-    const stockOutMap = {};
-    stockOutData.filter(r => String(r[2]).trim() === name).forEach(r => {
-      const sku = r[3];
-      stockOutMap[sku] = stockOutMap[sku] || { sku: sku, name: r[4], stockOut: 0 };
-      stockOutMap[sku].stockOut += Number(r[5]) || 0;
-    });
-
-    const allSkus = Array.from(new Set(Object.keys(receivedMap).concat(Object.keys(stockOutMap))));
-    const items = allSkus.map(sku => {
-      const received = receivedMap[sku] ? receivedMap[sku].received : 0;
-      const stockOut = stockOutMap[sku] ? stockOutMap[sku].stockOut : 0;
-      const name = receivedMap[sku] ? receivedMap[sku].name : stockOutMap[sku].name;
-      return { sku: sku, name: name, received: received, stockOut: stockOut, net: received - stockOut };
-    });
-
-    const totalReceived = items.reduce((sum, it) => sum + it.received, 0);
-    const totalStockOut = items.reduce((sum, it) => sum + it.stockOut, 0);
-    return { name: name, totalUnits: totalReceived - totalStockOut, totalReceived: totalReceived, totalStockOut: totalStockOut, items: items };
-  });
-
-  return { godown: { totalUnits: godownTotal, items: godownItems }, branches: branches };
-}
-
-// ============================= ADMIN: GENERIC TABLE READER ======================================
-// Returns any sheet's data as {headers, rows} for a read-only admin table view.
-// Whitelisted by name so the API can't be used to dump arbitrary sheets.
-const ADMIN_VIEWABLE_SHEETS = {
-  'Item_Master':    { headerRow: 1 },
-  'Inward_Entry':   { headerRow: 4 },
-  'Outward_Entry':  { headerRow: 4 },
-  'Stock_Ledger':   { headerRow: 1 },
-  'Branch_Ledger':  { headerRow: 1 },
-  'Branch_Outward_Entry':{ headerRow: 1 },
-  'Branches':       { headerRow: 1 },
-  'Racks':          { headerRow: 1 }
+  document.getElementById('inSku').addEventListener('keydown', e => { if (e.key === 'Enter') lookupSku('in'); });
+  document.getElementById('outSku').addEventListener('keydown', e => { if (e.key === 'Enter') lookupSku('out'); });
+  // Fallback for phone keyboards that don't fire a clean "Enter" keydown (common with predictive/
+  // transliteration keyboards) - firing on blur/change means the Look Up button or camera scan
+  // are never the only way in.
+  document.getElementById('inSku').addEventListener('change', () => lookupSku('in'));
+  document.getElementById('outSku').addEventListener('change', () => lookupSku('out'));
 };
 
-function webGetSheetTable(sheetName) {
-  const config = ADMIN_VIEWABLE_SHEETS[sheetName];
-  if (!config) return { error: 'Sheet "' + sheetName + '" is not available for viewing.' };
+function populateBranches(list) {
+  const sel = document.getElementById('outBranch');
+  sel.innerHTML = '<option value="">-- Select Branch --</option>';
+  list.forEach(b => { const o = document.createElement('option'); o.value = b; o.textContent = b; sel.appendChild(o); });
+}
 
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sh = ss.getSheetByName(sheetName);
-  if (!sh) return { headers: [], rows: [] };
+// ---------------- CAMERA SCANNER ----------------
+let html5QrCode = null;
+let currentCameraMode = null;
+let cameraBusy = false; // guards against overlapping open/close calls (the actual bug fix below)
 
-  const lastRow = sh.getLastRow();
-  const lastCol = sh.getLastColumn();
-  if (lastRow < config.headerRow || lastCol < 1) return { headers: [], rows: [] };
+const READER_IDS = { in: 'reader', out: 'reader2' };
+const TARGET_FIELD = { in: 'inSku', out: 'outSku' };
 
-  const headers = sh.getRange(config.headerRow, 1, 1, lastCol).getValues()[0];
-  const dataRows = lastRow > config.headerRow
-    ? sh.getRange(config.headerRow + 1, 1, lastRow - config.headerRow, lastCol).getValues()
-    : [];
+// Shows a small live status label under the camera while scanning ("scanning..." feedback) -
+// scanning is immediate/automatic: as soon as a QR/barcode is detected, it's used right away.
+function resetLiveDetected(mode) {
+  const el = document.getElementById('scanProgress-' + mode);
+  if (el) el.textContent = '';
+}
 
-  let rows = dataRows
-    .filter(r => r.some(c => c !== '' && c !== null))
-    .map(r => r.map(c => (c instanceof Date)
-      ? Utilities.formatDate(c, Session.getScriptTimeZone(), 'dd-MMM-yyyy HH:mm')
-      : c));
+// Stops whatever camera session is running, if any, and waits for it to actually finish before
+// resolving. Captures the current instance into a local variable and clears the shared
+// html5QrCode reference IMMEDIATELY (synchronously) - this is the key fix: previously, stopping
+// was fire-and-forget, so if you reopened the camera quickly (e.g. right after an auto-scan),
+// the OLD stop's cleanup could finish AFTER a new camera had already started, wiping out the
+// reference to the new one and leaving the camera hardware in a stuck state where it looked
+// like nothing happened when tapping "Use Camera Scanner" again.
+async function stopCamera() {
+  const instance = html5QrCode;
+  html5QrCode = null;
+  ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; resetLiveDetected(m); });
+  if (instance) {
+    try { await instance.stop(); } catch (e) { /* already stopped/never started - fine */ }
+    try { await instance.clear(); } catch (e) { /* clear() can be sync/void in some versions - fine either way */ }
+  }
+}
 
-  // Item_Master's "QR Code" column holds an =IMAGE(...) formula - reading that via getValues()
-  // does NOT come back as a normal string/number (it shows up as "[object Object]" once rendered
-  // in a plain HTML table). Replace it with an actual small clickable QR thumbnail built from
-  // that row's own SKU instead, which displays correctly.
-  if (sheetName === 'Item_Master') {
-    const skuIdx = headers.findIndex(h => String(h).toLowerCase().indexOf('sku') !== -1);
-    const qrIdx = headers.findIndex(h => String(h).toLowerCase().indexOf('qr') !== -1);
-    if (qrIdx !== -1 && skuIdx !== -1) {
-      rows = rows.map(r => {
-        const sku = r[skuIdx];
-        r[qrIdx] = sku
-          ? '<a href="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(sku) +
-            '" target="_blank"><img src="https://api.qrserver.com/v1/create-qr-code/?size=50x50&data=' +
-            encodeURIComponent(sku) + '" style="width:36px;height:36px;border-radius:4px;vertical-align:middle;"></a>'
-          : '';
-        return r;
-      });
-    }
+async function toggleCamera(mode) {
+  const slot = document.getElementById('reader-' + mode);
+  if (slot.style.display === 'block') {
+    await stopCamera();
+    return;
   }
 
-  return { headers: headers, rows: rows };
+  // Ignore rapid double-taps while a previous open/close is still in progress, instead of
+  // letting two overlapping attempts race each other.
+  if (cameraBusy) return;
+  cameraBusy = true;
+
+  try {
+    // If the scanner library script failed to load (blocked CDN, offline, slow network), calling
+    // "new Html5Qrcode(...)" would throw silently and the button would appear to do nothing.
+    if (typeof Html5Qrcode === 'undefined') {
+      alert('The camera scanner library has not finished loading yet (or failed to load - check your ' +
+        'internet connection). Wait a moment and try again, reload the page, or type/scan into the ' +
+        'text box with a USB scanner in the meantime.');
+      return;
+    }
+
+    // Mobile browsers (Chrome/Android, Safari/iOS) block camera access entirely on plain HTTP -
+    // only HTTPS (or true localhost on the SAME device) is allowed. Testing this page via a local
+    // dev server IP (e.g. 127.0.0.1:5500 or 192.168.x.x:5500) opened from a PHONE will silently
+    // fail here - host on GitHub Pages / Netlify (HTTPS) for the camera to work on mobile.
+    if (!window.isSecureContext) {
+      alert('Camera needs a secure (HTTPS) page to work on mobile. This page is currently loaded over ' +
+        'an insecure connection, which phone browsers block camera access on by default. ' +
+        'Host this file on GitHub Pages or Netlify (both give a free https:// URL) and open it from there. ' +
+        'You can still type or use a USB scanner into the text box for now.');
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert('This browser does not support camera access. Please use a recent Chrome or Safari, or type/scan into the text box with a USB scanner.');
+      return;
+    }
+
+    // Make sure any previous session is FULLY stopped (and the camera hardware released) before
+    // starting a new one - awaited properly now instead of fire-and-forget.
+    await stopCamera();
+    // A short pause after stopping gives the camera hardware time to actually release on some
+    // phones - starting again immediately can otherwise silently fail to reacquire it.
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    slot.style.display = 'block';
+    currentCameraMode = mode;
+    resetLiveDetected(mode);
+    const hintEl = document.getElementById('scanProgress-' + mode);
+    if (hintEl) hintEl.textContent = '📌 If codes are close together, bring the camera in close so only ONE is visible in the box.';
+
+    // Wait for the browser to actually finish laying out the box we just un-hid before starting
+    // the camera. html5-qrcode measures the container's size immediately on start(); if that
+    // happens in the same tick as display:block, some browsers still report 0 width/height,
+    // which can result in a black box with no visible video and no scan overlay at all.
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await startCameraFor(mode);
+  } catch (err) {
+    alert('Could not start the camera scanner: ' + err.message + '\nYou can still type or use a USB scanner into the text box.');
+    slot.style.display = 'none';
+  } finally {
+    cameraBusy = false;
+  }
 }
 
-function webGetAvailableTables() {
-  return Object.keys(ADMIN_VIEWABLE_SHEETS);
+async function startCameraFor(mode) {
+  const slot = document.getElementById('reader-' + mode);
+  try {
+    // Forcibly wipe the container before starting a new session. html5-qrcode's own clear()
+    // doesn't always fully remove the previous session's internal <video>/<canvas> elements
+    // before a new instance targets the same container - leftover elements from the first scan
+    // can then conflict with the second one and render as a plain black screen instead of a
+    // live feed. Rebuilding the container from scratch guarantees a truly clean slate every time.
+    const container = document.getElementById(READER_IDS[mode]);
+    if (container) container.innerHTML = '';
+
+    const qr = new Html5Qrcode(READER_IDS[mode]);
+    html5QrCode = qr;
+
+    // Called whenever a QR/barcode is decoded in the camera view - used immediately (no manual
+    // confirm step), so scanning is fast: point the camera at a code and it's used right away.
+    const onScanSuccess = (decodedText) => {
+      resetLiveDetected(mode);
+      document.getElementById(TARGET_FIELD[mode]).value = decodedText;
+      stopCamera();
+      lookupSku(mode);
+    };
+    const onScanFailure = () => {
+      // No code decoded in this frame - nothing to do, the hint text stays visible until a
+      // code is actually found (handled in onScanSuccess) or the camera is closed.
+    };
+    // qrbox as a function (rather than a fixed pixel size) asks html5-qrcode to size the scan
+    // box relative to the ACTUAL rendered video dimensions - this avoids requesting a box bigger
+    // than the container (which can silently break rendering on narrow phone screens).
+    const config = {
+      fps: 10,
+      // A SMALLER box (relative to the camera view) on purpose: when several QR codes sit close
+      // together, a wide detection zone can catch more than one at a time and there's no telling
+      // which one gets used. Shrinking the zone means you have to physically bring the camera
+      // in close so only ONE code fills the frame - the neighbors simply don't fit anymore.
+      qrbox: (viewfinderWidth, viewfinderHeight) => {
+        const edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.4);
+        return { width: edge, height: edge };
+      },
+      aspectRatio: 1.0
+    };
+
+    // Prefer an explicit rear/back camera by device label (more reliable on Android than the
+    // generic facingMode constraint, which some devices/browsers ignore); fall back to facingMode
+    // if enumeration isn't available or no camera list comes back.
+    let cameras = [];
+    try { cameras = await Html5Qrcode.getCameras(); } catch (e) { /* enumeration failed - fall back below */ }
+
+    try {
+      if (cameras && cameras.length) {
+        const back = cameras.find(c => /back|rear|environment/i.test(c.label)) || cameras[cameras.length - 1];
+        await qr.start(back.id, config, onScanSuccess, onScanFailure);
+      } else {
+        await qr.start({ facingMode: 'environment' }, config, onScanSuccess, onScanFailure);
+      }
+    } catch (startErr) {
+      // First attempt failed - try once more with the generic facingMode constraint before
+      // giving up (covers cases where the specific device id didn't work but facingMode would).
+      await qr.start({ facingMode: 'environment' }, config, onScanSuccess, onScanFailure);
+    }
+  } catch (err) {
+    let msg = 'Camera error: ' + err;
+    const errStr = String(err);
+    if (errStr.indexOf('NotAllowedError') !== -1 || errStr.indexOf('Permission') !== -1) {
+      msg = 'Camera permission was denied. Check your browser\'s site settings and allow camera access for this page, then try again.';
+    } else if (errStr.indexOf('NotFoundError') !== -1 || errStr.indexOf('NoCamerasFound') !== -1) {
+      msg = 'No camera was found on this device.';
+    } else if (errStr.indexOf('NotReadableError') !== -1) {
+      msg = 'The camera is already in use by another app/tab. Close it and try again.';
+    }
+    alert(msg + '\nYou can still type or use a USB scanner into the text box.');
+    html5QrCode = null;
+    slot.style.display = 'none';
+  }
 }
 
-// ============================= DASHBOARD DATA ====================================================
-function webGetDashboard() {
-  const ledgerSh = getSheetOrThrow(SHEETS.LEDGER);
-  const inSh = getSheetOrThrow(SHEETS.INWARD);
-  const outSh = getSheetOrThrow(SHEETS.OUTWARD);
+// ---------------- LOOKUP ----------------
+function lookupSku(mode) {
+  const sku = document.getElementById(mode + 'Sku').value.trim();
+  if (!sku) return;
+  showMsg(mode, '', '');
+  callApi('lookupItem', { sku: sku }).then(res => showItem(mode, res)).catch(err => showMsg(mode, 'err', '❌ ' + err.message));
+}
 
-  const ledgerData = ledgerSh.getLastRow() > 1 ? ledgerSh.getRange(2, 1, ledgerSh.getLastRow() - 1, 8).getValues() : [];
-  const lowStock = ledgerData.filter(r => r[7] && String(r[7]).indexOf('LOW') !== -1)
-                              .map(r => ({ sku: r[0], name: r[1], stock: r[5], reorder: r[6] }));
+function showItem(mode, res) {
+  const box = document.getElementById(mode + 'ItemBox');
+  const submitBtn = document.getElementById(mode + 'SubmitBtn');
+  if (!res.found) {
+    box.style.display = 'none';
+    submitBtn.disabled = true;
+    showMsg(mode, 'err', '❌ SKU "' + res.sku + '" not found in Item_Master.');
+    syncTopButton();
+    return;
+  }
+  document.getElementById(mode + 'ItemName').textContent = res.name;
+  document.getElementById(mode + 'ItemMeta').textContent =
+    'SKU: ' + res.sku + '  |  Location: ' + res.location + '  |  Current stock: ' + res.currentStock;
+  box.style.display = 'block';
+  submitBtn.disabled = false;
+  syncTopButton();
+}
 
-  const inCount = inSh.getLastRow() > 4 ? inSh.getLastRow() - 4 : 0;
-  const outCount = outSh.getLastRow() > 4 ? outSh.getLastRow() - 4 : 0;
+function showMsg(mode, cls, text) {
+  const el = document.getElementById(mode + 'Msg');
+  el.className = 'msg' + (cls ? ' ' + cls : '');
+  el.textContent = text;
+  el.style.display = cls ? 'block' : 'none';
+}
 
-  const recentInward = inSh.getLastRow() > 4
-    ? inSh.getRange(Math.max(5, inSh.getLastRow() - 9), 1, Math.min(10, inSh.getLastRow() - 4), 8).getValues()
-        .reverse().map(r => ({ time: r[0], sku: r[2], name: r[3], qty: r[5] }))
-    : [];
+// ---------------- PHOTO CAPTURE ----------------
+const photoData = { in: null, out: null };
 
-  const recentOutward = outSh.getLastRow() > 4
-    ? outSh.getRange(Math.max(5, outSh.getLastRow() - 9), 1, Math.min(10, outSh.getLastRow() - 4), 9).getValues()
-        .reverse().map(r => ({ time: r[0], sku: r[2], name: r[3], qty: r[5], branch: r[6] }))
-    : [];
-
-  return {
-    totalSKUs: ledgerData.length,
-    lowStockCount: lowStock.length,
-    lowStock: lowStock,
-    totalInward: inCount,
-    totalOutward: outCount,
-    recentInward: recentInward,
-    recentOutward: recentOutward
+function handlePhotoCapture(mode, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    resizeImage(e.target.result, 800, 0.7, function(resizedDataUrl) {
+      photoData[mode] = resizedDataUrl;
+      // Photo is captured and stored, but we only show a small confirmation - not a full preview.
+      document.getElementById(mode + 'PhotoStatus').style.display = 'block';
+    });
   };
+  reader.readAsDataURL(file);
+  input.value = ''; // allow capturing the same file again if needed
 }
+
+// Shrinks the photo client-side (max 800px wide, JPEG ~70% quality) before it's sent, so a
+// batch of several entries doesn't turn into a huge upload.
+function resizeImage(dataUrl, maxWidth, quality, callback) {
+  const img = new Image();
+  img.onload = function() {
+    let w = img.width, h = img.height;
+    if (w > maxWidth) { h = Math.round(h * (maxWidth / w)); w = maxWidth; }
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    callback(canvas.toDataURL('image/jpeg', quality));
+  };
+  img.src = dataUrl;
+}
+
+function clearPhoto(mode) {
+  photoData[mode] = null;
+  document.getElementById(mode + 'PhotoStatus').style.display = 'none';
+}
+
+// ---------------- ENTRY QUEUE (add multiple rows, then submit all at once) ----------------
+const queues = { in: [], out: [] };
+
+function addToQueue(mode) {
+  const sku = document.getElementById(mode + 'Sku').value.trim();
+  const name = document.getElementById(mode + 'ItemName').textContent;
+  const qty = Number(document.getElementById(mode + 'Qty').value);
+
+  if (!sku || !name) { showMsg(mode, 'err', '❌ Scan an item first.'); return; }
+  if (!qty || qty <= 0) { showMsg(mode, 'err', '❌ Enter a valid quantity.'); return; }
+
+  const row = { sku: sku, name: name, qty: qty, photo: photoData[mode] };
+  if (mode === 'out') {
+    const branch = document.getElementById('outBranch').value;
+    if (!branch) { showMsg('out', 'err', '⚠️ Please select a branch first.'); return; }
+    row.branch = branch;
+  }
+
+  queues[mode].push(row);
+  renderQueue(mode);
+  showMsg(mode, 'ok', '✅ Added to list: ' + name + ' x ' + qty);
+  resetForm(mode);
+}
+
+function removeQueueRow(mode, index) {
+  queues[mode].splice(index, 1);
+  renderQueue(mode);
+}
+
+function renderQueue(mode) {
+  const list = queues[mode];
+  const table = document.getElementById(mode + 'QueueTable');
+  const summary = document.getElementById(mode + 'QueueSummary');
+  const finalBtn = document.getElementById(mode + 'FinalSubmitBtn');
+
+  if (!list.length) {
+    table.innerHTML = '';
+    summary.textContent = 'No entries added yet.';
+    finalBtn.disabled = true;
+    return;
+  }
+
+  const branchCol = mode === 'out' ? '<th>Branch</th>' : '';
+  const rowsHtml = list.map((r, i) => {
+    const branchCell = mode === 'out' ? '<td>' + r.branch + '</td>' : '';
+    const photoCell = '<td>' + (r.photo ? '📷' : '—') + '</td>';
+    const nameCell = '<td>' + r.name + (r.lastError ? '<br><span style="color:var(--warn);font-size:11px;">⚠️ ' + r.lastError + '</span>' : '') + '</td>';
+    return '<tr>' + nameCell + '<td>' + r.qty + '</td>' + branchCell + photoCell +
+      '<td><button class="queue-row-del" onclick="removeQueueRow(\'' + mode + '\',' + i + ')">✕</button></td></tr>';
+  }).join('');
+
+  table.innerHTML = '<tr><th>Item</th><th>Qty</th>' + branchCol + '<th>Photo</th><th></th></tr>' + rowsHtml;
+  summary.textContent = list.length + ' item' + (list.length === 1 ? '' : 's') + ' ready to submit.';
+  finalBtn.disabled = false;
+}
+
+// Submits every queued row one by one, shows progress, and clears only the ones that succeed
+// (failed rows stay in the list so nothing gets silently lost).
+// Submits the WHOLE queue in ONE call to the server (instead of one round-trip per item) - this
+// is what makes Final Submit fast even with several entries. The server writes all rows in one
+// bulk operation and refreshes the stock ledger only once at the end.
+function finalSubmit(mode) {
+  const list = queues[mode];
+  if (!list.length) return;
+
+  const finalBtn = document.getElementById(mode + 'FinalSubmitBtn');
+  finalBtn.disabled = true;
+  finalBtn.innerHTML = '<span class="spinner"></span>Submitting ' + list.length + ' ' + (list.length === 1 ? 'entry' : 'entries') + '…';
+
+  const action = mode === 'in' ? 'logBatchInward' : 'logBatchOutward';
+  const entries = list.map(row => mode === 'in'
+    ? { sku: row.sku, qty: row.qty, photo: row.photo }
+    : { sku: row.sku, qty: row.qty, branch: row.branch, photo: row.photo });
+
+  callApi(action, { entries: entries }).then(results => {
+    const stillFailed = [];
+    let successCount = 0;
+    (results || []).forEach((res, i) => {
+      if (res.success) {
+        successCount++;
+      } else {
+        list[i].lastError = res.message || 'Unknown error';
+        stillFailed.push(list[i]);
+      }
+    });
+
+    queues[mode] = stillFailed;
+    renderQueue(mode);
+    finalBtn.disabled = false;
+    finalBtn.textContent = '✅ Final Submit';
+    if (stillFailed.length) {
+      showMsg(mode, 'err', '⚠️ ' + successCount + ' submitted, ' + stillFailed.length +
+        ' failed. See the error under each failed item below - tap ⚙️ → 🔧 Test Connection to diagnose.');
+    } else {
+      showMsg(mode, 'ok', '✅ All ' + successCount + ' entries submitted successfully.');
+    }
+  }).catch(err => {
+    finalBtn.disabled = false;
+    finalBtn.textContent = '✅ Final Submit';
+    showMsg(mode, 'err', '❌ ' + err.message);
+  });
+}
+
+function resetForm(mode) {
+  document.getElementById(mode + 'Sku').value = '';
+  document.getElementById(mode + 'Qty').value = '';
+  clearPhoto(mode);
+  document.getElementById(mode + 'ItemBox').style.display = 'none';
+  document.getElementById(mode + 'SubmitBtn').disabled = true;
+  document.getElementById(mode + 'Sku').focus();
+  syncTopButton();
+}
+</script>
+</body>
+</html>
