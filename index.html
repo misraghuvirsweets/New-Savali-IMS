@@ -650,51 +650,49 @@ function renderQueue(mode) {
 
 // Submits every queued row one by one, shows progress, and clears only the ones that succeed
 // (failed rows stay in the list so nothing gets silently lost).
+// Submits the WHOLE queue in ONE call to the server (instead of one round-trip per item) - this
+// is what makes Final Submit fast even with several entries. The server writes all rows in one
+// bulk operation and refreshes the stock ledger only once at the end.
 function finalSubmit(mode) {
   const list = queues[mode];
   if (!list.length) return;
 
   const finalBtn = document.getElementById(mode + 'FinalSubmitBtn');
   finalBtn.disabled = true;
-  const stillFailed = [];
-  let successCount = 0;
+  finalBtn.innerHTML = '<span class="spinner"></span>Submitting ' + list.length + ' ' + (list.length === 1 ? 'entry' : 'entries') + '…';
 
-  function submitNext(i) {
-    if (i >= list.length) {
-      queues[mode] = stillFailed;
-      renderQueue(mode);
-      finalBtn.textContent = '✅ Final Submit';
-      if (stillFailed.length) {
-        showMsg(mode, 'err', '⚠️ ' + successCount + ' submitted, ' + stillFailed.length +
-          ' failed. See the error under each failed item below - tap ⚙️ → 🔧 Test Connection to diagnose.');
-      } else {
-        showMsg(mode, 'ok', '✅ All ' + successCount + ' entries submitted successfully.');
-      }
-      return;
-    }
-    finalBtn.innerHTML = '<span class="spinner"></span>Submitting ' + (i + 1) + ' of ' + list.length + '…';
-    const row = list[i];
-    const action = mode === 'in' ? 'logInward' : 'logOutward';
-    const payload = mode === 'in'
-      ? { sku: row.sku, qty: row.qty, photo: row.photo }
-      : { sku: row.sku, qty: row.qty, branch: row.branch, photo: row.photo };
+  const action = mode === 'in' ? 'logBatchInward' : 'logBatchOutward';
+  const entries = list.map(row => mode === 'in'
+    ? { sku: row.sku, qty: row.qty, photo: row.photo }
+    : { sku: row.sku, qty: row.qty, branch: row.branch, photo: row.photo });
 
-    callApi(action, payload).then(res => {
+  callApi(action, { entries: entries }).then(results => {
+    const stillFailed = [];
+    let successCount = 0;
+    (results || []).forEach((res, i) => {
       if (res.success) {
         successCount++;
       } else {
-        row.lastError = res.message || 'Unknown error';
-        stillFailed.push(row);
+        list[i].lastError = res.message || 'Unknown error';
+        stillFailed.push(list[i]);
       }
-      submitNext(i + 1);
-    }).catch(err => {
-      row.lastError = err.message;
-      stillFailed.push(row);
-      submitNext(i + 1);
     });
-  }
 
-  submitNext(0);
+    queues[mode] = stillFailed;
+    renderQueue(mode);
+    finalBtn.disabled = false;
+    finalBtn.textContent = '✅ Final Submit';
+    if (stillFailed.length) {
+      showMsg(mode, 'err', '⚠️ ' + successCount + ' submitted, ' + stillFailed.length +
+        ' failed. See the error under each failed item below - tap ⚙️ → 🔧 Test Connection to diagnose.');
+    } else {
+      showMsg(mode, 'ok', '✅ All ' + successCount + ' entries submitted successfully.');
+    }
+  }).catch(err => {
+    finalBtn.disabled = false;
+    finalBtn.textContent = '✅ Final Submit';
+    showMsg(mode, 'err', '❌ ' + err.message);
+  });
 }
 
 function resetForm(mode) {
