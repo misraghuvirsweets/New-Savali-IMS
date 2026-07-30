@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Raghuvir IMS - Admin Dashboard</title>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" onerror="this.dataset.failed='1'; var s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js'; document.head.appendChild(s);"></script>
 <style>
   :root{
     --maroon:#6d2932; --maroon-dark:#4e1e25; --gold:#c98a2c; --bg:#faf6f1;
@@ -11,53 +11,87 @@
   }
   *{box-sizing:border-box;}
   body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:#2a2a2a;overflow-x:hidden;}
-  header{background:var(--maroon);color:#fff;padding:14px 16px;text-align:center;position:sticky;top:0;z-index:10;box-shadow:0 2px 6px rgba(0,0,0,.15);}
+  header{background:var(--maroon);color:#fff;padding:12px 16px;text-align:center;position:sticky;top:0;z-index:10;box-shadow:0 2px 6px rgba(0,0,0,.15);}
   header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.3px;display:flex;align-items:center;justify-content:center;gap:8px;}
   header p{margin:2px 0 0;font-size:11px;opacity:.85;}
-  .brand-logo{height:52px;width:52px;object-fit:contain;border-radius:10px;background:#fff;padding:3px;}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .brand-logo{height:68px;width:68px;object-fit:contain;border-radius:12px;background:#fff;padding:4px;}
+  .tabs{display:flex;background:var(--maroon-dark);position:sticky;top:52px;z-index:9;}
+  .tab{flex:1;text-align:center;padding:11px 4px;font-size:13px;color:#f0d9d2;cursor:pointer;border-bottom:3px solid transparent;}
+  .tab.active{color:#fff;border-bottom:3px solid var(--gold);font-weight:600;}
+  .page{display:none;padding:14px;max-width:520px;margin:0 auto;}
+  .page.active{display:block;}
+
+  /* ---- Home screen ---- */
+  #pageHome{padding:28px 20px;max-width:560px;margin:0 auto;}
+  .home-title{font-size:24px;font-weight:700;color:#2a1a15;text-align:center;margin:10px 0 4px;font-family:Georgia,'Times New Roman',serif;}
+  .home-subtitle{font-size:14px;color:#8a7a6d;text-align:center;margin:0 0 30px;}
+  .big-btn{
+    display:block;width:100%;padding:26px 18px;margin-bottom:22px;border:none;border-radius:16px;
+    font-size:22px;font-weight:700;color:#fff;cursor:pointer;text-align:center;
+    box-shadow:0 3px 8px rgba(0,0,0,.15);transition:transform .08s ease, box-shadow .08s ease;
+  }
+  .big-btn:active{transform:scale(0.98);box-shadow:0 1px 4px rgba(0,0,0,.15);}
+  .big-btn.stock-in{background:#3f6b2e;}
+  .big-btn.stock-out{background:#a8421f;}
+  .back-link{display:inline-block;margin-bottom:12px;color:var(--maroon);font-weight:600;font-size:14px;cursor:pointer;}
+  .back-link:active{opacity:.6;}
+
+  .top-add-btn{
+    position:fixed;top:10px;right:10px;z-index:20;width:auto;
+    padding:9px 16px;border-radius:22px;font-size:13px;font-weight:700;
+    background:var(--gold);color:#3a2508;box-shadow:0 2px 8px rgba(0,0,0,.3);
+    display:none;border:none;cursor:pointer;
+  }
+  .top-add-btn:disabled{opacity:.5;}
+  .top-add-btn.show{display:block;}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
   label{font-size:12px;font-weight:600;color:#6b5c50;display:block;margin-bottom:5px;}
-  input[type=text]{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;margin-bottom:10px;background:#fff;}
-  input[type=number]{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;margin-bottom:10px;background:#fff;}
-  select{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;margin-bottom:10px;background:#fff;}
+  select, input[type=text], input[type=number]{
+    width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;margin-bottom:10px;background:#fff;
+  }
+  select:focus, input:focus{outline:none;border-color:var(--gold);}
+  button{
+    width:100%;padding:12px;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;
+  }
+  .btn-primary{background:var(--maroon);color:#fff;}
+  .btn-primary:active{background:var(--maroon-dark);}
+  .btn-secondary{background:#efe6db;color:var(--maroon-dark);margin-bottom:10px;}
+  .btn-submit{background:var(--gold);color:#3a2508;}
+  .btn-submit:disabled{opacity:.5;}
+  .qr-reader-wrap{position:relative;margin-bottom:6px;}
+  .qr-reader-box{width:100%;min-height:260px;border-radius:10px;overflow:hidden;background:#000;}
+  .scan-detected-label{font-size:12px;color:var(--maroon-dark);text-align:center;min-height:16px;margin-bottom:10px;}
+  .item-box{border:1px dashed var(--gold);background:#fff8ec;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:none;}
+  .item-box .name{font-weight:700;font-size:15px;color:var(--maroon-dark);}
+  .item-box .meta{font-size:12px;color:#777;margin-top:2px;}
   .msg{font-size:13px;padding:10px 12px;border-radius:8px;margin-bottom:10px;display:none;}
   .msg.ok{background:#e7f6ea;color:var(--ok);display:block;}
   .msg.err{background:#fdecea;color:var(--warn);display:block;}
-  input:focus{outline:none;border-color:var(--gold);}
-  button{padding:10px 14px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
-  .btn-primary{background:var(--maroon);color:#fff;}
-  .btn-secondary{background:#efe6db;color:var(--maroon-dark);}
-
-  .tabs{display:flex;flex-wrap:wrap;gap:6px;padding:12px 14px 0;max-width:1100px;margin:0 auto;}
-  .tab{padding:9px 14px;font-size:13px;border-radius:8px 8px 0 0;color:var(--maroon-dark);cursor:pointer;background:#efe1d3;border:1px solid var(--line);border-bottom:none;}
-  .tab.active{background:var(--card);font-weight:700;color:var(--maroon);}
-
-  .toolbar{max-width:1100px;margin:0 auto;padding:0 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
-  .toolbar input{flex:1;min-width:180px;margin-bottom:0;}
-  .count-badge{font-size:12px;color:#777;white-space:nowrap;}
-
-  .table-wrap{max-width:1100px;margin:10px auto 24px;padding:0 14px;overflow-x:auto;}
-  table{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;}
-  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;}
-  th{background:#f1e6d8;color:var(--maroon-dark);font-weight:700;position:sticky;top:0;}
-  tr:hover td{background:#fbf6ee;}
-  .lowstock{color:var(--warn);font-weight:700;}
-  .empty-msg{padding:20px;text-align:center;color:#999;font-size:13px;}
-
-  .stats{display:flex;gap:10px;flex-wrap:wrap;max-width:1100px;margin:10px auto;padding:0 14px;}
-  .stat{flex:1;min-width:140px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;}
+  .stat{flex:1;min-width:120px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center;}
   .stat .num{font-size:22px;font-weight:700;color:var(--maroon);}
   .stat .lbl{font-size:11px;color:#777;margin-top:2px;}
-  .section-title{font-size:13px;font-weight:700;color:var(--maroon-dark);margin:16px auto 8px;max-width:1100px;padding:0 14px;}
-  .location-table-wrap{max-width:1100px;margin:0 auto 10px;padding:0 14px;overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th,td{text-align:left;padding:6px 4px;border-bottom:1px solid var(--line);}
+  th{color:#8a7a6d;font-weight:600;}
+  .lowstock{color:var(--warn);font-weight:700;}
+  .section-title{font-size:13px;font-weight:700;color:var(--maroon-dark);margin:14px 0 8px;}
+  .queue-row-del{background:none;border:none;color:var(--warn);font-weight:700;width:auto;padding:2px 8px;cursor:pointer;}
+  .queue-empty{font-size:12px;color:#999;padding:6px 0;}
+  .queue-summary{font-size:12px;color:#6b5c50;margin-bottom:8px;}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
 </style>
 </head>
 <body>
 
 <header>
   <h1><img src="https://drive.google.com/thumbnail?id=18aiuiSN9uj-mJtOkGB1rNt4GP6yUbvuO&sz=w200" alt="Logo" class="brand-logo" onerror="this.style.display='none'"> RAGHUVIR SWEETS &amp; BAKERS</h1>
-  <p>Admin Dashboard — All Records</p>
+  <p>Godown Dashboard <span id="testGear" onclick="testConnection()" style="cursor:pointer;">🔧</span></p>
 </header>
+
+<button class="top-add-btn" id="topAddBtn" disabled onclick="topAddEntry()">➕ Add Entry</button>
 
 <div class="msg" id="testMsg" style="margin:14px;"></div>
 
@@ -71,100 +105,131 @@
   </p>
 </div>
 
-<div class="tabs" id="tabBar"></div>
-
-<div class="toolbar" id="toolbarView">
-  <input type="text" id="searchBox" placeholder="🔍 Search this table…" oninput="applyFilter()">
-  <select id="extraFilterSelect" style="display:none;flex:0 0 auto;min-width:160px;" onchange="applyFilter()"><option value="">All</option></select>
-  <button class="btn-primary" id="tableActionBtn" style="display:none;" onclick="handleTableActionClick()"></button>
-  <button class="btn-secondary" onclick="loadCurrentTable()">🔄 Refresh</button>
-  <span class="count-badge" id="countBadge"></span>
+<!-- ================= HOME PAGE ================= -->
+<div class="page active" id="pageHome">
+  <div class="home-title">Raghuvir Sweets &amp; Bakers</div>
+  <div class="home-subtitle">Godown Dashboard</div>
+  <button class="big-btn stock-in" onclick="showPage('pageIn')">📥 Stock In</button>
+  <button class="big-btn stock-out" onclick="showPage('pageOut')">📤 Stock Out</button>
 </div>
 
-<div class="table-wrap" id="tableView">
-  <table id="dataTable">
-    <thead><tr><th>Loading…</th></tr></thead>
-    <tbody></tbody>
-  </table>
-</div>
-
-<div id="dashboardView" style="display:none;">
-  <div class="card" style="max-width:1100px;margin:14px auto;">
-    <label>📍 Select Location</label>
-    <select id="locationSelect" onchange="renderSelectedLocation()"><option value="">Loading…</option></select>
-  </div>
-  <div class="stats" id="locationStatsRow"></div>
-
-  <div class="card" id="logStockOutCard" style="display:none;max-width:1100px;margin:10px auto;">
-    <label>➖ Log Stock-Out for this Branch (sale / dispatch / wastage)</label>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      <input type="text" id="stockOutSku" placeholder="SKU Code (e.g. RACK-001-A-001)" style="flex:2;min-width:160px;">
-      <input type="number" id="stockOutQty" placeholder="Qty" style="flex:1;min-width:80px;">
+<!-- ================= INWARD PAGE ================= -->
+<div class="page" id="pageIn">
+  <div class="card">
+    <span class="back-link" onclick="showPage('pageHome')">← Back</span>
+    <label>Scan or type SKU / Barcode</label>
+    <input type="text" id="inSku" placeholder="Scan here, or type SKU and press Enter" autocomplete="off">
+    <button class="btn-secondary" onclick="lookupSku('in')">🔍 Look Up Item</button>
+    <button class="btn-secondary" onclick="toggleCamera('in')">📷 Use Camera Scanner</button>
+    <div id="reader-in" class="reader-slot" style="display:none;">
+      <div class="qr-reader-wrap">
+        <div id="reader" class="qr-reader-box"></div>
+      </div>
+      <div id="scanProgress-in" class="scan-detected-label"></div>
     </div>
-    <input type="text" id="stockOutRemarks" placeholder="Reason / remarks (optional) - e.g. Sold to customer">
-    <div class="msg" id="stockOutMsg"></div>
-    <button class="btn-primary" onclick="submitBranchStockOut()" style="width:100%;">✅ Log Stock-Out</button>
+
+    <div class="msg" id="inMsg"></div>
+    <div class="item-box" id="inItemBox">
+      <div class="name" id="inItemName"></div>
+      <div class="meta" id="inItemMeta"></div>
+    </div>
+
+    <label>Quantity Received</label>
+    <input type="number" id="inQty" placeholder="e.g. 10" min="1">
+    <label>📷 Photo (optional)</label>
+    <input type="file" accept="image/*" capture="environment" id="inPhotoInput" style="display:none;" onchange="handlePhotoCapture('in', this)">
+    <button class="btn-secondary" onclick="document.getElementById('inPhotoInput').click()">📷 Capture Photo</button>
+    <div id="inPhotoStatus" style="display:none;margin-bottom:10px;">
+      <span style="font-size:12px;color:var(--ok);font-weight:600;">✅ Photo attached</span>
+      <span class="back-link" style="margin-left:10px;font-size:12px;color:var(--warn);" onclick="clearPhoto('in')">✕ Remove Photo</span>
+    </div>
+    <button class="btn-submit" id="inSubmitBtn" disabled onclick="addToQueue('in')">➕ Add Entry</button>
   </div>
 
-  <div id="locationDetailWrap"></div>
+  <div class="card">
+    <div class="section-title">📋 Entries to Submit</div>
+    <div class="queue-summary" id="inQueueSummary">No entries added yet.</div>
+    <table id="inQueueTable"></table>
+    <button class="btn-primary" id="inFinalSubmitBtn" disabled onclick="finalSubmit('in')" style="margin-top:10px;">✅ Final Submit</button>
+  </div>
 </div>
 
-<div class="card" id="addItemView" style="display:none;max-width:1100px;margin:10px auto 24px;">
-  <label>Item Name</label>
-  <input type="text" id="addName" placeholder="e.g. Kaju Katli Box - 500g">
-  <label>Category</label>
-  <input type="text" id="addCategory" placeholder="e.g. Packing Box, Ribbon, Sticker">
+<!-- ================= OUTWARD PAGE ================= -->
+<div class="page" id="pageOut">
+  <div class="card">
+    <span class="back-link" onclick="showPage('pageHome')">← Back</span>
+    <label>🏬 Branch <span class="back-link" style="margin:0 0 0 8px;font-size:12px;" onclick="loadBranches()">🔄 Retry</span></label>
+    <select id="outBranch"><option value="">Loading branches…</option></select>
 
-  <label>Storage Type</label>
-  <select id="addStorageType">
-    <option value="racked">Racked (stored on a rack)</option>
-    <option value="nonracked">Non-Racked (loose storage zone)</option>
-  </select>
+    <label>Scan or type SKU / Barcode</label>
+    <input type="text" id="outSku" placeholder="Scan here, or type SKU and press Enter" autocomplete="off">
+    <button class="btn-secondary" onclick="lookupSku('out')">🔍 Look Up Item</button>
+    <button class="btn-secondary" onclick="toggleCamera('out')">📷 Use Camera Scanner</button>
+    <div id="reader-out" class="reader-slot" style="display:none;">
+      <div class="qr-reader-wrap">
+        <div id="reader2" class="qr-reader-box"></div>
+      </div>
+      <div id="scanProgress-out" class="scan-detected-label"></div>
+    </div>
 
-  <label id="addLocationLabel">Rack Code</label>
-  <select id="addLocation"><option value="">Loading…</option></select>
+    <div class="msg" id="outMsg"></div>
+    <div class="item-box" id="outItemBox">
+      <div class="name" id="outItemName"></div>
+      <div class="meta" id="outItemMeta"></div>
+    </div>
 
-  <label>Unit</label>
-  <input type="text" id="addUnit" placeholder="e.g. Pcs, Box, Roll" value="Pcs">
-  <label>Reorder Level</label>
-  <input type="number" id="addReorder" placeholder="e.g. 50" value="0">
-
-  <label>Barcode</label>
-  <select id="addBarcodeMode">
-    <option value="generate">Generate a new QR sticker (we print &amp; stick it)</option>
-    <option value="existing">Use existing vendor barcode (already on the box)</option>
-  </select>
-
-  <div id="addExistingBarcodeBlock" style="display:none;">
-    <label>Existing barcode value</label>
-    <input type="text" id="addExistingBarcode" placeholder="Type or scan the existing barcode">
+    <label>Quantity Going Out</label>
+    <input type="number" id="outQty" placeholder="e.g. 5" min="1">
+    <label>📷 Photo (optional)</label>
+    <input type="file" accept="image/*" capture="environment" id="outPhotoInput" style="display:none;" onchange="handlePhotoCapture('out', this)">
+    <button class="btn-secondary" onclick="document.getElementById('outPhotoInput').click()">📷 Capture Photo</button>
+    <div id="outPhotoStatus" style="display:none;margin-bottom:10px;">
+      <span style="font-size:12px;color:var(--ok);font-weight:600;">✅ Photo attached</span>
+      <span class="back-link" style="margin-left:10px;font-size:12px;color:var(--warn);" onclick="clearPhoto('out')">✕ Remove Photo</span>
+    </div>
+    <button class="btn-submit" id="outSubmitBtn" disabled onclick="addToQueue('out')">➕ Add Entry</button>
   </div>
 
-  <div class="msg" id="addMsg"></div>
-  <button class="btn-primary" id="addSubmitBtn" onclick="submitAddItem()" style="width:100%;">✅ Create Item</button>
+  <div class="card">
+    <div class="section-title">📋 Entries to Submit</div>
+    <div class="queue-summary" id="outQueueSummary">No entries added yet.</div>
+    <table id="outQueueTable"></table>
+    <button class="btn-primary" id="outFinalSubmitBtn" disabled onclick="finalSubmit('out')" style="margin-top:10px;">✅ Final Submit</button>
+  </div>
 </div>
 
-<div class="card" id="addBranchView" style="display:none;max-width:1100px;margin:10px auto 24px;">
-  <label>Add New Branch</label>
-  <div style="display:flex;gap:10px;">
-    <input type="text" id="newBranchName" placeholder="e.g. New Outlet Name" style="flex:1;">
-    <button class="btn-primary" onclick="addBranchFromAdmin()" style="flex:0 0 auto;">➕ Add Branch</button>
-  </div>
-  <div class="msg" id="branchMsg"></div>
-</div>
 
 <script>
-const TABLES = [
-  { key: 'Item_Master',   label: '📦 Item Master' },
-  { key: 'Stock_Ledger',  label: '📊 Stock Ledger' },
-  { key: 'Inward_Entry',  label: '📥 Inward Log' },
-  { key: 'Outward_Entry', label: '📤 Outward Log' },
-  { key: 'Branch_Ledger', label: '🏬 Branch Ledger' },
-  { key: 'Branch_StockOut', label: '➖ Branch Stock-Out' },
-  { key: 'Branches',      label: '🏬 Branches' },
-  { key: 'Racks',         label: '🗄️ Racks' }
-];
-const DASHBOARD_KEY = 'Dashboard'; // special tab - godown vs branch-wise stock overview
+// ---------------- PAGE NAVIGATION ----------------
+let currentMode = null; // 'in' | 'out' | null (home)
+
+function showPage(pageId) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(pageId).classList.add('active');
+  stopCamera();
+
+  if (pageId === 'pageIn') { currentMode = 'in'; document.getElementById('inSku').focus(); }
+  else if (pageId === 'pageOut') { currentMode = 'out'; document.getElementById('outSku').focus(); }
+  else { currentMode = null; }
+
+  syncTopButton();
+}
+
+// Mirrors the in-form "Add Entry" button's enabled/disabled state onto the fixed top-corner
+// button, and shows it only while on the Inward/Outward pages (hidden on Home).
+function syncTopButton() {
+  const topBtn = document.getElementById('topAddBtn');
+  if (!currentMode) {
+    topBtn.classList.remove('show');
+    return;
+  }
+  topBtn.classList.add('show');
+  topBtn.disabled = document.getElementById(currentMode + 'SubmitBtn').disabled;
+}
+
+function topAddEntry() {
+  if (currentMode) addToQueue(currentMode);
+}
 
 // ============================= PASTE YOUR WEB APP URL BELOW ======================================
 // After deploying WebApp.gs in Apps Script (Deploy > New deployment > Web app), copy the URL
@@ -187,13 +252,38 @@ function saveUrlFallback() {
   localStorage.setItem('ims_api_url_fallback', url);
   document.getElementById('urlSetupCard').style.display = 'none';
   document.getElementById('testMsg').style.display = 'none';
-  loadCurrentTable();
+  initData();
 }
 
-let currentTableKey = DASHBOARD_KEY;
-let currentHeaders = [];
-let currentRows = [];
+function testConnection() {
+  const el = document.getElementById('testMsg');
+  el.className = 'msg';
+  el.style.display = 'block';
+  el.textContent = 'Testing…';
+  callApi('ping').then(res => {
+    const issues = [];
+    if (res.missingSheets && res.missingSheets.length) {
+      issues.push('Missing sheet(s): ' + res.missingSheets.join(', ') + ' - run 📦 IMS Tools > 🚀 Setup System (Run Once) in the Google Sheet.');
+    }
+    if (!res.driveOk) {
+      issues.push('Drive access not authorized yet - run "oneTimeAuthorizeDriveAccess" in Apps Script, then redeploy. (' + (res.driveError || '') + ')');
+    }
+    if (issues.length) {
+      el.className = 'msg err';
+      el.textContent = '⚠️ ' + issues.join('  |  ');
+    } else {
+      el.className = 'msg ok';
+      el.textContent = '✅ Connected, all sheets found, and photo storage (Drive) is authorized. Everything should work.';
+    }
+  }).catch(err => {
+    el.className = 'msg err';
+    el.textContent = '❌ Could not connect: ' + err.message;
+  });
+}
 
+// Sends Content-Type: text/plain so the browser treats it as a "simple request" and skips the
+// CORS preflight (OPTIONS) that Apps Script Web Apps don't handle - the JSON is still parsed
+// fine server-side via JSON.parse(e.postData.contents).
 function callApi(action, data) {
   const url = getEffectiveApiUrl();
   if (!url) {
@@ -209,410 +299,411 @@ function callApi(action, data) {
     try {
       res = JSON.parse(text);
     } catch (e) {
-      throw new Error('Server did not return valid data - check the Web App URL and that it has been redeployed (Deploy > Manage deployments > New version).');
+      // The server sent back an HTML page instead of JSON - usually a pending Google
+      // permission approval (Drive access for photos) or a stale deployment.
+      throw new Error('Server did not return valid data. In Apps Script, run "oneTimeAuthorizeDriveAccess" once to grant permission, then redeploy (Deploy > Manage deployments > New version).');
     }
     if (res && res.error) throw new Error(res.error);
     return res;
   });
 }
 
-function buildTabs() {
-  const bar = document.getElementById('tabBar');
-  const allTabs = [{ key: DASHBOARD_KEY, label: '📊 Dashboard' }].concat(TABLES);
-  bar.innerHTML = allTabs.map(t =>
-    '<div class="tab' + (t.key === currentTableKey ? ' active' : '') + '" data-key="' + t.key + '">' + t.label + '</div>'
-  ).join('');
-  bar.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      currentTableKey = tab.dataset.key;
-      document.getElementById('searchBox').value = '';
-      buildTabs();
-      if (currentTableKey === DASHBOARD_KEY) {
-        showDashboardView();
-      } else {
-        showTableView();
-        loadCurrentTable();
-      }
-    });
-  });
+// ---------------- INIT ----------------
+function initData() {
+  loadBranches();
 }
 
-// Which tabs get an extra action button in the toolbar (Add Item / Add Branch), and what that
-// button does - instead of separate tabs, the add-form now toggles inline on the same tab.
-const TABLE_ACTION_CONFIG = {
-  'Item_Master': { label: '➕ Add Item', formId: 'addItemView', onShow: 'loadRacksForAddItem' },
-  'Branches':    { label: '➕ Add Branch', formId: 'addBranchView' }
-};
-let formOpenForTab = false;
-
-function setupTableActionButton() {
-  const btn = document.getElementById('tableActionBtn');
-  const config = TABLE_ACTION_CONFIG[currentTableKey];
-  formOpenForTab = false;
-  if (!config) {
-    btn.style.display = 'none';
-    return;
-  }
-  btn.style.display = 'inline-block';
-  btn.textContent = config.label;
-}
-
-function handleTableActionClick() {
-  const config = TABLE_ACTION_CONFIG[currentTableKey];
-  if (!config) return;
-  const btn = document.getElementById('tableActionBtn');
-  const form = document.getElementById(config.formId);
-  formOpenForTab = !formOpenForTab;
-
-  if (formOpenForTab) {
-    document.getElementById('tableView').style.display = 'none';
-    document.getElementById('searchBox').style.display = 'none';
-    document.getElementById('extraFilterSelect').style.display = 'none';
-    form.style.display = 'block';
-    btn.textContent = '📋 Back to List';
-    if (config.onShow) window[config.onShow]();
-  } else {
-    form.style.display = 'none';
-    document.getElementById('tableView').style.display = 'block';
-    document.getElementById('searchBox').style.display = '';
-    btn.textContent = config.label;
-    loadCurrentTable();
-  }
-}
-
-function hideAllViews() {
-  document.getElementById('toolbarView').style.display = 'none';
-  document.getElementById('tableView').style.display = 'none';
-  document.getElementById('addItemView').style.display = 'none';
-  document.getElementById('addBranchView').style.display = 'none';
-  document.getElementById('dashboardView').style.display = 'none';
-}
-
-function showTableView() {
-  hideAllViews();
-  document.getElementById('toolbarView').style.display = 'flex';
-  document.getElementById('tableView').style.display = 'block';
-  document.getElementById('searchBox').style.display = '';
-  setupTableActionButton();
-}
-
-function showDashboardView() {
-  hideAllViews();
-  document.getElementById('dashboardView').style.display = 'block';
-  loadLocationStock();
-}
-
-// Which column (by header name, case-insensitive) the extra filter dropdown should group by,
-// per table - only these two tables get the dropdown; others just get the search box.
-const EXTRA_FILTER_CONFIG = {
-  'Stock_Ledger': { headerMatch: 'location', label: 'Filter by Rack/Location' },
-  'Branch_Ledger': { headerMatch: 'branch', label: 'Filter by Branch' }
-};
-
-function loadCurrentTable() {
-  document.getElementById('dataTable').innerHTML = '<thead><tr><th>Loading…</th></tr></thead><tbody></tbody>';
-  document.getElementById('countBadge').textContent = '';
-  callApi('getSheetData', { sheetName: currentTableKey }).then(res => {
-    currentHeaders = res.headers || [];
-    currentRows = res.rows || [];
-    setupExtraFilter();
-    renderTable(currentRows);
-  }).catch(err => {
-    document.getElementById('dataTable').innerHTML =
-      '<thead><tr><th>Error</th></tr></thead><tbody><tr><td>' + err.message + '</td></tr></tbody>';
-  });
-}
-
-function setupExtraFilter() {
-  const wrap = document.getElementById('extraFilterSelect');
-  const config = EXTRA_FILTER_CONFIG[currentTableKey];
-  if (!config) {
-    wrap.style.display = 'none';
-    wrap.innerHTML = '<option value="">All</option>';
-    return;
-  }
-  const colIdx = currentHeaders.findIndex(h => String(h).toLowerCase().indexOf(config.headerMatch) !== -1);
-  if (colIdx === -1) { wrap.style.display = 'none'; return; }
-
-  const values = Array.from(new Set(currentRows.map(r => r[colIdx]).filter(v => v))).sort();
-  wrap.innerHTML = '<option value="">' + config.label + ' (All)</option>' +
-    values.map(v => '<option value="' + v + '">' + v + '</option>').join('');
-  wrap.dataset.colIdx = colIdx;
-  wrap.style.display = 'block';
-}
-
-function renderTable(rows) {
-  const isItemMaster = currentTableKey === 'Item_Master';
-  const isBranches = currentTableKey === 'Branches';
-  const skuIdx = isItemMaster ? currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('sku') !== -1) : -1;
-  const branchNameIdx = isBranches ? currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('name') !== -1) : -1;
-  const hasAction = (isItemMaster && skuIdx !== -1) || (isBranches && branchNameIdx !== -1);
-
-  const thead = '<thead><tr>' + currentHeaders.map(h => '<th>' + h + '</th>').join('') +
-    (hasAction ? '<th>Action</th>' : '') + '</tr></thead>';
-
-  let tbody;
-  if (!rows.length) {
-    tbody = '<tbody><tr><td colspan="' + Math.max(currentHeaders.length + (hasAction ? 1 : 0), 1) + '" class="empty-msg">No records yet.</td></tr></tbody>';
-  } else {
-    tbody = '<tbody>' + rows.map(r => {
-      const cells = r.map((c, i) => {
-        const isStatusCol = currentHeaders[i] === 'Status' && String(c).indexOf('LOW') !== -1;
-        return '<td' + (isStatusCol ? ' class="lowstock"' : '') + '>' + (c === null || c === undefined ? '' : c) + '</td>';
-      }).join('');
-      let actionCell = '';
-      if (isItemMaster && skuIdx !== -1) {
-        actionCell = '<td><button style="background:none;border:none;color:var(--warn);font-weight:700;cursor:pointer;" onclick="deleteItemRow(\'' +
-          String(r[skuIdx]).replace(/'/g, "\\'") + '\')">🗑️ Delete</button></td>';
-      } else if (isBranches && branchNameIdx !== -1) {
-        actionCell = '<td><button style="background:none;border:none;color:var(--warn);font-weight:700;cursor:pointer;" onclick="deleteBranchFromAdmin(\'' +
-          String(r[branchNameIdx]).replace(/'/g, "\\'") + '\')">🗑️ Delete</button></td>';
-      }
-      return '<tr>' + cells + actionCell + '</tr>';
-    }).join('') + '</tbody>';
-  }
-  document.getElementById('dataTable').innerHTML = thead + tbody;
-  document.getElementById('countBadge').textContent = rows.length + ' row' + (rows.length === 1 ? '' : 's');
-}
-
-function applyFilter() {
-  const q = document.getElementById('searchBox').value.trim().toLowerCase();
-  const filterSel = document.getElementById('extraFilterSelect');
-  const filterVal = filterSel.style.display !== 'none' ? filterSel.value : '';
-  const colIdx = filterSel.dataset.colIdx !== undefined ? Number(filterSel.dataset.colIdx) : -1;
-
-  let filtered = currentRows;
-  if (filterVal && colIdx !== -1) {
-    filtered = filtered.filter(r => String(r[colIdx]) === filterVal);
-  }
-  if (q) {
-    filtered = filtered.filter(r => r.some(c => String(c || '').toLowerCase().indexOf(q) !== -1));
-  }
-
-  renderTable(filtered);
-  document.getElementById('countBadge').textContent = filtered.length + ' of ' + currentRows.length + ' rows';
-}
-
-function deleteItemRow(sku) {
-  if (!confirm('Delete item "' + sku + '" permanently? This cannot be undone.')) return;
-  callApi('deleteItem', { sku: sku }).then(res => {
-    if (res.success) {
-      loadCurrentTable();
-    } else {
-      alert('❌ ' + res.message);
+function loadBranches() {
+  const sel = document.getElementById('outBranch');
+  sel.innerHTML = '<option value="">Loading branches…</option>';
+  callApi('getBranches').then(list => {
+    if (!list || !list.length) {
+      sel.innerHTML = '<option value="">⚠️ No active branches found - check Branches sheet</option>';
+      return;
     }
-  }).catch(err => alert('❌ ' + err.message));
+    populateBranches(list);
+  }).catch(err => {
+    sel.innerHTML = '<option value="">⚠️ Could not load - tap 🔄 Retry (' + err.message + ')</option>';
+  });
 }
 
 window.onload = function() {
-  buildTabs();
-  document.getElementById('addStorageType').addEventListener('change', refreshLocationOptions);
-  document.getElementById('addBarcodeMode').addEventListener('change', toggleBarcodeModeUI);
-
   if (!getEffectiveApiUrl()) {
     document.getElementById('urlSetupCard').style.display = 'block';
   } else {
-    showDashboardView();
+    initData();
   }
+
+  document.getElementById('inSku').addEventListener('keydown', e => { if (e.key === 'Enter') lookupSku('in'); });
+  document.getElementById('outSku').addEventListener('keydown', e => { if (e.key === 'Enter') lookupSku('out'); });
+  // Fallback for phone keyboards that don't fire a clean "Enter" keydown (common with predictive/
+  // transliteration keyboards) - firing on blur/change means the Look Up button or camera scan
+  // are never the only way in.
+  document.getElementById('inSku').addEventListener('change', () => lookupSku('in'));
+  document.getElementById('outSku').addEventListener('change', () => lookupSku('out'));
 };
 
-// ---------------- ADD ITEM FORM ----------------
-let allRacks = [];
-
-function loadRacksForAddItem() {
-  callApi('getRacks').then(list => {
-    allRacks = list;
-    refreshLocationOptions();
-  }).catch(err => {
-    document.getElementById('addLocation').innerHTML = '<option value="">⚠️ Could not load racks: ' + err.message + '</option>';
-  });
+function populateBranches(list) {
+  const sel = document.getElementById('outBranch');
+  sel.innerHTML = '<option value="">-- Select Branch --</option>';
+  list.forEach(b => { const o = document.createElement('option'); o.value = b; o.textContent = b; sel.appendChild(o); });
 }
 
-function refreshLocationOptions() {
-  const isRacked = document.getElementById('addStorageType').value === 'racked';
-  document.getElementById('addLocationLabel').textContent = isRacked ? 'Rack Code' : 'Non-Rack Zone Code';
-  const filtered = allRacks.filter(r => isRacked ? r.toUpperCase().startsWith('RACK-') : !r.toUpperCase().startsWith('RACK-'));
-  const sel = document.getElementById('addLocation');
-  sel.innerHTML = filtered.length
-    ? filtered.map(r => '<option value="' + r + '">' + r + '</option>').join('')
-    : '<option value="">No ' + (isRacked ? 'racks' : 'zones') + ' found - add one in the Racks sheet first</option>';
+// ---------------- CAMERA SCANNER ----------------
+let html5QrCode = null;
+let currentCameraMode = null;
+let cameraBusy = false; // guards against overlapping open/close calls (the actual bug fix below)
+
+const READER_IDS = { in: 'reader', out: 'reader2' };
+const TARGET_FIELD = { in: 'inSku', out: 'outSku' };
+
+// Shows a small live status label under the camera while scanning ("scanning..." feedback) -
+// scanning is immediate/automatic: as soon as a QR/barcode is detected, it's used right away.
+function resetLiveDetected(mode) {
+  const el = document.getElementById('scanProgress-' + mode);
+  if (el) el.textContent = '';
 }
 
-function toggleBarcodeModeUI() {
-  const existing = document.getElementById('addBarcodeMode').value === 'existing';
-  document.getElementById('addExistingBarcodeBlock').style.display = existing ? 'block' : 'none';
+// Stops whatever camera session is running, if any, and waits for it to actually finish before
+// resolving. Captures the current instance into a local variable and clears the shared
+// html5QrCode reference IMMEDIATELY (synchronously) - this is the key fix: previously, stopping
+// was fire-and-forget, so if you reopened the camera quickly (e.g. right after an auto-scan),
+// the OLD stop's cleanup could finish AFTER a new camera had already started, wiping out the
+// reference to the new one and leaving the camera hardware in a stuck state where it looked
+// like nothing happened when tapping "Use Camera Scanner" again.
+async function stopCamera() {
+  const instance = html5QrCode;
+  html5QrCode = null;
+  ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; resetLiveDetected(m); });
+  if (instance) {
+    try { await instance.stop(); } catch (e) { /* already stopped/never started - fine */ }
+    try { await instance.clear(); } catch (e) { /* clear() can be sync/void in some versions - fine either way */ }
+  }
 }
 
-function submitAddItem() {
-  const payload = {
-    itemName: document.getElementById('addName').value.trim(),
-    category: document.getElementById('addCategory').value.trim(),
-    isRacked: document.getElementById('addStorageType').value === 'racked',
-    locationCode: document.getElementById('addLocation').value,
-    unit: document.getElementById('addUnit').value.trim() || 'Pcs',
-    reorder: document.getElementById('addReorder').value || 0,
-    barcodeMode: document.getElementById('addBarcodeMode').value,
-    existingBarcode: document.getElementById('addExistingBarcode').value.trim()
+async function toggleCamera(mode) {
+  const slot = document.getElementById('reader-' + mode);
+  if (slot.style.display === 'block') {
+    await stopCamera();
+    return;
+  }
+
+  // Ignore rapid double-taps while a previous open/close is still in progress, instead of
+  // letting two overlapping attempts race each other.
+  if (cameraBusy) return;
+  cameraBusy = true;
+
+  try {
+    // If the scanner library script failed to load (blocked CDN, offline, slow network), calling
+    // "new Html5Qrcode(...)" would throw silently and the button would appear to do nothing.
+    if (typeof Html5Qrcode === 'undefined') {
+      alert('The camera scanner library has not finished loading yet (or failed to load - check your ' +
+        'internet connection). Wait a moment and try again, reload the page, or type/scan into the ' +
+        'text box with a USB scanner in the meantime.');
+      return;
+    }
+
+    // Mobile browsers (Chrome/Android, Safari/iOS) block camera access entirely on plain HTTP -
+    // only HTTPS (or true localhost on the SAME device) is allowed. Testing this page via a local
+    // dev server IP (e.g. 127.0.0.1:5500 or 192.168.x.x:5500) opened from a PHONE will silently
+    // fail here - host on GitHub Pages / Netlify (HTTPS) for the camera to work on mobile.
+    if (!window.isSecureContext) {
+      alert('Camera needs a secure (HTTPS) page to work on mobile. This page is currently loaded over ' +
+        'an insecure connection, which phone browsers block camera access on by default. ' +
+        'Host this file on GitHub Pages or Netlify (both give a free https:// URL) and open it from there. ' +
+        'You can still type or use a USB scanner into the text box for now.');
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert('This browser does not support camera access. Please use a recent Chrome or Safari, or type/scan into the text box with a USB scanner.');
+      return;
+    }
+
+    // Make sure any previous session is FULLY stopped (and the camera hardware released) before
+    // starting a new one - awaited properly now instead of fire-and-forget.
+    await stopCamera();
+    // A short pause after stopping gives the camera hardware time to actually release on some
+    // phones - starting again immediately can otherwise silently fail to reacquire it.
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    slot.style.display = 'block';
+    currentCameraMode = mode;
+    resetLiveDetected(mode);
+    const hintEl = document.getElementById('scanProgress-' + mode);
+    if (hintEl) hintEl.textContent = '📌 If codes are close together, bring the camera in close so only ONE is visible in the box.';
+
+    // Wait for the browser to actually finish laying out the box we just un-hid before starting
+    // the camera. html5-qrcode measures the container's size immediately on start(); if that
+    // happens in the same tick as display:block, some browsers still report 0 width/height,
+    // which can result in a black box with no visible video and no scan overlay at all.
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await startCameraFor(mode);
+  } catch (err) {
+    alert('Could not start the camera scanner: ' + err.message + '\nYou can still type or use a USB scanner into the text box.');
+    slot.style.display = 'none';
+  } finally {
+    cameraBusy = false;
+  }
+}
+
+async function startCameraFor(mode) {
+  const slot = document.getElementById('reader-' + mode);
+  try {
+    // Forcibly wipe the container before starting a new session. html5-qrcode's own clear()
+    // doesn't always fully remove the previous session's internal <video>/<canvas> elements
+    // before a new instance targets the same container - leftover elements from the first scan
+    // can then conflict with the second one and render as a plain black screen instead of a
+    // live feed. Rebuilding the container from scratch guarantees a truly clean slate every time.
+    const container = document.getElementById(READER_IDS[mode]);
+    if (container) container.innerHTML = '';
+
+    const qr = new Html5Qrcode(READER_IDS[mode]);
+    html5QrCode = qr;
+
+    // Called whenever a QR/barcode is decoded in the camera view - used immediately (no manual
+    // confirm step), so scanning is fast: point the camera at a code and it's used right away.
+    const onScanSuccess = (decodedText) => {
+      resetLiveDetected(mode);
+      document.getElementById(TARGET_FIELD[mode]).value = decodedText;
+      stopCamera();
+      lookupSku(mode);
+    };
+    const onScanFailure = () => {
+      // No code decoded in this frame - nothing to do, the hint text stays visible until a
+      // code is actually found (handled in onScanSuccess) or the camera is closed.
+    };
+    // qrbox as a function (rather than a fixed pixel size) asks html5-qrcode to size the scan
+    // box relative to the ACTUAL rendered video dimensions - this avoids requesting a box bigger
+    // than the container (which can silently break rendering on narrow phone screens).
+    const config = {
+      fps: 10,
+      // A SMALLER box (relative to the camera view) on purpose: when several QR codes sit close
+      // together, a wide detection zone can catch more than one at a time and there's no telling
+      // which one gets used. Shrinking the zone means you have to physically bring the camera
+      // in close so only ONE code fills the frame - the neighbors simply don't fit anymore.
+      qrbox: (viewfinderWidth, viewfinderHeight) => {
+        const edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.4);
+        return { width: edge, height: edge };
+      },
+      aspectRatio: 1.0
+    };
+
+    // Prefer an explicit rear/back camera by device label (more reliable on Android than the
+    // generic facingMode constraint, which some devices/browsers ignore); fall back to facingMode
+    // if enumeration isn't available or no camera list comes back.
+    let cameras = [];
+    try { cameras = await Html5Qrcode.getCameras(); } catch (e) { /* enumeration failed - fall back below */ }
+
+    try {
+      if (cameras && cameras.length) {
+        const back = cameras.find(c => /back|rear|environment/i.test(c.label)) || cameras[cameras.length - 1];
+        await qr.start(back.id, config, onScanSuccess, onScanFailure);
+      } else {
+        await qr.start({ facingMode: 'environment' }, config, onScanSuccess, onScanFailure);
+      }
+    } catch (startErr) {
+      // First attempt failed - try once more with the generic facingMode constraint before
+      // giving up (covers cases where the specific device id didn't work but facingMode would).
+      await qr.start({ facingMode: 'environment' }, config, onScanSuccess, onScanFailure);
+    }
+  } catch (err) {
+    let msg = 'Camera error: ' + err;
+    const errStr = String(err);
+    if (errStr.indexOf('NotAllowedError') !== -1 || errStr.indexOf('Permission') !== -1) {
+      msg = 'Camera permission was denied. Check your browser\'s site settings and allow camera access for this page, then try again.';
+    } else if (errStr.indexOf('NotFoundError') !== -1 || errStr.indexOf('NoCamerasFound') !== -1) {
+      msg = 'No camera was found on this device.';
+    } else if (errStr.indexOf('NotReadableError') !== -1) {
+      msg = 'The camera is already in use by another app/tab. Close it and try again.';
+    }
+    alert(msg + '\nYou can still type or use a USB scanner into the text box.');
+    html5QrCode = null;
+    slot.style.display = 'none';
+  }
+}
+
+// ---------------- LOOKUP ----------------
+function lookupSku(mode) {
+  const sku = document.getElementById(mode + 'Sku').value.trim();
+  if (!sku) return;
+  showMsg(mode, '', '');
+  callApi('lookupItem', { sku: sku }).then(res => showItem(mode, res)).catch(err => showMsg(mode, 'err', '❌ ' + err.message));
+}
+
+function showItem(mode, res) {
+  const box = document.getElementById(mode + 'ItemBox');
+  const submitBtn = document.getElementById(mode + 'SubmitBtn');
+  if (!res.found) {
+    box.style.display = 'none';
+    submitBtn.disabled = true;
+    showMsg(mode, 'err', '❌ SKU "' + res.sku + '" not found in Item_Master.');
+    syncTopButton();
+    return;
+  }
+  document.getElementById(mode + 'ItemName').textContent = res.name;
+  document.getElementById(mode + 'ItemMeta').textContent =
+    'SKU: ' + res.sku + '  |  Location: ' + res.location + '  |  Current stock: ' + res.currentStock;
+  box.style.display = 'block';
+  submitBtn.disabled = false;
+  syncTopButton();
+}
+
+function showMsg(mode, cls, text) {
+  const el = document.getElementById(mode + 'Msg');
+  el.className = 'msg' + (cls ? ' ' + cls : '');
+  el.textContent = text;
+  el.style.display = cls ? 'block' : 'none';
+}
+
+// ---------------- PHOTO CAPTURE ----------------
+const photoData = { in: null, out: null };
+
+function handlePhotoCapture(mode, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    resizeImage(e.target.result, 800, 0.7, function(resizedDataUrl) {
+      photoData[mode] = resizedDataUrl;
+      // Photo is captured and stored, but we only show a small confirmation - not a full preview.
+      document.getElementById(mode + 'PhotoStatus').style.display = 'block';
+    });
   };
+  reader.readAsDataURL(file);
+  input.value = ''; // allow capturing the same file again if needed
+}
 
-  const msgEl = document.getElementById('addMsg');
-  function showAddMsg(cls, text) {
-    msgEl.className = 'msg ' + cls;
-    msgEl.textContent = text;
-    msgEl.style.display = 'block';
+// Shrinks the photo client-side (max 800px wide, JPEG ~70% quality) before it's sent, so a
+// batch of several entries doesn't turn into a huge upload.
+function resizeImage(dataUrl, maxWidth, quality, callback) {
+  const img = new Image();
+  img.onload = function() {
+    let w = img.width, h = img.height;
+    if (w > maxWidth) { h = Math.round(h * (maxWidth / w)); w = maxWidth; }
+    const canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    callback(canvas.toDataURL('image/jpeg', quality));
+  };
+  img.src = dataUrl;
+}
+
+function clearPhoto(mode) {
+  photoData[mode] = null;
+  document.getElementById(mode + 'PhotoStatus').style.display = 'none';
+}
+
+// ---------------- ENTRY QUEUE (add multiple rows, then submit all at once) ----------------
+const queues = { in: [], out: [] };
+
+function addToQueue(mode) {
+  const sku = document.getElementById(mode + 'Sku').value.trim();
+  const name = document.getElementById(mode + 'ItemName').textContent;
+  const qty = Number(document.getElementById(mode + 'Qty').value);
+
+  if (!sku || !name) { showMsg(mode, 'err', '❌ Scan an item first.'); return; }
+  if (!qty || qty <= 0) { showMsg(mode, 'err', '❌ Enter a valid quantity.'); return; }
+
+  const row = { sku: sku, name: name, qty: qty, photo: photoData[mode] };
+  if (mode === 'out') {
+    const branch = document.getElementById('outBranch').value;
+    if (!branch) { showMsg('out', 'err', '⚠️ Please select a branch first.'); return; }
+    row.branch = branch;
   }
 
-  if (!payload.itemName) { showAddMsg('err', '⚠️ Item name is required.'); return; }
-  if (!payload.locationCode) { showAddMsg('err', '⚠️ Please choose a rack / zone code.'); return; }
-  if (payload.barcodeMode === 'existing' && !payload.existingBarcode) {
-    showAddMsg('err', '⚠️ Scan or type the existing barcode.'); return;
+  queues[mode].push(row);
+  renderQueue(mode);
+  showMsg(mode, 'ok', '✅ Added to list: ' + name + ' x ' + qty);
+  resetForm(mode);
+}
+
+function removeQueueRow(mode, index) {
+  queues[mode].splice(index, 1);
+  renderQueue(mode);
+}
+
+function renderQueue(mode) {
+  const list = queues[mode];
+  const table = document.getElementById(mode + 'QueueTable');
+  const summary = document.getElementById(mode + 'QueueSummary');
+  const finalBtn = document.getElementById(mode + 'FinalSubmitBtn');
+
+  if (!list.length) {
+    table.innerHTML = '';
+    summary.textContent = 'No entries added yet.';
+    finalBtn.disabled = true;
+    return;
   }
 
-  const btn = document.getElementById('addSubmitBtn');
-  btn.disabled = true;
-  btn.textContent = 'Creating…';
-  callApi('addItem', { payload: payload }).then(res => {
-    btn.disabled = false;
-    btn.textContent = '✅ Create Item';
-    if (res.success) {
-      showAddMsg('ok', '✅ ' + res.message);
-      document.getElementById('addName').value = '';
-      document.getElementById('addCategory').value = '';
-      document.getElementById('addExistingBarcode').value = '';
-      document.getElementById('addReorder').value = 0;
-      setTimeout(() => { if (formOpenForTab) handleTableActionClick(); }, 900); // pop back to the list showing the new item
+  const branchCol = mode === 'out' ? '<th>Branch</th>' : '';
+  const rowsHtml = list.map((r, i) => {
+    const branchCell = mode === 'out' ? '<td>' + r.branch + '</td>' : '';
+    const photoCell = '<td>' + (r.photo ? '📷' : '—') + '</td>';
+    const nameCell = '<td>' + r.name + (r.lastError ? '<br><span style="color:var(--warn);font-size:11px;">⚠️ ' + r.lastError + '</span>' : '') + '</td>';
+    return '<tr>' + nameCell + '<td>' + r.qty + '</td>' + branchCell + photoCell +
+      '<td><button class="queue-row-del" onclick="removeQueueRow(\'' + mode + '\',' + i + ')">✕</button></td></tr>';
+  }).join('');
+
+  table.innerHTML = '<tr><th>Item</th><th>Qty</th>' + branchCol + '<th>Photo</th><th></th></tr>' + rowsHtml;
+  summary.textContent = list.length + ' item' + (list.length === 1 ? '' : 's') + ' ready to submit.';
+  finalBtn.disabled = false;
+}
+
+// Submits every queued row one by one, shows progress, and clears only the ones that succeed
+// (failed rows stay in the list so nothing gets silently lost).
+// Submits the WHOLE queue in ONE call to the server (instead of one round-trip per item) - this
+// is what makes Final Submit fast even with several entries. The server writes all rows in one
+// bulk operation and refreshes the stock ledger only once at the end.
+function finalSubmit(mode) {
+  const list = queues[mode];
+  if (!list.length) return;
+
+  const finalBtn = document.getElementById(mode + 'FinalSubmitBtn');
+  finalBtn.disabled = true;
+  finalBtn.innerHTML = '<span class="spinner"></span>Submitting ' + list.length + ' ' + (list.length === 1 ? 'entry' : 'entries') + '…';
+
+  const action = mode === 'in' ? 'logBatchInward' : 'logBatchOutward';
+  const entries = list.map(row => mode === 'in'
+    ? { sku: row.sku, qty: row.qty, photo: row.photo }
+    : { sku: row.sku, qty: row.qty, branch: row.branch, photo: row.photo });
+
+  callApi(action, { entries: entries }).then(results => {
+    const stillFailed = [];
+    let successCount = 0;
+    (results || []).forEach((res, i) => {
+      if (res.success) {
+        successCount++;
+      } else {
+        list[i].lastError = res.message || 'Unknown error';
+        stillFailed.push(list[i]);
+      }
+    });
+
+    queues[mode] = stillFailed;
+    renderQueue(mode);
+    finalBtn.disabled = false;
+    finalBtn.textContent = '✅ Final Submit';
+    if (stillFailed.length) {
+      showMsg(mode, 'err', '⚠️ ' + successCount + ' submitted, ' + stillFailed.length +
+        ' failed. See the error under each failed item below - tap ⚙️ → 🔧 Test Connection to diagnose.');
     } else {
-      showAddMsg('err', '❌ ' + res.message);
+      showMsg(mode, 'ok', '✅ All ' + successCount + ' entries submitted successfully.');
     }
   }).catch(err => {
-    btn.disabled = false;
-    btn.textContent = '✅ Create Item';
-    showAddMsg('err', '❌ ' + err.message);
+    finalBtn.disabled = false;
+    finalBtn.textContent = '✅ Final Submit';
+    showMsg(mode, 'err', '❌ ' + err.message);
   });
 }
 
-// ---------------- MANAGE BRANCHES (merged into the Branches tab) ----------------
-function addBranchFromAdmin() {
-  const nameInput = document.getElementById('newBranchName');
-  const name = nameInput.value.trim();
-  const msgEl = document.getElementById('branchMsg');
-  function showBranchMsg(cls, text) {
-    msgEl.className = 'msg ' + cls;
-    msgEl.textContent = text;
-    msgEl.style.display = 'block';
-  }
-  if (!name) { showBranchMsg('err', '⚠️ Enter a branch name.'); return; }
-
-  callApi('addBranch', { branchName: name }).then(res => {
-    if (res.success) {
-      showBranchMsg('ok', '✅ ' + res.message);
-      nameInput.value = '';
-      setTimeout(() => { if (formOpenForTab) handleTableActionClick(); }, 700); // pop back to the list showing the new branch
-    } else {
-      showBranchMsg('err', '❌ ' + res.message);
-    }
-  }).catch(err => showBranchMsg('err', '❌ ' + err.message));
-}
-
-function deleteBranchFromAdmin(name) {
-  if (!confirm('Delete branch "' + name + '" permanently? This cannot be undone.')) return;
-  callApi('deleteBranch', { branchName: name }).then(res => {
-    if (!res.success) alert('❌ ' + res.message);
-    loadCurrentTable();
-  }).catch(err => alert('❌ ' + err.message));
-}
-
-// ---------------- DASHBOARD (Godown vs Branch-wise stock, dropdown-driven) ----------------
-const GODOWN_OPTION_VALUE = '__GODOWN__';
-let locationStockData = null;
-
-function loadLocationStock(preserveSelection) {
-  const sel = document.getElementById('locationSelect');
-  const keepValue = preserveSelection ? sel.value : null;
-  sel.innerHTML = '<option value="">Loading…</option>';
-  document.getElementById('locationStatsRow').innerHTML = '';
-  document.getElementById('locationDetailWrap').innerHTML = '';
-
-  callApi('getLocationStock').then(data => {
-    locationStockData = data;
-    const branches = data.branches || [];
-    sel.innerHTML = '<option value="' + GODOWN_OPTION_VALUE + '">🏭 Savali Godown</option>' +
-      branches.map(b => '<option value="' + b.name + '">🏬 ' + b.name + '</option>').join('');
-    // Keep whatever was selected before a refresh (e.g. right after logging a stock-out) instead
-    // of always jumping back to Godown - but a fresh page load still defaults to Godown.
-    sel.value = (keepValue && Array.from(sel.options).some(o => o.value === keepValue)) ? keepValue : GODOWN_OPTION_VALUE;
-    renderSelectedLocation();
-  }).catch(err => {
-    sel.innerHTML = '<option value="">⚠️ Error</option>';
-    document.getElementById('locationStatsRow').innerHTML =
-      '<div class="stat"><div class="num">❌</div><div class="lbl">' + err.message + '</div></div>';
-  });
-}
-
-function renderSelectedLocation() {
-  if (!locationStockData) return;
-  const sel = document.getElementById('locationSelect');
-  const isGodown = sel.value === GODOWN_OPTION_VALUE;
-  const stockOutCard = document.getElementById('logStockOutCard');
-
-  if (isGodown) {
-    stockOutCard.style.display = 'none';
-    const godown = locationStockData.godown || { totalUnits: 0, items: [] };
-    document.getElementById('locationStatsRow').innerHTML =
-      '<div class="stat"><div class="num">' + godown.totalUnits + '</div><div class="lbl">🏭 Savali Godown (units in stock)</div></div>';
-    document.getElementById('locationDetailWrap').innerHTML =
-      '<div class="section-title">🏭 Savali Godown — Item-wise Current Stock (Stock In − Stock Out to all branches)</div>' +
-      buildLocationTable(['SKU', 'Item', 'Rack/Location', 'Current Stock'], godown.items.map(it => [it.sku, it.name, it.location, it.stock]));
-  } else {
-    stockOutCard.style.display = 'block';
-    const branch = (locationStockData.branches || []).find(b => b.name === sel.value) ||
-      { name: sel.value, totalUnits: 0, totalReceived: 0, totalStockOut: 0, items: [] };
-    document.getElementById('locationStatsRow').innerHTML =
-      '<div class="stat"><div class="num">' + branch.totalReceived + '</div><div class="lbl">📥 Received (units)</div></div>' +
-      '<div class="stat"><div class="num">' + branch.totalStockOut + '</div><div class="lbl">➖ Stock-Out (units)</div></div>' +
-      '<div class="stat"><div class="num">' + branch.totalUnits + '</div><div class="lbl">🏬 ' + branch.name + ' Net Stock</div></div>';
-    document.getElementById('locationDetailWrap').innerHTML =
-      '<div class="section-title">🏬 ' + branch.name + ' — Item-wise Stock (Received from Godown − Branch\'s Own Stock-Out)</div>' +
-      buildLocationTable(['SKU', 'Item', 'Received', 'Stock-Out', 'Net Stock'],
-        branch.items.map(it => [it.sku, it.name, it.received, it.stockOut, it.net]));
-  }
-}
-
-function submitBranchStockOut() {
-  const sel = document.getElementById('locationSelect');
-  const branch = sel.value !== GODOWN_OPTION_VALUE ? sel.value : '';
-  const sku = document.getElementById('stockOutSku').value.trim();
-  const qty = document.getElementById('stockOutQty').value;
-  const remarks = document.getElementById('stockOutRemarks').value.trim();
-  const msgEl = document.getElementById('stockOutMsg');
-  function showMsg(cls, text) {
-    msgEl.className = 'msg ' + cls;
-    msgEl.textContent = text;
-    msgEl.style.display = 'block';
-  }
-  if (!branch) { showMsg('err', '⚠️ Select a branch first (not Savali Godown).'); return; }
-  if (!sku) { showMsg('err', '⚠️ Enter the SKU code.'); return; }
-  if (!qty || Number(qty) <= 0) { showMsg('err', '⚠️ Enter a valid quantity.'); return; }
-
-  callApi('logBranchStockOut', { branch: branch, sku: sku, qty: qty, remarks: remarks }).then(res => {
-    if (res.success) {
-      showMsg('ok', '✅ ' + res.message);
-      document.getElementById('stockOutSku').value = '';
-      document.getElementById('stockOutQty').value = '';
-      document.getElementById('stockOutRemarks').value = '';
-      loadLocationStock(true); // refresh figures, keeping the same branch selected
-    } else {
-      showMsg('err', '❌ ' + res.message);
-    }
-  }).catch(err => showMsg('err', '❌ ' + err.message));
-}
-
-function buildLocationTable(headers, rows) {
-  const thead = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead>';
-  const tbody = rows.length
-    ? '<tbody>' + rows.map(r => '<tr>' + r.map(v => '<td>' + (v === null || v === undefined ? '' : v) + '</td>').join('') + '</tr>').join('') + '</tbody>'
-    : '<tbody><tr><td colspan="' + headers.length + '" class="empty-msg">No stock recorded yet.</td></tr></tbody>';
-  return '<div class="location-table-wrap"><table>' + thead + tbody + '</table></div>';
+function resetForm(mode) {
+  document.getElementById(mode + 'Sku').value = '';
+  document.getElementById(mode + 'Qty').value = '';
+  clearPhoto(mode);
+  document.getElementById(mode + 'ItemBox').style.display = 'none';
+  document.getElementById(mode + 'SubmitBtn').disabled = true;
+  document.getElementById(mode + 'Sku').focus();
+  syncTopButton();
 }
 </script>
 </body>
