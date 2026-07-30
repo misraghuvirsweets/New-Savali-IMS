@@ -66,6 +66,7 @@
     background:rgba(109,41,50,0.75);color:#fff;font-size:12px;font-weight:700;
     display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.2;
     cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.4);padding:4px;
+    z-index:999;
   }
   .tap-to-scan-btn:active{background:rgba(109,41,50,0.95);transform:translate(-50%,-50%) scale(0.96);}
   .scan-detected-label{font-size:12px;color:var(--maroon-dark);text-align:center;min-height:16px;margin-bottom:10px;}
@@ -436,6 +437,21 @@ function toggleCamera(mode) {
     slot.style.display = 'block';
     currentCameraMode = mode;
     resetLiveDetected(mode);
+
+    // Wait for the browser to actually finish laying out the box we just un-hid before starting
+    // the camera. html5-qrcode measures the container's size immediately on start(); if that
+    // happens in the same tick as display:block, some browsers still report 0 width/height,
+    // which can result in a black box with no visible video and no scan overlay at all.
+    requestAnimationFrame(() => requestAnimationFrame(() => startCameraFor(mode)));
+  } catch (err) {
+    alert('Could not start the camera scanner: ' + err.message + '\nYou can still type or use a USB scanner into the text box.');
+    slot.style.display = 'none';
+  }
+}
+
+function startCameraFor(mode) {
+  const slot = document.getElementById('reader-' + mode);
+  try {
     html5QrCode = new Html5Qrcode(READER_IDS[mode]);
 
     // Called on every frame a QR code is decoded - just updates the live "in view" label.
@@ -448,7 +464,17 @@ function toggleCamera(mode) {
       // so tapping the button doesn't accidentally reuse a stale code from a moment ago.
       resetLiveDetected(mode);
     };
-    const config = { fps: 10, qrbox: { width: 230, height: 230 }, aspectRatio: 1.0 };
+    // qrbox as a function (rather than a fixed pixel size) asks html5-qrcode to size the scan
+    // box relative to the ACTUAL rendered video dimensions - this avoids requesting a box bigger
+    // than the container (which can silently break rendering on narrow phone screens).
+    const config = {
+      fps: 10,
+      qrbox: (viewfinderWidth, viewfinderHeight) => {
+        const edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.7);
+        return { width: edge, height: edge };
+      },
+      aspectRatio: 1.0
+    };
 
     // Prefer an explicit rear/back camera by device label (more reliable on Android than the
     // generic facingMode constraint, which some devices/browsers ignore); fall back to facingMode
