@@ -428,6 +428,8 @@ async function toggleCamera(mode) {
     slot.style.display = 'block';
     currentCameraMode = mode;
     resetLiveDetected(mode);
+    const hintEl = document.getElementById('scanProgress-' + mode);
+    if (hintEl) hintEl.textContent = '📌 If codes are close together, bring the camera in close so only ONE is visible in the box.';
 
     // Wait for the browser to actually finish laying out the box we just un-hid before starting
     // the camera. html5-qrcode measures the container's size immediately on start(); if that
@@ -466,17 +468,20 @@ async function startCameraFor(mode) {
       lookupSku(mode);
     };
     const onScanFailure = () => {
-      // No code decoded in this frame (camera moved off any code) - clear the "in view" label
-      // so tapping the button doesn't accidentally reuse a stale code from a moment ago.
-      resetLiveDetected(mode);
+      // No code decoded in this frame - nothing to do, the hint text stays visible until a
+      // code is actually found (handled in onScanSuccess) or the camera is closed.
     };
     // qrbox as a function (rather than a fixed pixel size) asks html5-qrcode to size the scan
     // box relative to the ACTUAL rendered video dimensions - this avoids requesting a box bigger
     // than the container (which can silently break rendering on narrow phone screens).
     const config = {
       fps: 10,
+      // A SMALLER box (relative to the camera view) on purpose: when several QR codes sit close
+      // together, a wide detection zone can catch more than one at a time and there's no telling
+      // which one gets used. Shrinking the zone means you have to physically bring the camera
+      // in close so only ONE code fills the frame - the neighbors simply don't fit anymore.
       qrbox: (viewfinderWidth, viewfinderHeight) => {
-        const edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.7);
+        const edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.4);
         return { width: edge, height: edge };
       },
       aspectRatio: 1.0
