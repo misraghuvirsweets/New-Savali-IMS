@@ -77,6 +77,7 @@
   <input type="text" id="searchBox" placeholder="🔍 Search this table…" oninput="applyFilter()">
   <select id="extraFilterSelect" style="display:none;flex:0 0 auto;min-width:160px;" onchange="applyFilter()"><option value="">All</option></select>
   <button class="btn-primary" id="tableActionBtn" style="display:none;" onclick="handleTableActionClick()"></button>
+  <button class="btn-secondary" id="bulkAssignBtn" style="display:none;" onclick="handleBulkAssignClick()">🧩 Bulk Assign SKUs</button>
   <button class="btn-secondary" onclick="loadCurrentTable()">🔄 Refresh</button>
   <span class="count-badge" id="countBadge"></span>
 </div>
@@ -251,10 +252,42 @@ function setupTableActionButton() {
   formOpenForTab = false;
   if (!config) {
     btn.style.display = 'none';
-    return;
+  } else {
+    btn.style.display = 'inline-block';
+    btn.textContent = config.label;
   }
-  btn.style.display = 'inline-block';
-  btn.textContent = config.label;
+
+  document.getElementById('bulkAssignBtn').style.display = (currentTableKey === 'Item_Master') ? 'inline-block' : 'none';
+}
+
+function handleBulkAssignClick() {
+  const defaultLoc = prompt(
+    'Assign SKUs to every item that has a name but no SKU Code yet.\n\n' +
+    'Items that already have a Location Code filled in will use that. For items with NO ' +
+    'Location Code, enter a default Rack/Zone code to use (e.g. RACK-002-A or NR-STORE01) - ' +
+    'or leave this blank to skip those for now.'
+  );
+  if (defaultLoc === null) return; // cancelled
+
+  const btn = document.getElementById('bulkAssignBtn');
+  btn.disabled = true;
+  btn.textContent = 'Working…';
+  callApi('bulkAssignSkus', { defaultLocationCode: defaultLoc.trim() }).then(res => {
+    btn.disabled = false;
+    btn.textContent = '🧩 Bulk Assign SKUs';
+    if (res.error) { alert('❌ ' + res.error); return; }
+    let msg = '✅ Assigned SKUs to ' + res.assigned + ' item(s).';
+    if (res.skipped) {
+      msg += '\n\n⚠️ Skipped ' + res.skipped + ' item(s) with no Location Code and no default given:\n' +
+        res.skippedNames.slice(0, 15).join(', ') + (res.skippedNames.length > 15 ? ', ...' : '');
+    }
+    alert(msg);
+    loadCurrentTable();
+  }).catch(err => {
+    btn.disabled = false;
+    btn.textContent = '🧩 Bulk Assign SKUs';
+    alert('❌ ' + err.message);
+  });
 }
 
 function handleTableActionClick() {
