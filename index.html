@@ -375,7 +375,8 @@ async function stopCamera() {
   html5QrCode = null;
   ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; resetLiveDetected(m); });
   if (instance) {
-    try { await instance.stop(); instance.clear(); } catch (e) { /* already stopped/never started - fine */ }
+    try { await instance.stop(); } catch (e) { /* already stopped/never started - fine */ }
+    try { await instance.clear(); } catch (e) { /* clear() can be sync/void in some versions - fine either way */ }
   }
 }
 
@@ -445,6 +446,14 @@ async function toggleCamera(mode) {
 async function startCameraFor(mode) {
   const slot = document.getElementById('reader-' + mode);
   try {
+    // Forcibly wipe the container before starting a new session. html5-qrcode's own clear()
+    // doesn't always fully remove the previous session's internal <video>/<canvas> elements
+    // before a new instance targets the same container - leftover elements from the first scan
+    // can then conflict with the second one and render as a plain black screen instead of a
+    // live feed. Rebuilding the container from scratch guarantees a truly clean slate every time.
+    const container = document.getElementById(READER_IDS[mode]);
+    if (container) container.innerHTML = '';
+
     const qr = new Html5Qrcode(READER_IDS[mode]);
     html5QrCode = qr;
 
