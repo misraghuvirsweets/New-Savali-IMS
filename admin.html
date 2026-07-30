@@ -67,6 +67,7 @@
 
 <div class="toolbar" id="toolbarView">
   <input type="text" id="searchBox" placeholder="🔍 Search this table…" oninput="applyFilter()">
+  <select id="extraFilterSelect" style="display:none;flex:0 0 auto;min-width:160px;" onchange="applyFilter()"><option value="">All</option></select>
   <button class="btn-secondary" onclick="loadCurrentTable()">🔄 Refresh</button>
   <span class="count-badge" id="countBadge"></span>
 </div>
@@ -113,6 +114,18 @@
   <button class="btn-primary" id="addSubmitBtn" onclick="submitAddItem()" style="width:100%;">✅ Create Item</button>
 </div>
 
+<div class="card" id="manageBranchesView" style="display:none;max-width:1100px;margin:10px auto 24px;">
+  <label>Add New Branch</label>
+  <div style="display:flex;gap:10px;">
+    <input type="text" id="newBranchName" placeholder="e.g. New Outlet Name" style="flex:1;">
+    <button class="btn-primary" onclick="addBranchFromAdmin()" style="flex:0 0 auto;">➕ Add Branch</button>
+  </div>
+  <div class="msg" id="branchMsg"></div>
+
+  <label style="margin-top:10px;">Existing Branches</label>
+  <table id="branchListTable"><tbody><tr><td>Loading…</td></tr></tbody></table>
+</div>
+
 <script>
 const TABLES = [
   { key: 'Item_Master',   label: '📦 Item Master' },
@@ -124,6 +137,7 @@ const TABLES = [
   { key: 'Racks',         label: '🗄️ Racks' }
 ];
 const ADD_ITEM_KEY = 'AddItem'; // special tab - shows a form instead of a table
+const MANAGE_BRANCHES_KEY = 'ManageBranches'; // special tab - add/delete branches
 
 // ============================= PASTE YOUR WEB APP URL BELOW ======================================
 // After deploying WebApp.gs in Apps Script (Deploy > New deployment > Web app), copy the URL
@@ -177,7 +191,10 @@ function callApi(action, data) {
 
 function buildTabs() {
   const bar = document.getElementById('tabBar');
-  const allTabs = TABLES.concat([{ key: ADD_ITEM_KEY, label: '➕ Add Item' }]);
+  const allTabs = TABLES.concat([
+    { key: ADD_ITEM_KEY, label: '➕ Add Item' },
+    { key: MANAGE_BRANCHES_KEY, label: '🏬 Manage Branches' }
+  ]);
   bar.innerHTML = allTabs.map(t =>
     '<div class="tab' + (t.key === currentTableKey ? ' active' : '') + '" data-key="' + t.key + '">' + t.label + '</div>'
   ).join('');
@@ -188,6 +205,8 @@ function buildTabs() {
       buildTabs();
       if (currentTableKey === ADD_ITEM_KEY) {
         showAddItemView();
+      } else if (currentTableKey === MANAGE_BRANCHES_KEY) {
+        showManageBranchesView();
       } else {
         showTableView();
         loadCurrentTable();
@@ -200,14 +219,31 @@ function showTableView() {
   document.getElementById('toolbarView').style.display = 'flex';
   document.getElementById('tableView').style.display = 'block';
   document.getElementById('addItemView').style.display = 'none';
+  document.getElementById('manageBranchesView').style.display = 'none';
 }
 
 function showAddItemView() {
   document.getElementById('toolbarView').style.display = 'none';
   document.getElementById('tableView').style.display = 'none';
   document.getElementById('addItemView').style.display = 'block';
+  document.getElementById('manageBranchesView').style.display = 'none';
   loadRacksForAddItem();
 }
+
+function showManageBranchesView() {
+  document.getElementById('toolbarView').style.display = 'none';
+  document.getElementById('tableView').style.display = 'none';
+  document.getElementById('addItemView').style.display = 'none';
+  document.getElementById('manageBranchesView').style.display = 'block';
+  loadBranchListForManage();
+}
+
+// Which column (by header name, case-insensitive) the extra filter dropdown should group by,
+// per table - only these two tables get the dropdown; others just get the search box.
+const EXTRA_FILTER_CONFIG = {
+  'Stock_Ledger': { headerMatch: 'location', label: 'Filter by Rack/Location' },
+  'Branch_Ledger': { headerMatch: 'branch', label: 'Filter by Branch' }
+};
 
 function loadCurrentTable() {
   document.getElementById('dataTable').innerHTML = '<thead><tr><th>Loading…</th></tr></thead><tbody></tbody>';
@@ -215,6 +251,7 @@ function loadCurrentTable() {
   callApi('getSheetData', { sheetName: currentTableKey }).then(res => {
     currentHeaders = res.headers || [];
     currentRows = res.rows || [];
+    setupExtraFilter();
     renderTable(currentRows);
   }).catch(err => {
     document.getElementById('dataTable').innerHTML =
@@ -222,18 +259,45 @@ function loadCurrentTable() {
   });
 }
 
+function setupExtraFilter() {
+  const wrap = document.getElementById('extraFilterSelect');
+  const config = EXTRA_FILTER_CONFIG[currentTableKey];
+  if (!config) {
+    wrap.style.display = 'none';
+    wrap.innerHTML = '<option value="">All</option>';
+    return;
+  }
+  const colIdx = currentHeaders.findIndex(h => String(h).toLowerCase().indexOf(config.headerMatch) !== -1);
+  if (colIdx === -1) { wrap.style.display = 'none'; return; }
+
+  const values = Array.from(new Set(currentRows.map(r => r[colIdx]).filter(v => v))).sort();
+  wrap.innerHTML = '<option value="">' + config.label + ' (All)</option>' +
+    values.map(v => '<option value="' + v + '">' + v + '</option>').join('');
+  wrap.dataset.colIdx = colIdx;
+  wrap.style.display = 'block';
+}
+
 function renderTable(rows) {
-  const thead = '<thead><tr>' + currentHeaders.map(h => '<th>' + h + '</th>').join('') + '</tr></thead>';
+  const isItemMaster = currentTableKey === 'Item_Master';
+  const skuIdx = isItemMaster ? currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('sku') !== -1) : -1;
+
+  const thead = '<thead><tr>' + currentHeaders.map(h => '<th>' + h + '</th>').join('') +
+    (isItemMaster ? '<th>Action</th>' : '') + '</tr></thead>';
+
   let tbody;
   if (!rows.length) {
-    tbody = '<tbody><tr><td colspan="' + Math.max(currentHeaders.length, 1) + '" class="empty-msg">No records yet.</td></tr></tbody>';
+    tbody = '<tbody><tr><td colspan="' + Math.max(currentHeaders.length + (isItemMaster ? 1 : 0), 1) + '" class="empty-msg">No records yet.</td></tr></tbody>';
   } else {
-    tbody = '<tbody>' + rows.map(r =>
-      '<tr>' + r.map((c, i) => {
+    tbody = '<tbody>' + rows.map(r => {
+      const cells = r.map((c, i) => {
         const isStatusCol = currentHeaders[i] === 'Status' && String(c).indexOf('LOW') !== -1;
         return '<td' + (isStatusCol ? ' class="lowstock"' : '') + '>' + (c === null || c === undefined ? '' : c) + '</td>';
-      }).join('') + '</tr>'
-    ).join('') + '</tbody>';
+      }).join('');
+      const actionCell = isItemMaster && skuIdx !== -1
+        ? '<td><button class="queue-row-del" style="background:none;border:none;color:var(--warn);font-weight:700;cursor:pointer;" onclick="deleteItemRow(\'' + String(r[skuIdx]).replace(/'/g, "\\'") + '\')">🗑️ Delete</button></td>'
+        : '';
+      return '<tr>' + cells + actionCell + '</tr>';
+    }).join('') + '</tbody>';
   }
   document.getElementById('dataTable').innerHTML = thead + tbody;
   document.getElementById('countBadge').textContent = rows.length + ' row' + (rows.length === 1 ? '' : 's');
@@ -241,10 +305,31 @@ function renderTable(rows) {
 
 function applyFilter() {
   const q = document.getElementById('searchBox').value.trim().toLowerCase();
-  if (!q) { renderTable(currentRows); return; }
-  const filtered = currentRows.filter(r => r.some(c => String(c || '').toLowerCase().indexOf(q) !== -1));
+  const filterSel = document.getElementById('extraFilterSelect');
+  const filterVal = filterSel.style.display !== 'none' ? filterSel.value : '';
+  const colIdx = filterSel.dataset.colIdx !== undefined ? Number(filterSel.dataset.colIdx) : -1;
+
+  let filtered = currentRows;
+  if (filterVal && colIdx !== -1) {
+    filtered = filtered.filter(r => String(r[colIdx]) === filterVal);
+  }
+  if (q) {
+    filtered = filtered.filter(r => r.some(c => String(c || '').toLowerCase().indexOf(q) !== -1));
+  }
+
   renderTable(filtered);
   document.getElementById('countBadge').textContent = filtered.length + ' of ' + currentRows.length + ' rows';
+}
+
+function deleteItemRow(sku) {
+  if (!confirm('Delete item "' + sku + '" permanently? This cannot be undone.')) return;
+  callApi('deleteItem', { sku: sku }).then(res => {
+    if (res.success) {
+      loadCurrentTable();
+    } else {
+      alert('❌ ' + res.message);
+    }
+  }).catch(err => alert('❌ ' + err.message));
 }
 
 window.onload = function() {
@@ -331,6 +416,59 @@ function submitAddItem() {
     btn.textContent = '✅ Create Item';
     showAddMsg('err', '❌ ' + err.message);
   });
+}
+
+// ---------------- MANAGE BRANCHES ----------------
+function loadBranchListForManage() {
+  const table = document.getElementById('branchListTable');
+  table.innerHTML = '<tbody><tr><td>Loading…</td></tr></tbody>';
+  callApi('getSheetData', { sheetName: 'Branches' }).then(res => {
+    const headers = res.headers || [];
+    const rows = res.rows || [];
+    const nameIdx = headers.findIndex(h => String(h).toLowerCase().indexOf('name') !== -1);
+    if (!rows.length) {
+      table.innerHTML = '<tbody><tr><td class="empty-msg">No branches yet.</td></tr></tbody>';
+      return;
+    }
+    const body = rows.map(r => {
+      const name = nameIdx !== -1 ? r[nameIdx] : r[0];
+      return '<tr><td>' + r.join('</td><td>') + '</td><td><button style="background:none;border:none;color:var(--warn);font-weight:700;cursor:pointer;" onclick="deleteBranchFromAdmin(\'' +
+        String(name).replace(/'/g, "\\'") + '\')">🗑️ Delete</button></td></tr>';
+    }).join('');
+    table.innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '<th>Action</th></tr></thead><tbody>' + body + '</tbody>';
+  }).catch(err => {
+    table.innerHTML = '<tbody><tr><td>❌ ' + err.message + '</td></tr></tbody>';
+  });
+}
+
+function addBranchFromAdmin() {
+  const nameInput = document.getElementById('newBranchName');
+  const name = nameInput.value.trim();
+  const msgEl = document.getElementById('branchMsg');
+  function showBranchMsg(cls, text) {
+    msgEl.className = 'msg ' + cls;
+    msgEl.textContent = text;
+    msgEl.style.display = 'block';
+  }
+  if (!name) { showBranchMsg('err', '⚠️ Enter a branch name.'); return; }
+
+  callApi('addBranch', { branchName: name }).then(res => {
+    if (res.success) {
+      showBranchMsg('ok', '✅ ' + res.message);
+      nameInput.value = '';
+      loadBranchListForManage();
+    } else {
+      showBranchMsg('err', '❌ ' + res.message);
+    }
+  }).catch(err => showBranchMsg('err', '❌ ' + err.message));
+}
+
+function deleteBranchFromAdmin(name) {
+  if (!confirm('Delete branch "' + name + '" permanently? This cannot be undone.')) return;
+  callApi('deleteBranch', { branchName: name }).then(res => {
+    if (!res.success) alert('❌ ' + res.message);
+    loadBranchListForManage();
+  }).catch(err => alert('❌ ' + err.message));
 }
 </script>
 </body>
