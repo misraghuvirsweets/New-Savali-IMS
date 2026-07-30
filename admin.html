@@ -75,6 +75,7 @@
 <div class="toolbar" id="toolbarView">
   <input type="text" id="searchBox" placeholder="🔍 Search this table…" oninput="applyFilter()">
   <select id="extraFilterSelect" style="display:none;flex:0 0 auto;min-width:160px;" onchange="applyFilter()"><option value="">All</option></select>
+  <button class="btn-primary" id="tableActionBtn" style="display:none;" onclick="handleTableActionClick()"></button>
   <button class="btn-secondary" onclick="loadCurrentTable()">🔄 Refresh</button>
   <span class="count-badge" id="countBadge"></span>
 </div>
@@ -87,6 +88,10 @@
 </div>
 
 <div id="dashboardView" style="display:none;">
+  <div class="card" style="max-width:1100px;margin:14px auto;">
+    <label>📍 Select Location</label>
+    <select id="locationSelect" onchange="renderSelectedLocation()"><option value="">Loading…</option></select>
+  </div>
   <div class="stats" id="locationStatsRow"></div>
   <div id="locationDetailWrap"></div>
 </div>
@@ -126,16 +131,13 @@
   <button class="btn-primary" id="addSubmitBtn" onclick="submitAddItem()" style="width:100%;">✅ Create Item</button>
 </div>
 
-<div class="card" id="manageBranchesView" style="display:none;max-width:1100px;margin:10px auto 24px;">
+<div class="card" id="addBranchView" style="display:none;max-width:1100px;margin:10px auto 24px;">
   <label>Add New Branch</label>
   <div style="display:flex;gap:10px;">
     <input type="text" id="newBranchName" placeholder="e.g. New Outlet Name" style="flex:1;">
     <button class="btn-primary" onclick="addBranchFromAdmin()" style="flex:0 0 auto;">➕ Add Branch</button>
   </div>
   <div class="msg" id="branchMsg"></div>
-
-  <label style="margin-top:10px;">Existing Branches</label>
-  <table id="branchListTable"><tbody><tr><td>Loading…</td></tr></tbody></table>
 </div>
 
 <script>
@@ -148,8 +150,6 @@ const TABLES = [
   { key: 'Branches',      label: '🏬 Branches' },
   { key: 'Racks',         label: '🗄️ Racks' }
 ];
-const ADD_ITEM_KEY = 'AddItem'; // special tab - shows a form instead of a table
-const MANAGE_BRANCHES_KEY = 'ManageBranches'; // special tab - add/delete branches
 const DASHBOARD_KEY = 'Dashboard'; // special tab - godown vs branch-wise stock overview
 
 // ============================= PASTE YOUR WEB APP URL BELOW ======================================
@@ -204,12 +204,7 @@ function callApi(action, data) {
 
 function buildTabs() {
   const bar = document.getElementById('tabBar');
-  const allTabs = [{ key: DASHBOARD_KEY, label: '📊 Dashboard' }]
-    .concat(TABLES)
-    .concat([
-      { key: ADD_ITEM_KEY, label: '➕ Add Item' },
-      { key: MANAGE_BRANCHES_KEY, label: '🏬 Manage Branches' }
-    ]);
+  const allTabs = [{ key: DASHBOARD_KEY, label: '📊 Dashboard' }].concat(TABLES);
   bar.innerHTML = allTabs.map(t =>
     '<div class="tab' + (t.key === currentTableKey ? ' active' : '') + '" data-key="' + t.key + '">' + t.label + '</div>'
   ).join('');
@@ -220,10 +215,6 @@ function buildTabs() {
       buildTabs();
       if (currentTableKey === DASHBOARD_KEY) {
         showDashboardView();
-      } else if (currentTableKey === ADD_ITEM_KEY) {
-        showAddItemView();
-      } else if (currentTableKey === MANAGE_BRANCHES_KEY) {
-        showManageBranchesView();
       } else {
         showTableView();
         loadCurrentTable();
@@ -232,11 +223,54 @@ function buildTabs() {
   });
 }
 
+// Which tabs get an extra action button in the toolbar (Add Item / Add Branch), and what that
+// button does - instead of separate tabs, the add-form now toggles inline on the same tab.
+const TABLE_ACTION_CONFIG = {
+  'Item_Master': { label: '➕ Add Item', formId: 'addItemView', onShow: 'loadRacksForAddItem' },
+  'Branches':    { label: '➕ Add Branch', formId: 'addBranchView' }
+};
+let formOpenForTab = false;
+
+function setupTableActionButton() {
+  const btn = document.getElementById('tableActionBtn');
+  const config = TABLE_ACTION_CONFIG[currentTableKey];
+  formOpenForTab = false;
+  if (!config) {
+    btn.style.display = 'none';
+    return;
+  }
+  btn.style.display = 'inline-block';
+  btn.textContent = config.label;
+}
+
+function handleTableActionClick() {
+  const config = TABLE_ACTION_CONFIG[currentTableKey];
+  if (!config) return;
+  const btn = document.getElementById('tableActionBtn');
+  const form = document.getElementById(config.formId);
+  formOpenForTab = !formOpenForTab;
+
+  if (formOpenForTab) {
+    document.getElementById('tableView').style.display = 'none';
+    document.getElementById('searchBox').style.display = 'none';
+    document.getElementById('extraFilterSelect').style.display = 'none';
+    form.style.display = 'block';
+    btn.textContent = '📋 Back to List';
+    if (config.onShow) window[config.onShow]();
+  } else {
+    form.style.display = 'none';
+    document.getElementById('tableView').style.display = 'block';
+    document.getElementById('searchBox').style.display = '';
+    btn.textContent = config.label;
+    loadCurrentTable();
+  }
+}
+
 function hideAllViews() {
   document.getElementById('toolbarView').style.display = 'none';
   document.getElementById('tableView').style.display = 'none';
   document.getElementById('addItemView').style.display = 'none';
-  document.getElementById('manageBranchesView').style.display = 'none';
+  document.getElementById('addBranchView').style.display = 'none';
   document.getElementById('dashboardView').style.display = 'none';
 }
 
@@ -244,18 +278,8 @@ function showTableView() {
   hideAllViews();
   document.getElementById('toolbarView').style.display = 'flex';
   document.getElementById('tableView').style.display = 'block';
-}
-
-function showAddItemView() {
-  hideAllViews();
-  document.getElementById('addItemView').style.display = 'block';
-  loadRacksForAddItem();
-}
-
-function showManageBranchesView() {
-  hideAllViews();
-  document.getElementById('manageBranchesView').style.display = 'block';
-  loadBranchListForManage();
+  document.getElementById('searchBox').style.display = '';
+  setupTableActionButton();
 }
 
 function showDashboardView() {
@@ -305,23 +329,31 @@ function setupExtraFilter() {
 
 function renderTable(rows) {
   const isItemMaster = currentTableKey === 'Item_Master';
+  const isBranches = currentTableKey === 'Branches';
   const skuIdx = isItemMaster ? currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('sku') !== -1) : -1;
+  const branchNameIdx = isBranches ? currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('name') !== -1) : -1;
+  const hasAction = (isItemMaster && skuIdx !== -1) || (isBranches && branchNameIdx !== -1);
 
   const thead = '<thead><tr>' + currentHeaders.map(h => '<th>' + h + '</th>').join('') +
-    (isItemMaster ? '<th>Action</th>' : '') + '</tr></thead>';
+    (hasAction ? '<th>Action</th>' : '') + '</tr></thead>';
 
   let tbody;
   if (!rows.length) {
-    tbody = '<tbody><tr><td colspan="' + Math.max(currentHeaders.length + (isItemMaster ? 1 : 0), 1) + '" class="empty-msg">No records yet.</td></tr></tbody>';
+    tbody = '<tbody><tr><td colspan="' + Math.max(currentHeaders.length + (hasAction ? 1 : 0), 1) + '" class="empty-msg">No records yet.</td></tr></tbody>';
   } else {
     tbody = '<tbody>' + rows.map(r => {
       const cells = r.map((c, i) => {
         const isStatusCol = currentHeaders[i] === 'Status' && String(c).indexOf('LOW') !== -1;
         return '<td' + (isStatusCol ? ' class="lowstock"' : '') + '>' + (c === null || c === undefined ? '' : c) + '</td>';
       }).join('');
-      const actionCell = isItemMaster && skuIdx !== -1
-        ? '<td><button class="queue-row-del" style="background:none;border:none;color:var(--warn);font-weight:700;cursor:pointer;" onclick="deleteItemRow(\'' + String(r[skuIdx]).replace(/'/g, "\\'") + '\')">🗑️ Delete</button></td>'
-        : '';
+      let actionCell = '';
+      if (isItemMaster && skuIdx !== -1) {
+        actionCell = '<td><button style="background:none;border:none;color:var(--warn);font-weight:700;cursor:pointer;" onclick="deleteItemRow(\'' +
+          String(r[skuIdx]).replace(/'/g, "\\'") + '\')">🗑️ Delete</button></td>';
+      } else if (isBranches && branchNameIdx !== -1) {
+        actionCell = '<td><button style="background:none;border:none;color:var(--warn);font-weight:700;cursor:pointer;" onclick="deleteBranchFromAdmin(\'' +
+          String(r[branchNameIdx]).replace(/'/g, "\\'") + '\')">🗑️ Delete</button></td>';
+      }
       return '<tr>' + cells + actionCell + '</tr>';
     }).join('') + '</tbody>';
   }
@@ -434,6 +466,7 @@ function submitAddItem() {
       document.getElementById('addCategory').value = '';
       document.getElementById('addExistingBarcode').value = '';
       document.getElementById('addReorder').value = 0;
+      setTimeout(() => { if (formOpenForTab) handleTableActionClick(); }, 900); // pop back to the list showing the new item
     } else {
       showAddMsg('err', '❌ ' + res.message);
     }
@@ -444,29 +477,7 @@ function submitAddItem() {
   });
 }
 
-// ---------------- MANAGE BRANCHES ----------------
-function loadBranchListForManage() {
-  const table = document.getElementById('branchListTable');
-  table.innerHTML = '<tbody><tr><td>Loading…</td></tr></tbody>';
-  callApi('getSheetData', { sheetName: 'Branches' }).then(res => {
-    const headers = res.headers || [];
-    const rows = res.rows || [];
-    const nameIdx = headers.findIndex(h => String(h).toLowerCase().indexOf('name') !== -1);
-    if (!rows.length) {
-      table.innerHTML = '<tbody><tr><td class="empty-msg">No branches yet.</td></tr></tbody>';
-      return;
-    }
-    const body = rows.map(r => {
-      const name = nameIdx !== -1 ? r[nameIdx] : r[0];
-      return '<tr><td>' + r.join('</td><td>') + '</td><td><button style="background:none;border:none;color:var(--warn);font-weight:700;cursor:pointer;" onclick="deleteBranchFromAdmin(\'' +
-        String(name).replace(/'/g, "\\'") + '\')">🗑️ Delete</button></td></tr>';
-    }).join('');
-    table.innerHTML = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '<th>Action</th></tr></thead><tbody>' + body + '</tbody>';
-  }).catch(err => {
-    table.innerHTML = '<tbody><tr><td>❌ ' + err.message + '</td></tr></tbody>';
-  });
-}
-
+// ---------------- MANAGE BRANCHES (merged into the Branches tab) ----------------
 function addBranchFromAdmin() {
   const nameInput = document.getElementById('newBranchName');
   const name = nameInput.value.trim();
@@ -482,7 +493,7 @@ function addBranchFromAdmin() {
     if (res.success) {
       showBranchMsg('ok', '✅ ' + res.message);
       nameInput.value = '';
-      loadBranchListForManage();
+      setTimeout(() => { if (formOpenForTab) handleTableActionClick(); }, 700); // pop back to the list showing the new branch
     } else {
       showBranchMsg('err', '❌ ' + res.message);
     }
@@ -493,38 +504,54 @@ function deleteBranchFromAdmin(name) {
   if (!confirm('Delete branch "' + name + '" permanently? This cannot be undone.')) return;
   callApi('deleteBranch', { branchName: name }).then(res => {
     if (!res.success) alert('❌ ' + res.message);
-    loadBranchListForManage();
+    loadCurrentTable();
   }).catch(err => alert('❌ ' + err.message));
 }
 
-// ---------------- DASHBOARD (Godown vs Branch-wise stock) ----------------
+// ---------------- DASHBOARD (Godown vs Branch-wise stock, dropdown-driven) ----------------
+const GODOWN_OPTION_VALUE = '__GODOWN__';
+let locationStockData = null;
+
 function loadLocationStock() {
-  document.getElementById('locationStatsRow').innerHTML = '<div class="stat"><div class="num">…</div><div class="lbl">Loading</div></div>';
+  const sel = document.getElementById('locationSelect');
+  sel.innerHTML = '<option value="">Loading…</option>';
+  document.getElementById('locationStatsRow').innerHTML = '';
   document.getElementById('locationDetailWrap').innerHTML = '';
-  callApi('getLocationStock').then(renderLocationStock).catch(err => {
+
+  callApi('getLocationStock').then(data => {
+    locationStockData = data;
+    const branches = data.branches || [];
+    sel.innerHTML = '<option value="' + GODOWN_OPTION_VALUE + '">🏭 Savali Godown</option>' +
+      branches.map(b => '<option value="' + b.name + '">🏬 ' + b.name + '</option>').join('');
+    sel.value = GODOWN_OPTION_VALUE; // Savali Godown selected by default
+    renderSelectedLocation();
+  }).catch(err => {
+    sel.innerHTML = '<option value="">⚠️ Error</option>';
     document.getElementById('locationStatsRow').innerHTML =
       '<div class="stat"><div class="num">❌</div><div class="lbl">' + err.message + '</div></div>';
   });
 }
 
-function renderLocationStock(data) {
-  const godown = data.godown || { totalUnits: 0, items: [] };
-  const branches = data.branches || [];
+function renderSelectedLocation() {
+  if (!locationStockData) return;
+  const sel = document.getElementById('locationSelect');
+  const isGodown = sel.value === GODOWN_OPTION_VALUE;
 
-  const statsHtml = ['<div class="stat"><div class="num">' + godown.totalUnits + '</div><div class="lbl">🏭 Savali Godown (units in stock)</div></div>']
-    .concat(branches.map(b => '<div class="stat"><div class="num">' + b.totalUnits + '</div><div class="lbl">🏬 ' + b.name + ' (units received)</div></div>'))
-    .join('');
-  document.getElementById('locationStatsRow').innerHTML = statsHtml;
-
-  let detailHtml = '<div class="section-title">🏭 Savali Godown — Item-wise Current Stock (Stock In − Stock Out to all branches)</div>' +
-    buildLocationTable(['SKU', 'Item', 'Rack/Location', 'Current Stock'], godown.items.map(it => [it.sku, it.name, it.location, it.stock]));
-
-  branches.forEach(b => {
-    detailHtml += '<div class="section-title">🏬 ' + b.name + ' — Item-wise Stock Received from Godown</div>' +
-      buildLocationTable(['SKU', 'Item', 'Qty Received'], b.items.map(it => [it.sku, it.name, it.qty]));
-  });
-
-  document.getElementById('locationDetailWrap').innerHTML = detailHtml;
+  if (isGodown) {
+    const godown = locationStockData.godown || { totalUnits: 0, items: [] };
+    document.getElementById('locationStatsRow').innerHTML =
+      '<div class="stat"><div class="num">' + godown.totalUnits + '</div><div class="lbl">🏭 Savali Godown (units in stock)</div></div>';
+    document.getElementById('locationDetailWrap').innerHTML =
+      '<div class="section-title">🏭 Savali Godown — Item-wise Current Stock (Stock In − Stock Out to all branches)</div>' +
+      buildLocationTable(['SKU', 'Item', 'Rack/Location', 'Current Stock'], godown.items.map(it => [it.sku, it.name, it.location, it.stock]));
+  } else {
+    const branch = (locationStockData.branches || []).find(b => b.name === sel.value) || { name: sel.value, totalUnits: 0, items: [] };
+    document.getElementById('locationStatsRow').innerHTML =
+      '<div class="stat"><div class="num">' + branch.totalUnits + '</div><div class="lbl">🏬 ' + branch.name + ' (units received)</div></div>';
+    document.getElementById('locationDetailWrap').innerHTML =
+      '<div class="section-title">🏬 ' + branch.name + ' — Item-wise Stock Received from Godown</div>' +
+      buildLocationTable(['SKU', 'Item', 'Qty Received'], branch.items.map(it => [it.sku, it.name, it.qty]));
+  }
 }
 
 function buildLocationTable(headers, rows) {
