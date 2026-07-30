@@ -351,6 +351,7 @@ function populateBranches(list) {
 // ---------------- CAMERA SCANNER ----------------
 let html5QrCode = null;
 let currentCameraMode = null;
+let cameraBusy = false; // guards against overlapping open/close calls (the actual bug fix below)
 
 const READER_IDS = { in: 'reader', out: 'reader2' };
 const TARGET_FIELD = { in: 'inSku', out: 'outSku' };
@@ -362,41 +363,66 @@ function resetLiveDetected(mode) {
   if (el) el.textContent = '';
 }
 
-function toggleCamera(mode) {
+// Stops whatever camera session is running, if any, and waits for it to actually finish before
+// resolving. Captures the current instance into a local variable and clears the shared
+// html5QrCode reference IMMEDIATELY (synchronously) - this is the key fix: previously, stopping
+// was fire-and-forget, so if you reopened the camera quickly (e.g. right after an auto-scan),
+// the OLD stop's cleanup could finish AFTER a new camera had already started, wiping out the
+// reference to the new one and leaving the camera hardware in a stuck state where it looked
+// like nothing happened when tapping "Use Camera Scanner" again.
+async function stopCamera() {
+  const instance = html5QrCode;
+  html5QrCode = null;
+  ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; resetLiveDetected(m); });
+  if (instance) {
+    try { await instance.stop(); instance.clear(); } catch (e) { /* already stopped/never started - fine */ }
+  }
+}
+
+async function toggleCamera(mode) {
   const slot = document.getElementById('reader-' + mode);
   if (slot.style.display === 'block') {
-    stopCamera();
+    await stopCamera();
     return;
   }
 
-  // If the scanner library script failed to load (blocked CDN, offline, slow network), calling
-  // "new Html5Qrcode(...)" would throw silently and the button would appear to do nothing.
-  if (typeof Html5Qrcode === 'undefined') {
-    alert('The camera scanner library has not finished loading yet (or failed to load - check your ' +
-      'internet connection). Wait a moment and try again, reload the page, or type/scan into the ' +
-      'text box with a USB scanner in the meantime.');
-    return;
-  }
-
-  // Mobile browsers (Chrome/Android, Safari/iOS) block camera access entirely on plain HTTP -
-  // only HTTPS (or true localhost on the SAME device) is allowed. Testing this page via a local
-  // dev server IP (e.g. 127.0.0.1:5500 or 192.168.x.x:5500) opened from a PHONE will silently
-  // fail here - host on GitHub Pages / Netlify (HTTPS) for the camera to work on mobile.
-  if (!window.isSecureContext) {
-    alert('Camera needs a secure (HTTPS) page to work on mobile. This page is currently loaded over ' +
-      'an insecure connection, which phone browsers block camera access on by default. ' +
-      'Host this file on GitHub Pages or Netlify (both give a free https:// URL) and open it from there. ' +
-      'You can still type or use a USB scanner into the text box for now.');
-    return;
-  }
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    alert('This browser does not support camera access. Please use a recent Chrome or Safari, or type/scan into the text box with a USB scanner.');
-    return;
-  }
+  // Ignore rapid double-taps while a previous open/close is still in progress, instead of
+  // letting two overlapping attempts race each other.
+  if (cameraBusy) return;
+  cameraBusy = true;
 
   try {
-    ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; resetLiveDetected(m); });
-    if (html5QrCode) stopCamera();
+    // If the scanner library script failed to load (blocked CDN, offline, slow network), calling
+    // "new Html5Qrcode(...)" would throw silently and the button would appear to do nothing.
+    if (typeof Html5Qrcode === 'undefined') {
+      alert('The camera scanner library has not finished loading yet (or failed to load - check your ' +
+        'internet connection). Wait a moment and try again, reload the page, or type/scan into the ' +
+        'text box with a USB scanner in the meantime.');
+      return;
+    }
+
+    // Mobile browsers (Chrome/Android, Safari/iOS) block camera access entirely on plain HTTP -
+    // only HTTPS (or true localhost on the SAME device) is allowed. Testing this page via a local
+    // dev server IP (e.g. 127.0.0.1:5500 or 192.168.x.x:5500) opened from a PHONE will silently
+    // fail here - host on GitHub Pages / Netlify (HTTPS) for the camera to work on mobile.
+    if (!window.isSecureContext) {
+      alert('Camera needs a secure (HTTPS) page to work on mobile. This page is currently loaded over ' +
+        'an insecure connection, which phone browsers block camera access on by default. ' +
+        'Host this file on GitHub Pages or Netlify (both give a free https:// URL) and open it from there. ' +
+        'You can still type or use a USB scanner into the text box for now.');
+      return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert('This browser does not support camera access. Please use a recent Chrome or Safari, or type/scan into the text box with a USB scanner.');
+      return;
+    }
+
+    // Make sure any previous session is FULLY stopped (and the camera hardware released) before
+    // starting a new one - awaited properly now instead of fire-and-forget.
+    await stopCamera();
+    // A short pause after stopping gives the camera hardware time to actually release on some
+    // phones - starting again immediately can otherwise silently fail to reacquire it.
+    await new Promise(resolve => setTimeout(resolve, 300));
 
     slot.style.display = 'block';
     currentCameraMode = mode;
@@ -406,17 +432,21 @@ function toggleCamera(mode) {
     // the camera. html5-qrcode measures the container's size immediately on start(); if that
     // happens in the same tick as display:block, some browsers still report 0 width/height,
     // which can result in a black box with no visible video and no scan overlay at all.
-    requestAnimationFrame(() => requestAnimationFrame(() => startCameraFor(mode)));
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await startCameraFor(mode);
   } catch (err) {
     alert('Could not start the camera scanner: ' + err.message + '\nYou can still type or use a USB scanner into the text box.');
     slot.style.display = 'none';
+  } finally {
+    cameraBusy = false;
   }
 }
 
-function startCameraFor(mode) {
+async function startCameraFor(mode) {
   const slot = document.getElementById('reader-' + mode);
   try {
-    html5QrCode = new Html5Qrcode(READER_IDS[mode]);
+    const qr = new Html5Qrcode(READER_IDS[mode]);
+    html5QrCode = qr;
 
     // Called whenever a QR/barcode is decoded in the camera view - used immediately (no manual
     // confirm step), so scanning is fast: point the camera at a code and it's used right away.
@@ -446,37 +476,35 @@ function startCameraFor(mode) {
     // Prefer an explicit rear/back camera by device label (more reliable on Android than the
     // generic facingMode constraint, which some devices/browsers ignore); fall back to facingMode
     // if enumeration isn't available or no camera list comes back.
-    Html5Qrcode.getCameras().then(cameras => {
-      if (!cameras || !cameras.length) throw new Error('NoCamerasFound');
-      const back = cameras.find(c => /back|rear|environment/i.test(c.label)) || cameras[cameras.length - 1];
-      return html5QrCode.start(back.id, config, onScanSuccess, onScanFailure);
-    }).catch(() => {
-      // Enumeration failed or returned nothing usable - fall back to the standard constraint.
-      return html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess, onScanFailure);
-    }).catch(err => {
-      let msg = 'Camera error: ' + err;
-      const errStr = String(err);
-      if (errStr.indexOf('NotAllowedError') !== -1 || errStr.indexOf('Permission') !== -1) {
-        msg = 'Camera permission was denied. Check your browser\'s site settings and allow camera access for this page, then try again.';
-      } else if (errStr.indexOf('NotFoundError') !== -1 || errStr.indexOf('NoCamerasFound') !== -1) {
-        msg = 'No camera was found on this device.';
-      } else if (errStr.indexOf('NotReadableError') !== -1) {
-        msg = 'The camera is already in use by another app. Close other camera apps/tabs and try again.';
+    let cameras = [];
+    try { cameras = await Html5Qrcode.getCameras(); } catch (e) { /* enumeration failed - fall back below */ }
+
+    try {
+      if (cameras && cameras.length) {
+        const back = cameras.find(c => /back|rear|environment/i.test(c.label)) || cameras[cameras.length - 1];
+        await qr.start(back.id, config, onScanSuccess, onScanFailure);
+      } else {
+        await qr.start({ facingMode: 'environment' }, config, onScanSuccess, onScanFailure);
       }
-      alert(msg + '\nYou can still type or use a USB scanner into the text box.');
-      slot.style.display = 'none';
-    });
+    } catch (startErr) {
+      // First attempt failed - try once more with the generic facingMode constraint before
+      // giving up (covers cases where the specific device id didn't work but facingMode would).
+      await qr.start({ facingMode: 'environment' }, config, onScanSuccess, onScanFailure);
+    }
   } catch (err) {
-    alert('Could not start the camera scanner: ' + err.message + '\nYou can still type or use a USB scanner into the text box.');
+    let msg = 'Camera error: ' + err;
+    const errStr = String(err);
+    if (errStr.indexOf('NotAllowedError') !== -1 || errStr.indexOf('Permission') !== -1) {
+      msg = 'Camera permission was denied. Check your browser\'s site settings and allow camera access for this page, then try again.';
+    } else if (errStr.indexOf('NotFoundError') !== -1 || errStr.indexOf('NoCamerasFound') !== -1) {
+      msg = 'No camera was found on this device.';
+    } else if (errStr.indexOf('NotReadableError') !== -1) {
+      msg = 'The camera is already in use by another app/tab. Close it and try again.';
+    }
+    alert(msg + '\nYou can still type or use a USB scanner into the text box.');
+    html5QrCode = null;
     slot.style.display = 'none';
   }
-}
-
-function stopCamera() {
-  if (html5QrCode) {
-    html5QrCode.stop().then(() => { html5QrCode.clear(); html5QrCode = null; }).catch(() => {});
-  }
-  ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; resetLiveDetected(m); });
 }
 
 // ---------------- LOOKUP ----------------
