@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Raghuvir IMS - Admin Dashboard</title>
 <style>
   :root{
@@ -10,15 +10,15 @@
     --ok:#2f8f4e; --warn:#c0392b; --card:#ffffff; --line:#e7ddd2;
   }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:#2a2a2a;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:#2a2a2a;overflow-x:hidden;}
   header{background:var(--maroon);color:#fff;padding:14px 16px;text-align:center;position:sticky;top:0;z-index:10;box-shadow:0 2px 6px rgba(0,0,0,.15);}
   header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.3px;}
   header p{margin:2px 0 0;font-size:11px;opacity:.85;}
   .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
   label{font-size:12px;font-weight:600;color:#6b5c50;display:block;margin-bottom:5px;}
-  input[type=text]{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:15px;margin-bottom:10px;background:#fff;}
-  input[type=number]{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:15px;margin-bottom:10px;background:#fff;}
-  select{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:15px;margin-bottom:10px;background:#fff;}
+  input[type=text]{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;margin-bottom:10px;background:#fff;}
+  input[type=number]{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;margin-bottom:10px;background:#fff;}
+  select{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;margin-bottom:10px;background:#fff;}
   .msg{font-size:13px;padding:10px 12px;border-radius:8px;margin-bottom:10px;display:none;}
   .msg.ok{background:#e7f6ea;color:var(--ok);display:block;}
   .msg.err{background:#fdecea;color:var(--warn);display:block;}
@@ -52,6 +52,16 @@
 </header>
 
 <div class="msg" id="testMsg" style="margin:14px;"></div>
+
+<div class="card" id="urlSetupCard" style="display:none;margin:14px;">
+  <label>⚠️ Web App URL not set - paste it here to continue</label>
+  <input type="text" id="urlSetupInput" placeholder="https://script.google.com/macros/s/XXXXX/exec">
+  <button class="btn-primary" onclick="saveUrlFallback()">💾 Save &amp; Continue</button>
+  <p style="font-size:11px;color:#888;margin-top:8px;">
+    This is saved only in this browser/device. To make it permanent for everyone, edit the
+    API_URL line near the top of this file's code instead.
+  </p>
+</div>
 
 <div class="tabs" id="tabBar"></div>
 
@@ -117,19 +127,39 @@ const ADD_ITEM_KEY = 'AddItem'; // special tab - shows a form instead of a table
 
 // ============================= PASTE YOUR WEB APP URL BELOW ======================================
 // After deploying WebApp.gs in Apps Script (Deploy > New deployment > Web app), copy the URL
-// it gives you and paste it between the quotes here. That's the only setup this file needs.
+// it gives you and paste it between the quotes here. This is the recommended permanent setup -
+// everyone who opens this hosted file gets it automatically, nothing to type on each device.
 const API_URL = "https://script.google.com/macros/s/AKfycbzRyb3a1UBD2HfiA3_OYPEVghv3Bu4yMkPMfqncCv6ScWFsVh77lxwp7Z2_WQiVaGT_/exec";
 // Example: const API_URL = "https://script.google.com/macros/s/AKfycb.../exec";
+
+// If the line above was never edited, fall back to a URL saved earlier in this browser (via the
+// on-page box that appears below), so the app still works instead of just showing an error.
+const URL_PLACEHOLDER = 'PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE';
+function getEffectiveApiUrl() {
+  if (API_URL.indexOf(URL_PLACEHOLDER) === -1 && API_URL.trim() !== '') return API_URL.trim();
+  return (localStorage.getItem('ims_api_url_fallback') || '').trim();
+}
+
+function saveUrlFallback() {
+  const url = document.getElementById('urlSetupInput').value.trim();
+  if (!url) { alert('Please paste your Web App URL.'); return; }
+  localStorage.setItem('ims_api_url_fallback', url);
+  document.getElementById('urlSetupCard').style.display = 'none';
+  document.getElementById('testMsg').style.display = 'none';
+  loadCurrentTable();
+}
 
 let currentTableKey = TABLES[0].key;
 let currentHeaders = [];
 let currentRows = [];
 
 function callApi(action, data) {
-  if (!API_URL || API_URL.indexOf('PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE') !== -1) {
-    return Promise.reject(new Error('Open this HTML file\'s code and paste your deployed Web App URL into the API_URL constant near the top of the <script> section.'));
+  const url = getEffectiveApiUrl();
+  if (!url) {
+    document.getElementById('urlSetupCard').style.display = 'block';
+    return Promise.reject(new Error('Web App URL not set yet - paste it in the box above, or edit the API_URL constant in the code.'));
   }
-  return fetch(API_URL, {
+  return fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(Object.assign({ action: action }, data || {}))
@@ -222,11 +252,8 @@ window.onload = function() {
   document.getElementById('addStorageType').addEventListener('change', refreshLocationOptions);
   document.getElementById('addBarcodeMode').addEventListener('change', toggleBarcodeModeUI);
 
-  if (API_URL.indexOf('PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE') !== -1) {
-    const el = document.getElementById('testMsg');
-    el.className = 'msg err';
-    el.style.display = 'block';
-    el.textContent = '⚠️ Web App URL not set yet - open this file\'s code and paste your deployed URL into the API_URL constant near the top of the <script> section.';
+  if (!getEffectiveApiUrl()) {
+    document.getElementById('urlSetupCard').style.display = 'block';
   } else {
     loadCurrentTable();
   }
