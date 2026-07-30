@@ -60,15 +60,6 @@
   .btn-submit:disabled{opacity:.5;}
   .qr-reader-wrap{position:relative;margin-bottom:6px;}
   .qr-reader-box{width:100%;min-height:260px;border-radius:10px;overflow:hidden;background:#000;}
-  .tap-to-scan-btn{
-    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-    width:84px;height:84px;border-radius:50%;border:4px solid #fff;
-    background:rgba(109,41,50,0.75);color:#fff;font-size:12px;font-weight:700;
-    display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.2;
-    cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.4);padding:4px;
-    z-index:999;
-  }
-  .tap-to-scan-btn:active{background:rgba(109,41,50,0.95);transform:translate(-50%,-50%) scale(0.96);}
   .scan-detected-label{font-size:12px;color:var(--maroon-dark);text-align:center;min-height:16px;margin-bottom:10px;}
   .item-box{border:1px dashed var(--gold);background:#fff8ec;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:none;}
   .item-box .name{font-weight:700;font-size:15px;color:var(--maroon-dark);}
@@ -132,7 +123,6 @@
     <div id="reader-in" class="reader-slot" style="display:none;">
       <div class="qr-reader-wrap">
         <div id="reader" class="qr-reader-box"></div>
-        <button type="button" class="tap-to-scan-btn" onclick="confirmTap('in')">📍 Tap to<br>Scan</button>
       </div>
       <div id="scanProgress-in" class="scan-detected-label"></div>
     </div>
@@ -177,7 +167,6 @@
     <div id="reader-out" class="reader-slot" style="display:none;">
       <div class="qr-reader-wrap">
         <div id="reader2" class="qr-reader-box"></div>
-        <button type="button" class="tap-to-scan-btn" onclick="confirmTap('out')">📍 Tap to<br>Scan</button>
       </div>
       <div id="scanProgress-out" class="scan-detected-label"></div>
     </div>
@@ -366,36 +355,11 @@ let currentCameraMode = null;
 const READER_IDS = { in: 'reader', out: 'reader2' };
 const TARGET_FIELD = { in: 'inSku', out: 'outSku' };
 
-// Tracks whatever code is CURRENTLY visible in the camera, per mode - updated continuously but
-// never auto-confirmed. Only tapping the center "Tap to Scan" button uses it. This is the most
-// deliberate mode: point the camera at the exact QR/barcode you want, see its value show up
-// below the preview, then tap to lock it in - nothing is accepted automatically.
-let liveDetected = { in: null, out: null };
-
+// Shows a small live status label under the camera while scanning ("scanning..." feedback) -
+// scanning is immediate/automatic: as soon as a QR/barcode is detected, it's used right away.
 function resetLiveDetected(mode) {
-  liveDetected[mode] = null;
   const el = document.getElementById('scanProgress-' + mode);
   if (el) el.textContent = '';
-}
-
-function updateLiveDetected(mode, decodedText) {
-  liveDetected[mode] = decodedText;
-  const el = document.getElementById('scanProgress-' + mode);
-  if (el) el.textContent = '🔎 In view: ' + decodedText + ' — tap the center button to use this one';
-}
-
-// Called when the center "📍 Tap to Scan" button is pressed - confirms whatever code is
-// currently in view, if any.
-function confirmTap(mode) {
-  const code = liveDetected[mode];
-  if (!code) {
-    alert('No QR/barcode detected in view yet. Point the camera steadily at the code and try tapping again.');
-    return;
-  }
-  document.getElementById(TARGET_FIELD[mode]).value = code;
-  resetLiveDetected(mode);
-  stopCamera();
-  lookupSku(mode);
 }
 
 function toggleCamera(mode) {
@@ -454,10 +418,13 @@ function startCameraFor(mode) {
   try {
     html5QrCode = new Html5Qrcode(READER_IDS[mode]);
 
-    // Called on every frame a QR code is decoded - just updates the live "in view" label.
-    // Never confirms/submits by itself; only the center tap button (confirmTap) does that.
+    // Called whenever a QR/barcode is decoded in the camera view - used immediately (no manual
+    // confirm step), so scanning is fast: point the camera at a code and it's used right away.
     const onScanSuccess = (decodedText) => {
-      updateLiveDetected(mode, decodedText);
+      resetLiveDetected(mode);
+      document.getElementById(TARGET_FIELD[mode]).value = decodedText;
+      stopCamera();
+      lookupSku(mode);
     };
     const onScanFailure = () => {
       // No code decoded in this frame (camera moved off any code) - clear the "in view" label
