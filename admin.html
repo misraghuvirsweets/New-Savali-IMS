@@ -14,7 +14,7 @@
   header{background:var(--maroon);color:#fff;padding:14px 16px;text-align:center;position:sticky;top:0;z-index:10;box-shadow:0 2px 6px rgba(0,0,0,.15);}
   header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.3px;display:flex;align-items:center;justify-content:center;gap:8px;}
   header p{margin:2px 0 0;font-size:11px;opacity:.85;}
-  .brand-logo{height:32px;width:32px;object-fit:contain;border-radius:8px;background:#fff;padding:2px;}
+  .brand-logo{height:52px;width:52px;object-fit:contain;border-radius:10px;background:#fff;padding:3px;}
   .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
   label{font-size:12px;font-weight:600;color:#6b5c50;display:block;margin-bottom:5px;}
   input[type=text]{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;margin-bottom:10px;background:#fff;}
@@ -94,6 +94,18 @@
     <select id="locationSelect" onchange="renderSelectedLocation()"><option value="">Loading…</option></select>
   </div>
   <div class="stats" id="locationStatsRow"></div>
+
+  <div class="card" id="logStockOutCard" style="display:none;max-width:1100px;margin:10px auto;">
+    <label>➖ Log Stock-Out for this Branch (sale / dispatch / wastage)</label>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <input type="text" id="stockOutSku" placeholder="SKU Code (e.g. RACK-001-A-001)" style="flex:2;min-width:160px;">
+      <input type="number" id="stockOutQty" placeholder="Qty" style="flex:1;min-width:80px;">
+    </div>
+    <input type="text" id="stockOutRemarks" placeholder="Reason / remarks (optional) - e.g. Sold to customer">
+    <div class="msg" id="stockOutMsg"></div>
+    <button class="btn-primary" onclick="submitBranchStockOut()" style="width:100%;">✅ Log Stock-Out</button>
+  </div>
+
   <div id="locationDetailWrap"></div>
 </div>
 
@@ -148,6 +160,7 @@ const TABLES = [
   { key: 'Inward_Entry',  label: '📥 Inward Log' },
   { key: 'Outward_Entry', label: '📤 Outward Log' },
   { key: 'Branch_Ledger', label: '🏬 Branch Ledger' },
+  { key: 'Branch_StockOut', label: '➖ Branch Stock-Out' },
   { key: 'Branches',      label: '🏬 Branches' },
   { key: 'Racks',         label: '🗄️ Racks' }
 ];
@@ -513,8 +526,9 @@ function deleteBranchFromAdmin(name) {
 const GODOWN_OPTION_VALUE = '__GODOWN__';
 let locationStockData = null;
 
-function loadLocationStock() {
+function loadLocationStock(preserveSelection) {
   const sel = document.getElementById('locationSelect');
+  const keepValue = preserveSelection ? sel.value : null;
   sel.innerHTML = '<option value="">Loading…</option>';
   document.getElementById('locationStatsRow').innerHTML = '';
   document.getElementById('locationDetailWrap').innerHTML = '';
@@ -524,7 +538,9 @@ function loadLocationStock() {
     const branches = data.branches || [];
     sel.innerHTML = '<option value="' + GODOWN_OPTION_VALUE + '">🏭 Savali Godown</option>' +
       branches.map(b => '<option value="' + b.name + '">🏬 ' + b.name + '</option>').join('');
-    sel.value = GODOWN_OPTION_VALUE; // Savali Godown selected by default
+    // Keep whatever was selected before a refresh (e.g. right after logging a stock-out) instead
+    // of always jumping back to Godown - but a fresh page load still defaults to Godown.
+    sel.value = (keepValue && Array.from(sel.options).some(o => o.value === keepValue)) ? keepValue : GODOWN_OPTION_VALUE;
     renderSelectedLocation();
   }).catch(err => {
     sel.innerHTML = '<option value="">⚠️ Error</option>';
@@ -537,8 +553,10 @@ function renderSelectedLocation() {
   if (!locationStockData) return;
   const sel = document.getElementById('locationSelect');
   const isGodown = sel.value === GODOWN_OPTION_VALUE;
+  const stockOutCard = document.getElementById('logStockOutCard');
 
   if (isGodown) {
+    stockOutCard.style.display = 'none';
     const godown = locationStockData.godown || { totalUnits: 0, items: [] };
     document.getElementById('locationStatsRow').innerHTML =
       '<div class="stat"><div class="num">' + godown.totalUnits + '</div><div class="lbl">🏭 Savali Godown (units in stock)</div></div>';
@@ -546,13 +564,47 @@ function renderSelectedLocation() {
       '<div class="section-title">🏭 Savali Godown — Item-wise Current Stock (Stock In − Stock Out to all branches)</div>' +
       buildLocationTable(['SKU', 'Item', 'Rack/Location', 'Current Stock'], godown.items.map(it => [it.sku, it.name, it.location, it.stock]));
   } else {
-    const branch = (locationStockData.branches || []).find(b => b.name === sel.value) || { name: sel.value, totalUnits: 0, items: [] };
+    stockOutCard.style.display = 'block';
+    const branch = (locationStockData.branches || []).find(b => b.name === sel.value) ||
+      { name: sel.value, totalUnits: 0, totalReceived: 0, totalStockOut: 0, items: [] };
     document.getElementById('locationStatsRow').innerHTML =
-      '<div class="stat"><div class="num">' + branch.totalUnits + '</div><div class="lbl">🏬 ' + branch.name + ' (units received)</div></div>';
+      '<div class="stat"><div class="num">' + branch.totalReceived + '</div><div class="lbl">📥 Received (units)</div></div>' +
+      '<div class="stat"><div class="num">' + branch.totalStockOut + '</div><div class="lbl">➖ Stock-Out (units)</div></div>' +
+      '<div class="stat"><div class="num">' + branch.totalUnits + '</div><div class="lbl">🏬 ' + branch.name + ' Net Stock</div></div>';
     document.getElementById('locationDetailWrap').innerHTML =
-      '<div class="section-title">🏬 ' + branch.name + ' — Item-wise Stock Received from Godown</div>' +
-      buildLocationTable(['SKU', 'Item', 'Qty Received'], branch.items.map(it => [it.sku, it.name, it.qty]));
+      '<div class="section-title">🏬 ' + branch.name + ' — Item-wise Stock (Received from Godown − Branch\'s Own Stock-Out)</div>' +
+      buildLocationTable(['SKU', 'Item', 'Received', 'Stock-Out', 'Net Stock'],
+        branch.items.map(it => [it.sku, it.name, it.received, it.stockOut, it.net]));
   }
+}
+
+function submitBranchStockOut() {
+  const sel = document.getElementById('locationSelect');
+  const branch = sel.value !== GODOWN_OPTION_VALUE ? sel.value : '';
+  const sku = document.getElementById('stockOutSku').value.trim();
+  const qty = document.getElementById('stockOutQty').value;
+  const remarks = document.getElementById('stockOutRemarks').value.trim();
+  const msgEl = document.getElementById('stockOutMsg');
+  function showMsg(cls, text) {
+    msgEl.className = 'msg ' + cls;
+    msgEl.textContent = text;
+    msgEl.style.display = 'block';
+  }
+  if (!branch) { showMsg('err', '⚠️ Select a branch first (not Savali Godown).'); return; }
+  if (!sku) { showMsg('err', '⚠️ Enter the SKU code.'); return; }
+  if (!qty || Number(qty) <= 0) { showMsg('err', '⚠️ Enter a valid quantity.'); return; }
+
+  callApi('logBranchStockOut', { branch: branch, sku: sku, qty: qty, remarks: remarks }).then(res => {
+    if (res.success) {
+      showMsg('ok', '✅ ' + res.message);
+      document.getElementById('stockOutSku').value = '';
+      document.getElementById('stockOutQty').value = '';
+      document.getElementById('stockOutRemarks').value = '';
+      loadLocationStock(true); // refresh figures, keeping the same branch selected
+    } else {
+      showMsg('err', '❌ ' + res.message);
+    }
+  }).catch(err => showMsg('err', '❌ ' + err.message));
 }
 
 function buildLocationTable(headers, rows) {
