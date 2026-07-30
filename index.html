@@ -2,6 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" onerror="this.dataset.failed='1'; var s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js'; document.head.appendChild(s);"></script>
 <style>
   :root{
@@ -9,7 +10,7 @@
     --ok:#2f8f4e; --warn:#c0392b; --card:#ffffff; --line:#e7ddd2;
   }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:#2a2a2a;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:#2a2a2a;overflow-x:hidden;}
   header{background:var(--maroon);color:#fff;padding:14px 16px;text-align:center;position:sticky;top:0;z-index:10;box-shadow:0 2px 6px rgba(0,0,0,.15);}
   header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.3px;}
   header p{margin:2px 0 0;font-size:11px;opacity:.85;}
@@ -46,7 +47,7 @@
   .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
   label{font-size:12px;font-weight:600;color:#6b5c50;display:block;margin-bottom:5px;}
   select, input[type=text], input[type=number]{
-    width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:15px;margin-bottom:10px;background:#fff;
+    width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;margin-bottom:10px;background:#fff;
   }
   select:focus, input:focus{outline:none;border-color:var(--gold);}
   button{
@@ -57,7 +58,10 @@
   .btn-secondary{background:#efe6db;color:var(--maroon-dark);margin-bottom:10px;}
   .btn-submit{background:var(--gold);color:#3a2508;}
   .btn-submit:disabled{opacity:.5;}
-  .qr-reader-box{width:100%;min-height:260px;border-radius:10px;overflow:hidden;margin-bottom:10px;background:#000;}
+  .qr-reader-box{width:100%;min-height:260px;border-radius:10px;overflow:hidden;margin-bottom:6px;background:#000;}
+  .scan-progress{font-size:12px;color:var(--maroon-dark);text-align:center;min-height:16px;margin-bottom:10px;}
+  .scan-progress-bar{height:6px;border-radius:3px;background:#efe1d3;overflow:hidden;margin-top:4px;}
+  .scan-progress-bar-fill{height:100%;background:var(--gold);width:0%;transition:width .1s linear;}
   .item-box{border:1px dashed var(--gold);background:#fff8ec;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:none;}
   .item-box .name{font-weight:700;font-size:15px;color:var(--maroon-dark);}
   .item-box .meta{font-size:12px;color:#777;margin-top:2px;}
@@ -117,7 +121,10 @@
     <input type="text" id="inSku" placeholder="Scan here, or type SKU and press Enter" autocomplete="off">
     <button class="btn-secondary" onclick="lookupSku('in')">🔍 Look Up Item</button>
     <button class="btn-secondary" onclick="toggleCamera('in')">📷 Use Camera Scanner</button>
-    <div id="reader-in" class="reader-slot" style="display:none;"><div id="reader" class="qr-reader-box"></div></div>
+    <div id="reader-in" class="reader-slot" style="display:none;">
+      <div id="reader" class="qr-reader-box"></div>
+      <div id="scanProgress-in" class="scan-progress"></div>
+    </div>
 
     <div class="msg" id="inMsg"></div>
     <div class="item-box" id="inItemBox">
@@ -156,7 +163,10 @@
     <input type="text" id="outSku" placeholder="Scan here, or type SKU and press Enter" autocomplete="off">
     <button class="btn-secondary" onclick="lookupSku('out')">🔍 Look Up Item</button>
     <button class="btn-secondary" onclick="toggleCamera('out')">📷 Use Camera Scanner</button>
-    <div id="reader-out" class="reader-slot" style="display:none;"><div id="reader2" class="qr-reader-box"></div></div>
+    <div id="reader-out" class="reader-slot" style="display:none;">
+      <div id="reader2" class="qr-reader-box"></div>
+      <div id="scanProgress-out" class="scan-progress"></div>
+    </div>
 
     <div class="msg" id="outMsg"></div>
     <div class="item-box" id="outItemBox">
@@ -226,7 +236,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzRyb3a1UBD2HfiA3_OYPEV
 
 // If the line above was never edited, fall back to a URL saved earlier in this browser (via the
 // on-page box that appears below), so the app still works instead of just showing an error.
-const URL_PLACEHOLDER = 'https://script.google.com/macros/s/AKfycbzRyb3a1UBD2HfiA3_OYPEVghv3Bu4yMkPMfqncCv6ScWFsVh77lxwp7Z2_WQiVaGT_/exec';
+const URL_PLACEHOLDER = 'PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE';
 function getEffectiveApiUrl() {
   if (API_URL.indexOf(URL_PLACEHOLDER) === -1 && API_URL.trim() !== '') return API_URL.trim();
   return (localStorage.getItem('ims_api_url_fallback') || '').trim();
@@ -342,6 +352,30 @@ let currentCameraMode = null;
 const READER_IDS = { in: 'reader', out: 'reader2' };
 const TARGET_FIELD = { in: 'inSku', out: 'outSku' };
 
+// How long (in milliseconds) the SAME QR code must stay steadily in view before it's accepted.
+// Deliberately slow on purpose: when several QR codes sit close together (e.g. on one printed
+// page/book), a fast scanner can grab the wrong neighbor by mistake. Requiring a steady hold
+// means you have a moment to see which code is lined up before it locks in - increase this
+// number for an even slower/more deliberate scan, or decrease it to speed things back up.
+const SCAN_HOLD_MS = 1500;
+
+// Tracks the code currently being "held" in view and when we first started seeing it.
+let scanHold = { code: null, firstSeenAt: 0 };
+
+function resetScanHold(mode) {
+  scanHold = { code: null, firstSeenAt: 0 };
+  const el = document.getElementById('scanProgress-' + mode);
+  if (el) el.innerHTML = '';
+}
+
+function updateScanProgress(mode, decodedText, elapsedMs) {
+  const el = document.getElementById('scanProgress-' + mode);
+  if (!el) return;
+  const pct = Math.min(100, Math.round((elapsedMs / SCAN_HOLD_MS) * 100));
+  el.innerHTML = 'Hold steady on: ' + decodedText +
+    '<div class="scan-progress-bar"><div class="scan-progress-bar-fill" style="width:' + pct + '%;"></div></div>';
+}
+
 function toggleCamera(mode) {
   const slot = document.getElementById('reader-' + mode);
   if (slot.style.display === 'block') {
@@ -375,17 +409,38 @@ function toggleCamera(mode) {
   }
 
   try {
-    ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; });
+    ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; resetScanHold(m); });
     if (html5QrCode) stopCamera();
 
     slot.style.display = 'block';
     currentCameraMode = mode;
+    resetScanHold(mode);
     html5QrCode = new Html5Qrcode(READER_IDS[mode]);
 
+    // Called on every frame a QR code is decoded (often many times per second while a code is
+    // in view) - instead of accepting immediately, we require the SAME code to be seen
+    // continuously for SCAN_HOLD_MS before it's used. Moving to a different code, or losing
+    // sight of it, restarts the hold timer.
     const onScanSuccess = (decodedText) => {
-      document.getElementById(TARGET_FIELD[mode]).value = decodedText;
-      stopCamera();
-      lookupSku(mode);
+      const now = Date.now();
+      if (decodedText === scanHold.code) {
+        const elapsed = now - scanHold.firstSeenAt;
+        updateScanProgress(mode, decodedText, elapsed);
+        if (elapsed >= SCAN_HOLD_MS) {
+          resetScanHold(mode);
+          document.getElementById(TARGET_FIELD[mode]).value = decodedText;
+          stopCamera();
+          lookupSku(mode);
+        }
+      } else {
+        scanHold = { code: decodedText, firstSeenAt: now };
+        updateScanProgress(mode, decodedText, 0);
+      }
+    };
+    const onScanFailure = () => {
+      // No code decoded in this frame (e.g. camera moved away) - drop the hold so a stray glance
+      // at a different neighboring code can't half-count toward confirming the wrong one.
+      resetScanHold(mode);
     };
     const config = { fps: 10, qrbox: { width: 230, height: 230 }, aspectRatio: 1.0 };
 
@@ -395,10 +450,10 @@ function toggleCamera(mode) {
     Html5Qrcode.getCameras().then(cameras => {
       if (!cameras || !cameras.length) throw new Error('NoCamerasFound');
       const back = cameras.find(c => /back|rear|environment/i.test(c.label)) || cameras[cameras.length - 1];
-      return html5QrCode.start(back.id, config, onScanSuccess, () => {});
+      return html5QrCode.start(back.id, config, onScanSuccess, onScanFailure);
     }).catch(() => {
       // Enumeration failed or returned nothing usable - fall back to the standard constraint.
-      return html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess, () => {});
+      return html5QrCode.start({ facingMode: 'environment' }, config, onScanSuccess, onScanFailure);
     }).catch(err => {
       let msg = 'Camera error: ' + err;
       const errStr = String(err);
@@ -422,7 +477,7 @@ function stopCamera() {
   if (html5QrCode) {
     html5QrCode.stop().then(() => { html5QrCode.clear(); html5QrCode = null; }).catch(() => {});
   }
-  ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; });
+  ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; resetScanHold(m); });
 }
 
 // ---------------- LOOKUP ----------------
