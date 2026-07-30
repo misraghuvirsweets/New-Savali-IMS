@@ -58,10 +58,17 @@
   .btn-secondary{background:#efe6db;color:var(--maroon-dark);margin-bottom:10px;}
   .btn-submit{background:var(--gold);color:#3a2508;}
   .btn-submit:disabled{opacity:.5;}
-  .qr-reader-box{width:100%;min-height:260px;border-radius:10px;overflow:hidden;margin-bottom:6px;background:#000;}
-  .scan-progress{font-size:12px;color:var(--maroon-dark);text-align:center;min-height:16px;margin-bottom:10px;}
-  .scan-progress-bar{height:6px;border-radius:3px;background:#efe1d3;overflow:hidden;margin-top:4px;}
-  .scan-progress-bar-fill{height:100%;background:var(--gold);width:0%;transition:width .1s linear;}
+  .qr-reader-wrap{position:relative;margin-bottom:6px;}
+  .qr-reader-box{width:100%;min-height:260px;border-radius:10px;overflow:hidden;background:#000;}
+  .tap-to-scan-btn{
+    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:84px;height:84px;border-radius:50%;border:4px solid #fff;
+    background:rgba(109,41,50,0.75);color:#fff;font-size:12px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;text-align:center;line-height:1.2;
+    cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.4);padding:4px;
+  }
+  .tap-to-scan-btn:active{background:rgba(109,41,50,0.95);transform:translate(-50%,-50%) scale(0.96);}
+  .scan-detected-label{font-size:12px;color:var(--maroon-dark);text-align:center;min-height:16px;margin-bottom:10px;}
   .item-box{border:1px dashed var(--gold);background:#fff8ec;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:none;}
   .item-box .name{font-weight:700;font-size:15px;color:var(--maroon-dark);}
   .item-box .meta{font-size:12px;color:#777;margin-top:2px;}
@@ -122,8 +129,11 @@
     <button class="btn-secondary" onclick="lookupSku('in')">🔍 Look Up Item</button>
     <button class="btn-secondary" onclick="toggleCamera('in')">📷 Use Camera Scanner</button>
     <div id="reader-in" class="reader-slot" style="display:none;">
-      <div id="reader" class="qr-reader-box"></div>
-      <div id="scanProgress-in" class="scan-progress"></div>
+      <div class="qr-reader-wrap">
+        <div id="reader" class="qr-reader-box"></div>
+        <button type="button" class="tap-to-scan-btn" onclick="confirmTap('in')">📍 Tap to<br>Scan</button>
+      </div>
+      <div id="scanProgress-in" class="scan-detected-label"></div>
     </div>
 
     <div class="msg" id="inMsg"></div>
@@ -164,8 +174,11 @@
     <button class="btn-secondary" onclick="lookupSku('out')">🔍 Look Up Item</button>
     <button class="btn-secondary" onclick="toggleCamera('out')">📷 Use Camera Scanner</button>
     <div id="reader-out" class="reader-slot" style="display:none;">
-      <div id="reader2" class="qr-reader-box"></div>
-      <div id="scanProgress-out" class="scan-progress"></div>
+      <div class="qr-reader-wrap">
+        <div id="reader2" class="qr-reader-box"></div>
+        <button type="button" class="tap-to-scan-btn" onclick="confirmTap('out')">📍 Tap to<br>Scan</button>
+      </div>
+      <div id="scanProgress-out" class="scan-detected-label"></div>
     </div>
 
     <div class="msg" id="outMsg"></div>
@@ -352,28 +365,36 @@ let currentCameraMode = null;
 const READER_IDS = { in: 'reader', out: 'reader2' };
 const TARGET_FIELD = { in: 'inSku', out: 'outSku' };
 
-// How long (in milliseconds) the SAME QR code must stay steadily in view before it's accepted.
-// Deliberately slow on purpose: when several QR codes sit close together (e.g. on one printed
-// page/book), a fast scanner can grab the wrong neighbor by mistake. Requiring a steady hold
-// means you have a moment to see which code is lined up before it locks in - increase this
-// number for an even slower/more deliberate scan, or decrease it to speed things back up.
-const SCAN_HOLD_MS = 1500;
+// Tracks whatever code is CURRENTLY visible in the camera, per mode - updated continuously but
+// never auto-confirmed. Only tapping the center "Tap to Scan" button uses it. This is the most
+// deliberate mode: point the camera at the exact QR/barcode you want, see its value show up
+// below the preview, then tap to lock it in - nothing is accepted automatically.
+let liveDetected = { in: null, out: null };
 
-// Tracks the code currently being "held" in view and when we first started seeing it.
-let scanHold = { code: null, firstSeenAt: 0 };
-
-function resetScanHold(mode) {
-  scanHold = { code: null, firstSeenAt: 0 };
+function resetLiveDetected(mode) {
+  liveDetected[mode] = null;
   const el = document.getElementById('scanProgress-' + mode);
-  if (el) el.innerHTML = '';
+  if (el) el.textContent = '';
 }
 
-function updateScanProgress(mode, decodedText, elapsedMs) {
+function updateLiveDetected(mode, decodedText) {
+  liveDetected[mode] = decodedText;
   const el = document.getElementById('scanProgress-' + mode);
-  if (!el) return;
-  const pct = Math.min(100, Math.round((elapsedMs / SCAN_HOLD_MS) * 100));
-  el.innerHTML = 'Hold steady on: ' + decodedText +
-    '<div class="scan-progress-bar"><div class="scan-progress-bar-fill" style="width:' + pct + '%;"></div></div>';
+  if (el) el.textContent = '🔎 In view: ' + decodedText + ' — tap the center button to use this one';
+}
+
+// Called when the center "📍 Tap to Scan" button is pressed - confirms whatever code is
+// currently in view, if any.
+function confirmTap(mode) {
+  const code = liveDetected[mode];
+  if (!code) {
+    alert('No QR/barcode detected in view yet. Point the camera steadily at the code and try tapping again.');
+    return;
+  }
+  document.getElementById(TARGET_FIELD[mode]).value = code;
+  resetLiveDetected(mode);
+  stopCamera();
+  lookupSku(mode);
 }
 
 function toggleCamera(mode) {
@@ -409,38 +430,23 @@ function toggleCamera(mode) {
   }
 
   try {
-    ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; resetScanHold(m); });
+    ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; resetLiveDetected(m); });
     if (html5QrCode) stopCamera();
 
     slot.style.display = 'block';
     currentCameraMode = mode;
-    resetScanHold(mode);
+    resetLiveDetected(mode);
     html5QrCode = new Html5Qrcode(READER_IDS[mode]);
 
-    // Called on every frame a QR code is decoded (often many times per second while a code is
-    // in view) - instead of accepting immediately, we require the SAME code to be seen
-    // continuously for SCAN_HOLD_MS before it's used. Moving to a different code, or losing
-    // sight of it, restarts the hold timer.
+    // Called on every frame a QR code is decoded - just updates the live "in view" label.
+    // Never confirms/submits by itself; only the center tap button (confirmTap) does that.
     const onScanSuccess = (decodedText) => {
-      const now = Date.now();
-      if (decodedText === scanHold.code) {
-        const elapsed = now - scanHold.firstSeenAt;
-        updateScanProgress(mode, decodedText, elapsed);
-        if (elapsed >= SCAN_HOLD_MS) {
-          resetScanHold(mode);
-          document.getElementById(TARGET_FIELD[mode]).value = decodedText;
-          stopCamera();
-          lookupSku(mode);
-        }
-      } else {
-        scanHold = { code: decodedText, firstSeenAt: now };
-        updateScanProgress(mode, decodedText, 0);
-      }
+      updateLiveDetected(mode, decodedText);
     };
     const onScanFailure = () => {
-      // No code decoded in this frame (e.g. camera moved away) - drop the hold so a stray glance
-      // at a different neighboring code can't half-count toward confirming the wrong one.
-      resetScanHold(mode);
+      // No code decoded in this frame (camera moved off any code) - clear the "in view" label
+      // so tapping the button doesn't accidentally reuse a stale code from a moment ago.
+      resetLiveDetected(mode);
     };
     const config = { fps: 10, qrbox: { width: 230, height: 230 }, aspectRatio: 1.0 };
 
@@ -477,7 +483,7 @@ function stopCamera() {
   if (html5QrCode) {
     html5QrCode.stop().then(() => { html5QrCode.clear(); html5QrCode = null; }).catch(() => {});
   }
-  ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; resetScanHold(m); });
+  ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; resetLiveDetected(m); });
 }
 
 // ---------------- LOOKUP ----------------
