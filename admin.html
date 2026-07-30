@@ -42,6 +42,13 @@
   tr:hover td{background:#fbf6ee;}
   .lowstock{color:var(--warn);font-weight:700;}
   .empty-msg{padding:20px;text-align:center;color:#999;font-size:13px;}
+
+  .stats{display:flex;gap:10px;flex-wrap:wrap;max-width:1100px;margin:10px auto;padding:0 14px;}
+  .stat{flex:1;min-width:140px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;}
+  .stat .num{font-size:22px;font-weight:700;color:var(--maroon);}
+  .stat .lbl{font-size:11px;color:#777;margin-top:2px;}
+  .section-title{font-size:13px;font-weight:700;color:var(--maroon-dark);margin:16px auto 8px;max-width:1100px;padding:0 14px;}
+  .location-table-wrap{max-width:1100px;margin:0 auto 10px;padding:0 14px;overflow-x:auto;}
 </style>
 </head>
 <body>
@@ -77,6 +84,11 @@
     <thead><tr><th>Loading…</th></tr></thead>
     <tbody></tbody>
   </table>
+</div>
+
+<div id="dashboardView" style="display:none;">
+  <div class="stats" id="locationStatsRow"></div>
+  <div id="locationDetailWrap"></div>
 </div>
 
 <div class="card" id="addItemView" style="display:none;max-width:1100px;margin:10px auto 24px;">
@@ -138,6 +150,7 @@ const TABLES = [
 ];
 const ADD_ITEM_KEY = 'AddItem'; // special tab - shows a form instead of a table
 const MANAGE_BRANCHES_KEY = 'ManageBranches'; // special tab - add/delete branches
+const DASHBOARD_KEY = 'Dashboard'; // special tab - godown vs branch-wise stock overview
 
 // ============================= PASTE YOUR WEB APP URL BELOW ======================================
 // After deploying WebApp.gs in Apps Script (Deploy > New deployment > Web app), copy the URL
@@ -163,7 +176,7 @@ function saveUrlFallback() {
   loadCurrentTable();
 }
 
-let currentTableKey = TABLES[0].key;
+let currentTableKey = DASHBOARD_KEY;
 let currentHeaders = [];
 let currentRows = [];
 
@@ -191,10 +204,12 @@ function callApi(action, data) {
 
 function buildTabs() {
   const bar = document.getElementById('tabBar');
-  const allTabs = TABLES.concat([
-    { key: ADD_ITEM_KEY, label: '➕ Add Item' },
-    { key: MANAGE_BRANCHES_KEY, label: '🏬 Manage Branches' }
-  ]);
+  const allTabs = [{ key: DASHBOARD_KEY, label: '📊 Dashboard' }]
+    .concat(TABLES)
+    .concat([
+      { key: ADD_ITEM_KEY, label: '➕ Add Item' },
+      { key: MANAGE_BRANCHES_KEY, label: '🏬 Manage Branches' }
+    ]);
   bar.innerHTML = allTabs.map(t =>
     '<div class="tab' + (t.key === currentTableKey ? ' active' : '') + '" data-key="' + t.key + '">' + t.label + '</div>'
   ).join('');
@@ -203,7 +218,9 @@ function buildTabs() {
       currentTableKey = tab.dataset.key;
       document.getElementById('searchBox').value = '';
       buildTabs();
-      if (currentTableKey === ADD_ITEM_KEY) {
+      if (currentTableKey === DASHBOARD_KEY) {
+        showDashboardView();
+      } else if (currentTableKey === ADD_ITEM_KEY) {
         showAddItemView();
       } else if (currentTableKey === MANAGE_BRANCHES_KEY) {
         showManageBranchesView();
@@ -215,27 +232,36 @@ function buildTabs() {
   });
 }
 
-function showTableView() {
-  document.getElementById('toolbarView').style.display = 'flex';
-  document.getElementById('tableView').style.display = 'block';
+function hideAllViews() {
+  document.getElementById('toolbarView').style.display = 'none';
+  document.getElementById('tableView').style.display = 'none';
   document.getElementById('addItemView').style.display = 'none';
   document.getElementById('manageBranchesView').style.display = 'none';
+  document.getElementById('dashboardView').style.display = 'none';
+}
+
+function showTableView() {
+  hideAllViews();
+  document.getElementById('toolbarView').style.display = 'flex';
+  document.getElementById('tableView').style.display = 'block';
 }
 
 function showAddItemView() {
-  document.getElementById('toolbarView').style.display = 'none';
-  document.getElementById('tableView').style.display = 'none';
+  hideAllViews();
   document.getElementById('addItemView').style.display = 'block';
-  document.getElementById('manageBranchesView').style.display = 'none';
   loadRacksForAddItem();
 }
 
 function showManageBranchesView() {
-  document.getElementById('toolbarView').style.display = 'none';
-  document.getElementById('tableView').style.display = 'none';
-  document.getElementById('addItemView').style.display = 'none';
+  hideAllViews();
   document.getElementById('manageBranchesView').style.display = 'block';
   loadBranchListForManage();
+}
+
+function showDashboardView() {
+  hideAllViews();
+  document.getElementById('dashboardView').style.display = 'block';
+  loadLocationStock();
 }
 
 // Which column (by header name, case-insensitive) the extra filter dropdown should group by,
@@ -340,7 +366,7 @@ window.onload = function() {
   if (!getEffectiveApiUrl()) {
     document.getElementById('urlSetupCard').style.display = 'block';
   } else {
-    loadCurrentTable();
+    showDashboardView();
   }
 };
 
@@ -469,6 +495,44 @@ function deleteBranchFromAdmin(name) {
     if (!res.success) alert('❌ ' + res.message);
     loadBranchListForManage();
   }).catch(err => alert('❌ ' + err.message));
+}
+
+// ---------------- DASHBOARD (Godown vs Branch-wise stock) ----------------
+function loadLocationStock() {
+  document.getElementById('locationStatsRow').innerHTML = '<div class="stat"><div class="num">…</div><div class="lbl">Loading</div></div>';
+  document.getElementById('locationDetailWrap').innerHTML = '';
+  callApi('getLocationStock').then(renderLocationStock).catch(err => {
+    document.getElementById('locationStatsRow').innerHTML =
+      '<div class="stat"><div class="num">❌</div><div class="lbl">' + err.message + '</div></div>';
+  });
+}
+
+function renderLocationStock(data) {
+  const godown = data.godown || { totalUnits: 0, items: [] };
+  const branches = data.branches || [];
+
+  const statsHtml = ['<div class="stat"><div class="num">' + godown.totalUnits + '</div><div class="lbl">🏭 Savali Godown (units in stock)</div></div>']
+    .concat(branches.map(b => '<div class="stat"><div class="num">' + b.totalUnits + '</div><div class="lbl">🏬 ' + b.name + ' (units received)</div></div>'))
+    .join('');
+  document.getElementById('locationStatsRow').innerHTML = statsHtml;
+
+  let detailHtml = '<div class="section-title">🏭 Savali Godown — Item-wise Current Stock (Stock In − Stock Out to all branches)</div>' +
+    buildLocationTable(['SKU', 'Item', 'Rack/Location', 'Current Stock'], godown.items.map(it => [it.sku, it.name, it.location, it.stock]));
+
+  branches.forEach(b => {
+    detailHtml += '<div class="section-title">🏬 ' + b.name + ' — Item-wise Stock Received from Godown</div>' +
+      buildLocationTable(['SKU', 'Item', 'Qty Received'], b.items.map(it => [it.sku, it.name, it.qty]));
+  });
+
+  document.getElementById('locationDetailWrap').innerHTML = detailHtml;
+}
+
+function buildLocationTable(headers, rows) {
+  const thead = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead>';
+  const tbody = rows.length
+    ? '<tbody>' + rows.map(r => '<tr>' + r.map(v => '<td>' + (v === null || v === undefined ? '' : v) + '</td>').join('') + '</tr>').join('') + '</tbody>'
+    : '<tbody><tr><td colspan="' + headers.length + '" class="empty-msg">No stock recorded yet.</td></tr></tbody>';
+  return '<div class="location-table-wrap"><table>' + thead + tbody + '</table></div>';
 }
 </script>
 </body>
