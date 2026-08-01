@@ -69,6 +69,7 @@
     This is saved only in this browser/device. To make it permanent for everyone, edit the
     API_URL line near the top of this file's code instead.
   </p>
+  <p id="debugUrlLine" style="font-size:11px;color:var(--warn);margin-top:6px;font-family:monospace;word-break:break-all;"></p>
 </div>
 
 <div class="tabs" id="tabBar"></div>
@@ -444,6 +445,8 @@ window.onload = function() {
 
   if (!getEffectiveApiUrl()) {
     document.getElementById('urlSetupCard').style.display = 'block';
+    document.getElementById('debugUrlLine').textContent =
+      'This page\'s code currently has: API_URL = "' + API_URL + '"';
   } else {
     showDashboardView();
   }
