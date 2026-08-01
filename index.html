@@ -62,6 +62,17 @@
   .qr-reader-wrap{position:relative;margin-bottom:6px;}
   .qr-reader-box{width:100%;min-height:260px;border-radius:10px;overflow:hidden;background:#000;}
   .scan-detected-label{font-size:12px;color:var(--maroon-dark);text-align:center;min-height:16px;margin-bottom:10px;}
+  .search-wrap{position:relative;}
+  .suggestions-dropdown{
+    position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--line);
+    border-top:none;border-radius:0 0 8px 8px;max-height:220px;overflow-y:auto;z-index:15;
+    box-shadow:0 4px 10px rgba(0,0,0,.12);display:none;margin-top:-10px;
+  }
+  .suggestion-item{padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer;}
+  .suggestion-item:last-child{border-bottom:none;}
+  .suggestion-item:active{background:#f5ebe0;}
+  .suggestion-name{font-weight:600;font-size:13px;color:var(--maroon-dark);}
+  .suggestion-meta{font-size:11px;color:#888;margin-top:2px;}
   .item-box{border:1px dashed var(--gold);background:#fff8ec;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:none;}
   .item-box .name{font-weight:700;font-size:15px;color:var(--maroon-dark);}
   .item-box .meta{font-size:12px;color:#777;margin-top:2px;}
@@ -91,7 +102,7 @@
   <p>Godown Dashboard <span id="testGear" onclick="testConnection()" style="cursor:pointer;">🔧</span></p>
 </header>
 
-<button class="top-add-btn" id="topAddBtn" disabled onclick="topAddEntry()">➕ Add Entry</button>
+<button class="top-add-btn" id="topAddBtn" disabled onclick="topAddEntry()">💾 Save Entry</button>
 
 <div class="msg" id="testMsg" style="margin:14px;"></div>
 
@@ -118,9 +129,11 @@
 <div class="page" id="pageIn">
   <div class="card">
     <span class="back-link" onclick="showPage('pageHome')">← Back</span>
-    <label>Scan or type SKU / Barcode</label>
-    <input type="text" id="inSku" placeholder="Scan here, or type SKU and press Enter" autocomplete="off">
-    <button class="btn-secondary" onclick="lookupSku('in')">🔍 Look Up Item</button>
+    <label>Type SKU or Item Name (or scan)</label>
+    <div class="search-wrap">
+      <input type="text" id="inSku" placeholder="Type SKU or item name, or scan…" autocomplete="off">
+      <div id="inSuggestions" class="suggestions-dropdown"></div>
+    </div>
     <button class="btn-secondary" onclick="toggleCamera('in')">📷 Use Camera Scanner</button>
     <div id="reader-in" class="reader-slot" style="display:none;">
       <div class="qr-reader-wrap">
@@ -144,7 +157,7 @@
       <span style="font-size:12px;color:var(--ok);font-weight:600;">✅ Photo attached</span>
       <span class="back-link" style="margin-left:10px;font-size:12px;color:var(--warn);" onclick="clearPhoto('in')">✕ Remove Photo</span>
     </div>
-    <button class="btn-submit" id="inSubmitBtn" disabled onclick="addToQueue('in')">➕ Add Entry</button>
+    <button class="btn-submit" id="inSubmitBtn" disabled onclick="addToQueue('in')">💾 Save Entry</button>
   </div>
 
   <div class="card">
@@ -162,9 +175,11 @@
     <label>🏬 Branch <span class="back-link" style="margin:0 0 0 8px;font-size:12px;" onclick="loadBranches()">🔄 Retry</span></label>
     <select id="outBranch"><option value="">Loading branches…</option></select>
 
-    <label>Scan or type SKU / Barcode</label>
-    <input type="text" id="outSku" placeholder="Scan here, or type SKU and press Enter" autocomplete="off">
-    <button class="btn-secondary" onclick="lookupSku('out')">🔍 Look Up Item</button>
+    <label>Type SKU or Item Name (or scan)</label>
+    <div class="search-wrap">
+      <input type="text" id="outSku" placeholder="Type SKU or item name, or scan…" autocomplete="off">
+      <div id="outSuggestions" class="suggestions-dropdown"></div>
+    </div>
     <button class="btn-secondary" onclick="toggleCamera('out')">📷 Use Camera Scanner</button>
     <div id="reader-out" class="reader-slot" style="display:none;">
       <div class="qr-reader-wrap">
@@ -188,7 +203,7 @@
       <span style="font-size:12px;color:var(--ok);font-weight:600;">✅ Photo attached</span>
       <span class="back-link" style="margin-left:10px;font-size:12px;color:var(--warn);" onclick="clearPhoto('out')">✕ Remove Photo</span>
     </div>
-    <button class="btn-submit" id="outSubmitBtn" disabled onclick="addToQueue('out')">➕ Add Entry</button>
+    <button class="btn-submit" id="outSubmitBtn" disabled onclick="addToQueue('out')">💾 Save Entry</button>
   </div>
 
   <div class="card">
@@ -295,14 +310,25 @@ function callApi(action, data) {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify(Object.assign({ action: action }, data || {}))
+  }).catch(networkErr => {
+    // fetch() itself failed - wrong/unreachable URL, no internet, or (less commonly) a CORS
+    // issue from the Apps Script deployment settings.
+    throw new Error('Could not reach the server at all: ' + networkErr.message +
+      '. Double-check the Web App URL is correct and your device is online.');
   }).then(r => r.text()).then(text => {
     let res;
     try {
       res = JSON.parse(text);
     } catch (e) {
-      // The server sent back an HTML page instead of JSON - usually a pending Google
-      // permission approval (Drive access for photos) or a stale deployment.
-      throw new Error('Server did not return valid data. In Apps Script, run "oneTimeAuthorizeDriveAccess" once to grant permission, then redeploy (Deploy > Manage deployments > New version).');
+      // The server sent back an HTML page instead of JSON. Most common causes:
+      // 1) A permission (e.g. Drive access for photos) hasn't been granted for THIS script
+      //    project yet - especially likely right after merging Code.gs + WebApp.gs into one
+      //    file, since that can end up as a fresh script identity needing fresh authorization.
+      // 2) The deployment is stale - code was edited but "New version" wasn't deployed.
+      throw new Error('Server did not return valid data (got a webpage instead of a real answer). ' +
+        'Most likely fix: in Apps Script, open the function dropdown, select "oneTimeAuthorizeDriveAccess", ' +
+        'click ▶ Run, approve the permission popup, then Deploy > Manage deployments > Edit > New version > Deploy. ' +
+        'If that doesn\'t fix it, tap ⚙️ → 🔧 Test Connection here to see a more specific diagnosis.');
     }
     if (res && res.error) throw new Error(res.error);
     return res;
@@ -342,13 +368,21 @@ window.onload = function() {
     initData();
   }
 
-  document.getElementById('inSku').addEventListener('keydown', e => { if (e.key === 'Enter') lookupSku('in'); });
-  document.getElementById('outSku').addEventListener('keydown', e => { if (e.key === 'Enter') lookupSku('out'); });
+  document.getElementById('inSku').addEventListener('keydown', e => { if (e.key === 'Enter') { hideSuggestions('in'); lookupSku('in'); } });
+  document.getElementById('outSku').addEventListener('keydown', e => { if (e.key === 'Enter') { hideSuggestions('out'); lookupSku('out'); } });
   // Fallback for phone keyboards that don't fire a clean "Enter" keydown (common with predictive/
-  // transliteration keyboards) - firing on blur/change means the Look Up button or camera scan
-  // are never the only way in.
+  // transliteration keyboards) - firing on blur/change means the camera scan or picking a
+  // suggestion are never the only way in.
   document.getElementById('inSku').addEventListener('change', () => lookupSku('in'));
   document.getElementById('outSku').addEventListener('change', () => lookupSku('out'));
+  // Live suggestions as you type a SKU or item name.
+  document.getElementById('inSku').addEventListener('input', () => onSkuInput('in'));
+  document.getElementById('outSku').addEventListener('input', () => onSkuInput('out'));
+  // Close the suggestion dropdown when tapping/clicking anywhere outside it.
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#inSku') && !e.target.closest('#inSuggestions')) hideSuggestions('in');
+    if (!e.target.closest('#outSku') && !e.target.closest('#outSuggestions')) hideSuggestions('out');
+  });
 };
 
 function populateBranches(list) {
@@ -538,6 +572,57 @@ function lookupSku(mode) {
   callApi('lookupItem', { sku: sku }).then(res => showItem(mode, res)).catch(err => showMsg(mode, 'err', '❌ ' + err.message));
 }
 
+function showMsg(mode, cls, text) {
+  const el = document.getElementById(mode + 'Msg');
+  el.className = 'msg' + (cls ? ' ' + cls : '');
+  el.textContent = text;
+  el.style.display = cls ? 'block' : 'none';
+}
+
+// ---------------- LIVE SUGGESTIONS (type SKU or Item Name, pick from a dropdown) ----------------
+let suggestTimer = null;
+
+function onSkuInput(mode) {
+  const query = document.getElementById(mode + 'Sku').value.trim();
+  clearTimeout(suggestTimer);
+  if (query.length < 2) {
+    hideSuggestions(mode);
+    return;
+  }
+  // Debounce so it doesn't fire an API call on every single keystroke.
+  suggestTimer = setTimeout(() => {
+    callApi('searchItems', { query: query }).then(results => renderSuggestions(mode, results || [])).catch(() => hideSuggestions(mode));
+  }, 250);
+}
+
+function renderSuggestions(mode, results) {
+  const dropdown = document.getElementById(mode + 'Suggestions');
+  if (!results.length) { hideSuggestions(mode); return; }
+  dropdown.innerHTML = results.map((it, i) =>
+    '<div class="suggestion-item" onclick="selectSuggestion(\'' + mode + '\',' + i + ')">' +
+      '<div class="suggestion-name">' + it.name + '</div>' +
+      '<div class="suggestion-meta">SKU: ' + it.sku + '  |  ' + it.location + '  |  Stock: ' + it.currentStock + '</div>' +
+    '</div>'
+  ).join('');
+  dropdown.style.display = 'block';
+  window['lastSuggestions_' + mode] = results; // stash for selectSuggestion to read back by index
+}
+
+function hideSuggestions(mode) {
+  const dropdown = document.getElementById(mode + 'Suggestions');
+  dropdown.style.display = 'none';
+  dropdown.innerHTML = '';
+}
+
+function selectSuggestion(mode, index) {
+  const results = window['lastSuggestions_' + mode] || [];
+  const it = results[index];
+  if (!it) return;
+  document.getElementById(mode + 'Sku').value = it.sku;
+  hideSuggestions(mode);
+  showItem(mode, { found: true, sku: it.sku, name: it.name, location: it.location, currentStock: it.currentStock });
+}
+
 function showItem(mode, res) {
   const box = document.getElementById(mode + 'ItemBox');
   const submitBtn = document.getElementById(mode + 'SubmitBtn');
@@ -554,13 +639,6 @@ function showItem(mode, res) {
   box.style.display = 'block';
   submitBtn.disabled = false;
   syncTopButton();
-}
-
-function showMsg(mode, cls, text) {
-  const el = document.getElementById(mode + 'Msg');
-  el.className = 'msg' + (cls ? ' ' + cls : '');
-  el.textContent = text;
-  el.style.display = cls ? 'block' : 'none';
 }
 
 // ---------------- PHOTO CAPTURE ----------------
@@ -708,6 +786,7 @@ function resetForm(mode) {
   document.getElementById(mode + 'Sku').value = '';
   document.getElementById(mode + 'Qty').value = '';
   clearPhoto(mode);
+  hideSuggestions(mode);
   document.getElementById(mode + 'ItemBox').style.display = 'none';
   document.getElementById(mode + 'SubmitBtn').disabled = true;
   document.getElementById(mode + 'Sku').focus();
