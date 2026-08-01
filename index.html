@@ -568,8 +568,11 @@ async function startCameraFor(mode) {
 function lookupSku(mode) {
   const sku = document.getElementById(mode + 'Sku').value.trim();
   if (!sku) return;
-  showMsg(mode, '', '');
-  callApi('lookupItem', { sku: sku }).then(res => showItem(mode, res)).catch(err => showMsg(mode, 'err', '❌ ' + err.message));
+  showMsg(mode, 'ok', '🔍 Looking up "' + sku + '"…'); // instant feedback while the request is in flight
+  callApi('lookupItem', { sku: sku }).then(res => {
+    showMsg(mode, '', ''); // clear the loading message now that we have a real result
+    showItem(mode, res);
+  }).catch(err => showMsg(mode, 'err', '❌ ' + err.message));
 }
 
 function showMsg(mode, cls, text) {
