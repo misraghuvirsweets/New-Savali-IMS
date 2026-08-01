@@ -103,6 +103,7 @@
     This is saved only in this browser/device. To make it permanent for everyone, edit the
     API_URL line near the top of this file's code instead.
   </p>
+  <p id="debugUrlLine" style="font-size:11px;color:var(--warn);margin-top:6px;font-family:monospace;word-break:break-all;"></p>
 </div>
 
 <!-- ================= HOME PAGE ================= -->
@@ -240,7 +241,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzRyb3a1UBD2HfiA3_OYPEV
 
 // If the line above was never edited, fall back to a URL saved earlier in this browser (via the
 // on-page box that appears below), so the app still works instead of just showing an error.
-const URL_PLACEHOLDER = 'https://script.google.com/macros/s/AKfycbzRyb3a1UBD2HfiA3_OYPEVghv3Bu4yMkPMfqncCv6ScWFsVh77lxwp7Z2_WQiVaGT_/exec';
+const URL_PLACEHOLDER = 'PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE';
 function getEffectiveApiUrl() {
   if (API_URL.indexOf(URL_PLACEHOLDER) === -1 && API_URL.trim() !== '') return API_URL.trim();
   return (localStorage.getItem('ims_api_url_fallback') || '').trim();
@@ -330,6 +331,13 @@ function loadBranches() {
 window.onload = function() {
   if (!getEffectiveApiUrl()) {
     document.getElementById('urlSetupCard').style.display = 'block';
+    // Shows exactly what this LIVE page's code currently has for API_URL - if you edited the
+    // file and pasted your real URL but still see the placeholder text below, the page you're
+    // viewing is NOT the version you edited (stale GitHub Pages deploy or browser cache) -
+    // that's the fix to chase, not the code itself. Try a hard refresh (Ctrl+Shift+R) or
+    // re-uploading the file, and double-check you edited/uploaded the right file.
+    document.getElementById('debugUrlLine').textContent =
+      'This page\'s code currently has: API_URL = "' + API_URL + '"';
   } else {
     initData();
   }
