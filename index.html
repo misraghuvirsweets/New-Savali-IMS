@@ -601,8 +601,13 @@ function onSkuInput(mode) {
 function renderSuggestions(mode, results) {
   const dropdown = document.getElementById(mode + 'Suggestions');
   if (!results.length) { hideSuggestions(mode); return; }
+  // mousedown + preventDefault (NOT onclick) is deliberate: mousedown fires BEFORE the input
+  // loses focus, so preventDefault() here stops the input's blur/change event from ever firing.
+  // Without this, blur fired first (triggering a lookup for the still-partially-typed text),
+  // and that stale lookup's response could arrive AFTER the selection and incorrectly overwrite
+  // the correctly-selected item with a "not found" error.
   dropdown.innerHTML = results.map((it, i) =>
-    '<div class="suggestion-item" onclick="selectSuggestion(\'' + mode + '\',' + i + ')">' +
+    '<div class="suggestion-item" onmousedown="event.preventDefault(); selectSuggestion(\'' + mode + '\',' + i + ')">' +
       '<div class="suggestion-name">' + it.name + '</div>' +
       '<div class="suggestion-meta">SKU: ' + it.sku + '  |  ' + it.location + '  |  Stock: ' + it.currentStock + '</div>' +
     '</div>'
@@ -618,6 +623,7 @@ function hideSuggestions(mode) {
 }
 
 function selectSuggestion(mode, index) {
+  clearTimeout(suggestTimer); // stop any in-flight debounced search from re-opening the dropdown
   const results = window['lastSuggestions_' + mode] || [];
   const it = results[index];
   if (!it) return;
