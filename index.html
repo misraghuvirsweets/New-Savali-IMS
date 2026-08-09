@@ -99,7 +99,7 @@
 
 <header>
   <h1><img src="https://drive.google.com/thumbnail?id=18aiuiSN9uj-mJtOkGB1rNt4GP6yUbvuO&sz=w200" alt="Logo" class="brand-logo" onerror="this.style.display='none'"> RAGHUVIR SWEETS &amp; BAKERS</h1>
-  <p>Godown Dashboard <span id="testGear" onclick="testConnection()" style="cursor:pointer;">🔧</span></p>
+  <p>Godown Dashboard <span id="testGear" onclick="testConnection()" style="cursor:pointer;">🔧</span> <span id="whatsappTestIcon" onclick="testWhatsApp()" style="cursor:pointer;">📲</span></p>
 </header>
 
 <button class="top-add-btn" id="topAddBtn" disabled onclick="topAddEntry()">💾 Save Entry</button>
@@ -150,9 +150,13 @@
 
     <label>Quantity Received</label>
     <input type="number" id="inQty" placeholder="e.g. 10" min="1">
-    <label>📷 Photo (optional)</label>
+    <label>📷 Photo (required)</label>
     <input type="file" accept="image/*" capture="environment" id="inPhotoInput" style="display:none;" onchange="handlePhotoCapture('in', this)">
-    <button class="btn-secondary" onclick="document.getElementById('inPhotoInput').click()">📷 Capture Photo</button>
+    <input type="file" accept="image/*" id="inPhotoUpload" style="display:none;" onchange="handlePhotoCapture('in', this)">
+    <div style="display:flex;gap:8px;">
+      <button class="btn-secondary" style="flex:1;" onclick="document.getElementById('inPhotoInput').click()">📷 Capture Photo</button>
+      <button class="btn-secondary" style="flex:1;" onclick="document.getElementById('inPhotoUpload').click()">🖼️ Upload Photo</button>
+    </div>
     <div id="inPhotoStatus" style="display:none;margin-bottom:10px;">
       <span style="font-size:12px;color:var(--ok);font-weight:600;">✅ Photo attached</span>
       <span class="back-link" style="margin-left:10px;font-size:12px;color:var(--warn);" onclick="clearPhoto('in')">✕ Remove Photo</span>
@@ -196,9 +200,13 @@
 
     <label>Quantity Going Out</label>
     <input type="number" id="outQty" placeholder="e.g. 5" min="1">
-    <label>📷 Photo (optional)</label>
+    <label>📷 Photo (required)</label>
     <input type="file" accept="image/*" capture="environment" id="outPhotoInput" style="display:none;" onchange="handlePhotoCapture('out', this)">
-    <button class="btn-secondary" onclick="document.getElementById('outPhotoInput').click()">📷 Capture Photo</button>
+    <input type="file" accept="image/*" id="outPhotoUpload" style="display:none;" onchange="handlePhotoCapture('out', this)">
+    <div style="display:flex;gap:8px;">
+      <button class="btn-secondary" style="flex:1;" onclick="document.getElementById('outPhotoInput').click()">📷 Capture Photo</button>
+      <button class="btn-secondary" style="flex:1;" onclick="document.getElementById('outPhotoUpload').click()">🖼️ Upload Photo</button>
+    </div>
     <div id="outPhotoStatus" style="display:none;margin-bottom:10px;">
       <span style="font-size:12px;color:var(--ok);font-weight:600;">✅ Photo attached</span>
       <span class="back-link" style="margin-left:10px;font-size:12px;color:var(--warn);" onclick="clearPhoto('out')">✕ Remove Photo</span>
@@ -289,11 +297,26 @@ function testConnection() {
       el.textContent = '⚠️ ' + issues.join('  |  ');
     } else {
       el.className = 'msg ok';
-      el.textContent = '✅ Connected, all sheets found, and photo storage (Drive) is authorized. Everything should work.';
+      el.textContent = '✅ Connected, all sheets found, and photo storage (Drive) is authorized. Everything should work.' +
+        (res.watiConfigured ? ' WhatsApp alerts (WATI) are configured.' : ' ℹ️ WhatsApp alerts (WATI) are not set up yet - fill in the WATI_ constants in the script if you want those.');
     }
   }).catch(err => {
     el.className = 'msg err';
     el.textContent = '❌ Could not connect: ' + err.message;
+  });
+}
+
+function testWhatsApp() {
+  const el = document.getElementById('testMsg');
+  el.className = 'msg';
+  el.style.display = 'block';
+  el.textContent = '📲 Sending test WhatsApp message…';
+  callApi('testWhatsApp').then(res => {
+    el.className = res.success ? 'msg ok' : 'msg err';
+    el.textContent = (res.success ? '✅ ' : '⚠️ ') + res.message;
+  }).catch(err => {
+    el.className = 'msg err';
+    el.textContent = '❌ ' + err.message;
   });
 }
 
@@ -340,17 +363,37 @@ function initData() {
   loadBranches();
 }
 
+// Branches rarely change, so caching them locally means the dropdown can populate INSTANTLY on
+// every visit after the first, instead of waiting for a fresh Apps Script round-trip every time.
+// A background refresh still runs so the list stays correct if a branch is ever added/removed/
+// renamed - it just doesn't have to block what the user sees first.
+const BRANCH_CACHE_KEY = 'ims_branches_cache';
+
 function loadBranches() {
   const sel = document.getElementById('outBranch');
-  sel.innerHTML = '<option value="">Loading branches…</option>';
+  const cached = localStorage.getItem(BRANCH_CACHE_KEY);
+
+  if (cached) {
+    try {
+      const list = JSON.parse(cached);
+      if (list && list.length) populateBranches(list); // instant, no waiting
+    } catch (e) { /* ignore a corrupted cache, fresh fetch below will fix it */ }
+  } else {
+    sel.innerHTML = '<option value="">Loading branches…</option>';
+  }
+
+  // Always fetch fresh in the background and update the cache + dropdown once it arrives -
+  // but only replace the dropdown's options if the user hasn't already picked one, so we don't
+  // yank a selection out from under them mid-entry.
   callApi('getBranches').then(list => {
     if (!list || !list.length) {
-      sel.innerHTML = '<option value="">⚠️ No active branches found - check Branches sheet</option>';
+      if (!cached) sel.innerHTML = '<option value="">⚠️ No active branches found - check Branches sheet</option>';
       return;
     }
-    populateBranches(list);
+    localStorage.setItem(BRANCH_CACHE_KEY, JSON.stringify(list));
+    if (!sel.value) populateBranches(list);
   }).catch(err => {
-    sel.innerHTML = '<option value="">⚠️ Could not load - tap 🔄 Retry (' + err.message + ')</option>';
+    if (!cached) sel.innerHTML = '<option value="">⚠️ Could not load - tap 🔄 Retry (' + err.message + ')</option>';
   });
 }
 
@@ -584,17 +627,29 @@ function showMsg(mode, cls, text) {
 
 // ---------------- LIVE SUGGESTIONS (type SKU or Item Name, pick from a dropdown) ----------------
 let suggestTimer = null;
+// Tracks the "latest" search per mode. If a slightly earlier search is still in flight over the
+// network when you tap a suggestion (or type more), its response can arrive AFTER that action -
+// clearTimeout() alone can't stop an already-sent request, so instead each response checks
+// whether it's still the most recent one before doing anything with it.
+let searchRequestId = { in: 0, out: 0 };
 
 function onSkuInput(mode) {
   const query = document.getElementById(mode + 'Sku').value.trim();
   clearTimeout(suggestTimer);
   if (query.length < 2) {
+    searchRequestId[mode]++; // invalidate any still-in-flight request so it can't pop the dropdown back open
     hideSuggestions(mode);
     return;
   }
   // Debounce so it doesn't fire an API call on every single keystroke.
   suggestTimer = setTimeout(() => {
-    callApi('searchItems', { query: query }).then(results => renderSuggestions(mode, results || [])).catch(() => hideSuggestions(mode));
+    const myRequestId = ++searchRequestId[mode];
+    callApi('searchItems', { query: query }).then(results => {
+      if (myRequestId !== searchRequestId[mode]) return; // a newer search or a selection happened since - ignore this stale response
+      renderSuggestions(mode, results || []);
+    }).catch(() => {
+      if (myRequestId === searchRequestId[mode]) hideSuggestions(mode);
+    });
   }, 250);
 }
 
@@ -623,7 +678,8 @@ function hideSuggestions(mode) {
 }
 
 function selectSuggestion(mode, index) {
-  clearTimeout(suggestTimer); // stop any in-flight debounced search from re-opening the dropdown
+  searchRequestId[mode]++; // invalidate any pending/in-flight search so its late response can't reopen the dropdown
+  clearTimeout(suggestTimer);
   const results = window['lastSuggestions_' + mode] || [];
   const it = results[index];
   if (!it) return;
@@ -698,6 +754,7 @@ function addToQueue(mode) {
 
   if (!sku || !name) { showMsg(mode, 'err', '❌ Scan an item first.'); return; }
   if (!qty || qty <= 0) { showMsg(mode, 'err', '❌ Enter a valid quantity.'); return; }
+  if (!photoData[mode]) { showMsg(mode, 'err', '📷 Photo is required - capture or upload one before saving this entry.'); return; }
 
   const row = { sku: sku, name: name, qty: qty, photo: photoData[mode] };
   if (mode === 'out') {
@@ -792,6 +849,7 @@ function finalSubmit(mode) {
 }
 
 function resetForm(mode) {
+  searchRequestId[mode]++; // invalidate any pending search so it can't reopen suggestions after reset
   document.getElementById(mode + 'Sku').value = '';
   document.getElementById(mode + 'Qty').value = '';
   clearPhoto(mode);
