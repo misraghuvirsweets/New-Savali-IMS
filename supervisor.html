@@ -914,7 +914,7 @@ function renderHealthTable(items) {
     tbody = '<tbody><tr><td colspan="7" class="empty-msg" style="padding:20px;text-align:center;color:#999;">No items found.</td></tr></tbody>';
   } else {
     tbody = '<tbody>' + items.map(it => {
-      const pillLabel = { red: 'LOW', orange: 'WATCH', lightbrown: 'OK', green: 'GOOD' }[it.band] || '';
+      const pillLabel = { red: 'LOW', orange: 'AVERAGE', lightbrown: 'OK', green: 'GOOD' }[it.band] || '';
       return '<tr class="row-' + it.band + '"><td>' + it.sku + '</td><td>' + it.name + '</td><td>' + (it.location || '') +
         '</td><td>' + it.stock + '</td><td>' + it.reorder + '</td><td>' + (it.ratio !== null ? it.ratio + '%' : '—') +
         '</td><td><span class="band-pill ' + it.band + '">' + pillLabel + '</span></td></tr>';
