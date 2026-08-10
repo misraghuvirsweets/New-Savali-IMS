@@ -90,7 +90,7 @@
   th{color:#8a7a6d;font-weight:600;}
   .lowstock{color:var(--warn);font-weight:700;}
 
-  /* Stock Health dashboard */
+  /* Low Stock Alert dashboard */
   .legend{display:flex;gap:10px;flex-wrap:wrap;font-size:10.5px;color:#555;margin:10px 0;}
   .legend span{display:inline-flex;align-items:center;gap:4px;}
   .swatch{width:11px;height:11px;border-radius:3px;display:inline-block;flex:0 0 auto;}
@@ -137,7 +137,7 @@
   <div class="home-subtitle">Stock Supervisor Dashboard</div>
   <button class="big-btn stock-in" onclick="showPage('pageIn')">📥 Stock In</button>
   <button class="big-btn stock-out" onclick="showPage('pageOut')">📤 Stock Out</button>
-  <button class="big-btn stock-health" onclick="showPage('pageHealth')">📊 Live Stock Dashboard</button>
+  <button class="big-btn stock-health" onclick="showPage('pageHealth')">🚨 Low Stock Alert</button>
 </div>
 
 <!-- ================= INWARD PAGE ================= -->
@@ -237,9 +237,10 @@
   </div>
 </div>
 
-<!-- ================= STOCK HEALTH DASHBOARD PAGE ================= -->
+<!-- ================= LOW STOCK ALERT PAGE ================= -->
 <div class="page" id="pageHealth">
   <span class="back-link" onclick="showPage('pageHome')">← Back</span>
+  <div style="font-size:16px;font-weight:700;color:var(--maroon-dark);margin-bottom:10px;">🚨 Low Stock Alert</div>
 
   <div class="stats" id="healthStatsRow"></div>
 
