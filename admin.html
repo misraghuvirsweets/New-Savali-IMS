@@ -44,6 +44,17 @@
   .lowstock{color:var(--warn);font-weight:700;}
   .empty-msg{padding:20px;text-align:center;color:#999;font-size:13px;}
 
+  /* Stock health color coding (Current Stock vs Reorder Level) - same bands as the Supervisor
+     dashboard's Low Stock Alert view. */
+  tr.row-red{background:#fbe1df;}
+  tr.row-red td{color:#7a1f19;font-weight:600;}
+  tr.row-orange{background:#fce6cf;}
+  tr.row-orange td{color:#7a4a12;}
+  tr.row-lightbrown{background:#f1e3cf;}
+  tr.row-lightbrown td{color:#5c4726;}
+  tr.row-green{background:#e2f4e6;}
+  tr.row-green td{color:#1f5c34;}
+
   .stats{display:flex;gap:10px;flex-wrap:wrap;max-width:1100px;margin:10px auto;padding:0 14px;}
   .stat{flex:1;min-width:140px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;}
   .stat .num{font-size:22px;font-weight:700;color:var(--maroon);}
@@ -81,6 +92,13 @@
   <button class="btn-secondary" id="bulkAssignBtn" style="display:none;" onclick="handleBulkAssignClick()">🧩 Bulk Assign SKUs</button>
   <button class="btn-secondary" onclick="loadCurrentTable()">🔄 Refresh</button>
   <span class="count-badge" id="countBadge"></span>
+</div>
+
+<div class="legend" id="stockHealthLegend" style="display:none;max-width:1100px;margin:0 auto 8px;padding:0 14px;gap:12px;flex-wrap:wrap;font-size:11px;color:#555;">
+  <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;border-radius:3px;display:inline-block;background:#c0392b;"></span> Red — at/below reorder</span>
+  <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;border-radius:3px;display:inline-block;background:#d97b1f;"></span> Orange — 100–130% of reorder</span>
+  <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;border-radius:3px;display:inline-block;background:#8a6a3f;"></span> Light Brown — 130–150%</span>
+  <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;border-radius:3px;display:inline-block;background:#2f8f4e;"></span> Green — above 150%</span>
 </div>
 
 <div class="table-wrap" id="tableView">
@@ -124,12 +142,17 @@
   </select>
 
   <label id="addLocationLabel">Rack Code</label>
-  <select id="addLocation"><option value="">Loading…</option></select>
+  <select id="addLocation" onchange="handleLocationSelectChange()"><option value="">Loading…</option></select>
+  <input type="text" id="addLocationManual" placeholder="Type the rack/zone code, e.g. RACK-003-A" style="display:none;">
 
   <label>Unit</label>
   <input type="text" id="addUnit" placeholder="e.g. Pcs, Box, Roll" value="Pcs">
   <label>Reorder Level</label>
   <input type="number" id="addReorder" placeholder="e.g. 50" value="0">
+  <label>Rate (₹ per unit)</label>
+  <input type="number" id="addRate" placeholder="e.g. 250" step="0.01">
+  <label>Qty per Kg</label>
+  <input type="number" id="addQtyPerKg" placeholder="e.g. 4" step="0.01">
 
   <label>Barcode</label>
   <select id="addBarcodeMode">
@@ -327,6 +350,7 @@ function showTableView() {
   document.getElementById('toolbarView').style.display = 'flex';
   document.getElementById('tableView').style.display = 'block';
   document.getElementById('searchBox').style.display = '';
+  document.getElementById('stockHealthLegend').style.display = (currentTableKey === 'Stock_Ledger') ? 'flex' : 'none';
   setupTableActionButton();
 }
 
@@ -375,12 +399,31 @@ function setupExtraFilter() {
   wrap.style.display = 'block';
 }
 
+// Same band logic/thresholds as the Supervisor dashboard's Low Stock Alert (Code.gs
+// STOCK_HEALTH_THRESHOLDS) - kept in sync manually since this is a client-side convenience
+// coloring on top of data already in the table, not a separate server call.
+const STOCK_HEALTH_THRESHOLDS = { orange: 100, lightbrown: 130, green: 150 };
+function getStockHealthBand(stock, reorder) {
+  if (reorder <= 0) return stock > 0 ? 'green' : 'red';
+  const ratio = (stock / reorder) * 100;
+  if (ratio <= STOCK_HEALTH_THRESHOLDS.orange) return 'red';
+  if (ratio <= STOCK_HEALTH_THRESHOLDS.lightbrown) return 'orange';
+  if (ratio <= STOCK_HEALTH_THRESHOLDS.green) return 'lightbrown';
+  return 'green';
+}
+
 function renderTable(rows) {
   const isItemMaster = currentTableKey === 'Item_Master';
   const isBranches = currentTableKey === 'Branches';
+  const isStockLedger = currentTableKey === 'Stock_Ledger';
   const skuIdx = isItemMaster ? currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('sku') !== -1) : -1;
   const branchNameIdx = isBranches ? currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('name') !== -1) : -1;
   const hasAction = (isItemMaster && skuIdx !== -1) || (isBranches && branchNameIdx !== -1);
+
+  // For Stock_Ledger: find the Current Stock / Reorder Level columns by header name so row
+  // coloring works regardless of exact column order.
+  const stockColIdx = isStockLedger ? currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('current stock') !== -1) : -1;
+  const reorderColIdx = isStockLedger ? currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('reorder') !== -1) : -1;
 
   const thead = '<thead><tr>' + currentHeaders.map(h => '<th>' + h + '</th>').join('') +
     (hasAction ? '<th>Action</th>' : '') + '</tr></thead>';
@@ -402,7 +445,15 @@ function renderTable(rows) {
         actionCell = '<td><button style="background:none;border:none;color:var(--warn);font-weight:700;cursor:pointer;" onclick="deleteBranchFromAdmin(\'' +
           String(r[branchNameIdx]).replace(/'/g, "\\'") + '\')">🗑️ Delete</button></td>';
       }
-      return '<tr>' + cells + actionCell + '</tr>';
+
+      let rowClass = '';
+      if (isStockLedger && stockColIdx !== -1 && reorderColIdx !== -1) {
+        const stock = Number(r[stockColIdx]) || 0;
+        const reorder = Number(r[reorderColIdx]) || 0;
+        rowClass = ' class="row-' + getStockHealthBand(stock, reorder) + '"';
+      }
+
+      return '<tr' + rowClass + '>' + cells + actionCell + '</tr>';
     }).join('') + '</tbody>';
   }
   document.getElementById('dataTable').innerHTML = thead + tbody;
@@ -469,9 +520,20 @@ function refreshLocationOptions() {
   document.getElementById('addLocationLabel').textContent = isRacked ? 'Rack Code' : 'Non-Rack Zone Code';
   const filtered = allRacks.filter(r => isRacked ? r.toUpperCase().startsWith('RACK-') : !r.toUpperCase().startsWith('RACK-'));
   const sel = document.getElementById('addLocation');
-  sel.innerHTML = filtered.length
+  const existingOptions = filtered.length
     ? filtered.map(r => '<option value="' + r + '">' + r + '</option>').join('')
-    : '<option value="">No ' + (isRacked ? 'racks' : 'zones') + ' found - add one in the Racks sheet first</option>';
+    : '';
+  sel.innerHTML = existingOptions + '<option value="__MANUAL__">✏️ Type manually…</option>';
+  document.getElementById('addLocationManual').style.display = 'none';
+  document.getElementById('addLocationManual').value = '';
+}
+
+// Shows a free-text field instead of the dropdown when "Type manually" is picked - lets you
+// register an item against a rack/zone that isn't in the Racks sheet yet, without having to
+// go add it there first.
+function handleLocationSelectChange() {
+  const manual = document.getElementById('addLocation').value === '__MANUAL__';
+  document.getElementById('addLocationManual').style.display = manual ? 'block' : 'none';
 }
 
 function toggleBarcodeModeUI() {
@@ -480,13 +542,20 @@ function toggleBarcodeModeUI() {
 }
 
 function submitAddItem() {
+  const locationSelectValue = document.getElementById('addLocation').value;
+  const locationCode = locationSelectValue === '__MANUAL__'
+    ? document.getElementById('addLocationManual').value.trim()
+    : locationSelectValue;
+
   const payload = {
     itemName: document.getElementById('addName').value.trim(),
     category: document.getElementById('addCategory').value.trim(),
     isRacked: document.getElementById('addStorageType').value === 'racked',
-    locationCode: document.getElementById('addLocation').value,
+    locationCode: locationCode,
     unit: document.getElementById('addUnit').value.trim() || 'Pcs',
     reorder: document.getElementById('addReorder').value || 0,
+    rate: document.getElementById('addRate').value || 0,
+    qtyPerKg: document.getElementById('addQtyPerKg').value || 0,
     barcodeMode: document.getElementById('addBarcodeMode').value,
     existingBarcode: document.getElementById('addExistingBarcode').value.trim()
   };
@@ -499,7 +568,7 @@ function submitAddItem() {
   }
 
   if (!payload.itemName) { showAddMsg('err', '⚠️ Item name is required.'); return; }
-  if (!payload.locationCode) { showAddMsg('err', '⚠️ Please choose a rack / zone code.'); return; }
+  if (!payload.locationCode) { showAddMsg('err', '⚠️ Please choose or type a rack / zone code.'); return; }
   if (payload.barcodeMode === 'existing' && !payload.existingBarcode) {
     showAddMsg('err', '⚠️ Scan or type the existing barcode.'); return;
   }
@@ -516,6 +585,9 @@ function submitAddItem() {
       document.getElementById('addCategory').value = '';
       document.getElementById('addExistingBarcode').value = '';
       document.getElementById('addReorder').value = 0;
+      document.getElementById('addRate').value = '';
+      document.getElementById('addQtyPerKg').value = '';
+      document.getElementById('addLocationManual').value = '';
       setTimeout(() => { if (formOpenForTab) handleTableActionClick(); }, 900); // pop back to the list showing the new item
     } else {
       showAddMsg('err', '❌ ' + res.message);
