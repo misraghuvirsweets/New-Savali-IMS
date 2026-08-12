@@ -706,7 +706,7 @@ function renderSelectedLocation() {
     stockOutCard.style.display = 'none';
     const godown = locationStockData.godown || { totalUnits: 0, items: [] };
     document.getElementById('locationStatsRow').innerHTML =
-      '<div class="stat"><div class="num">' + godown.totalUnits + '</div><div class="lbl">🏭 Savali Godown (units in stock)</div></div>';
+      '<div class="stat"><div class="num">' + formatCellValue(godown.totalUnits) + '</div><div class="lbl">🏭 Savali Godown (units in stock)</div></div>';
     document.getElementById('locationDetailWrap').innerHTML =
       '<div class="section-title">🏭 Savali Godown — Item-wise Current Stock (Stock In − Stock Out to all branches)</div>' +
       '<div class="legend" style="max-width:1100px;margin:0 auto 8px;padding:0 14px;gap:12px;flex-wrap:wrap;font-size:11px;color:#555;">' +
@@ -723,9 +723,9 @@ function renderSelectedLocation() {
     const branch = (locationStockData.branches || []).find(b => b.name === sel.value) ||
       { name: sel.value, totalUnits: 0, totalReceived: 0, totalStockOut: 0, items: [] };
     document.getElementById('locationStatsRow').innerHTML =
-      '<div class="stat"><div class="num">' + branch.totalReceived + '</div><div class="lbl">📥 Received (units)</div></div>' +
-      '<div class="stat"><div class="num">' + branch.totalStockOut + '</div><div class="lbl">➖ Stock-Out (units)</div></div>' +
-      '<div class="stat"><div class="num">' + branch.totalUnits + '</div><div class="lbl">🏬 ' + branch.name + ' Net Stock</div></div>';
+      '<div class="stat"><div class="num">' + formatCellValue(branch.totalReceived) + '</div><div class="lbl">📥 Received (units)</div></div>' +
+      '<div class="stat"><div class="num">' + formatCellValue(branch.totalStockOut) + '</div><div class="lbl">➖ Stock-Out (units)</div></div>' +
+      '<div class="stat"><div class="num">' + formatCellValue(branch.totalUnits) + '</div><div class="lbl">🏬 ' + branch.name + ' Net Stock</div></div>';
     document.getElementById('locationDetailWrap').innerHTML =
       '<div class="section-title">🏬 ' + branch.name + ' — Item-wise Stock (Received from Godown − Branch\'s Own Stock-Out)</div>' +
       buildLocationTable(['SKU', 'Item', 'Received', 'Stock-Out', 'Net Stock'],
