@@ -1,864 +1,1890 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" onerror="this.dataset.failed='1'; var s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js'; document.head.appendChild(s);"></script>
-<style>
-  :root{
-    --maroon:#6d2932; --maroon-dark:#4e1e25; --gold:#c98a2c; --bg:#faf6f1;
-    --ok:#2f8f4e; --warn:#c0392b; --card:#ffffff; --line:#e7ddd2;
-  }
-  *{box-sizing:border-box;}
-  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:#2a2a2a;overflow-x:hidden;}
-  header{background:var(--maroon);color:#fff;padding:12px 16px;text-align:center;position:sticky;top:0;z-index:10;box-shadow:0 2px 6px rgba(0,0,0,.15);}
-  header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.3px;display:flex;align-items:center;justify-content:center;gap:8px;}
-  header p{margin:2px 0 0;font-size:11px;opacity:.85;}
-  .brand-logo{height:68px;width:68px;object-fit:contain;border-radius:12px;background:#fff;padding:4px;}
-  .tabs{display:flex;background:var(--maroon-dark);position:sticky;top:52px;z-index:9;}
-  .tab{flex:1;text-align:center;padding:11px 4px;font-size:13px;color:#f0d9d2;cursor:pointer;border-bottom:3px solid transparent;}
-  .tab.active{color:#fff;border-bottom:3px solid var(--gold);font-weight:600;}
-  .page{display:none;padding:14px;max-width:520px;margin:0 auto;}
-  .page.active{display:block;}
+/*************************************************************************************************
+ *  RAGHUVIR SWEETS & BAKERS — ADVANCED INVENTORY MANAGEMENT SYSTEM (IMS)
+ *  Single-file Apps Script project: Sheet setup/menu/scan-triggers + Web App API, all in one file.
+ *
+ *  HOW TO INSTALL (one time):
+ *  1. Create a new blank Google Sheet, name it "Raghuvir Sweets & Bakers - IMS".
+ *  2. Extensions -> Apps Script. Delete any starter code (including the default Code.gs file,
+ *     if one exists) and paste this ENTIRE file into a single script file (any name is fine,
+ *     e.g. keep it as "Code.gs" or rename to "WebApp.gs" - it's all one project either way).
+ *  3. Also add "Index" as an HTML file (File -> New -> HTML file -> name exactly "Index")
+ *     and paste the Index.html content given separately (only needed if using the in-Sheet
+ *     "IMS Tools" web view - the hosted godown.html/admin.html pages don't need this).
+ *  4. Save (Ctrl+S). Reload the Google Sheet tab in your browser.
+ *  5. A new menu "📦 IMS Tools" will appear. Click "📦 IMS Tools" -> "🚀 1. Setup System (Run Once)".
+ *  6. Grant the permissions Google asks for (it's your own script, on your own sheet).
+ *  7. Deploy as a Web App: Deploy -> New deployment -> gear icon -> "Web app".
+ *     - Execute as: Me
+ *     - Who has access: Anyone with the link (or "Anyone within [your domain]" for Workspace)
+ *  8. Copy the Web App URL it gives you - paste it into the API_URL constant near the top of
+ *     godown.html and admin.html.
+ *  9. Every time you edit this file, create a "New deployment" (or Manage deployments -> Edit ->
+ *     New version) for changes to go live on the same URL.
+ *************************************************************************************************/
 
-  /* ---- Home screen ---- */
-  #pageHome{padding:28px 20px;max-width:560px;margin:0 auto;}
-  .home-title{font-size:24px;font-weight:700;color:#2a1a15;text-align:center;margin:10px 0 4px;font-family:Georgia,'Times New Roman',serif;}
-  .home-subtitle{font-size:14px;color:#8a7a6d;text-align:center;margin:0 0 30px;}
-  .big-btn{
-    display:block;width:100%;padding:26px 18px;margin-bottom:22px;border:none;border-radius:16px;
-    font-size:22px;font-weight:700;color:#fff;cursor:pointer;text-align:center;
-    box-shadow:0 3px 8px rgba(0,0,0,.15);transition:transform .08s ease, box-shadow .08s ease;
-  }
-  .big-btn:active{transform:scale(0.98);box-shadow:0 1px 4px rgba(0,0,0,.15);}
-  .big-btn.stock-in{background:#3f6b2e;}
-  .big-btn.stock-out{background:#a8421f;}
-  .back-link{display:inline-block;margin-bottom:12px;color:var(--maroon);font-weight:600;font-size:14px;cursor:pointer;}
-  .back-link:active{opacity:.6;}
-
-  .top-add-btn{
-    position:fixed;top:10px;right:10px;z-index:20;width:auto;
-    padding:9px 16px;border-radius:22px;font-size:13px;font-weight:700;
-    background:var(--gold);color:#3a2508;box-shadow:0 2px 8px rgba(0,0,0,.3);
-    display:none;border:none;cursor:pointer;
-  }
-  .top-add-btn:disabled{opacity:.5;}
-  .top-add-btn.show{display:block;}
-
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
-  label{font-size:12px;font-weight:600;color:#6b5c50;display:block;margin-bottom:5px;}
-  select, input[type=text], input[type=number]{
-    width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;margin-bottom:10px;background:#fff;
-  }
-  select:focus, input:focus{outline:none;border-color:var(--gold);}
-  button{
-    width:100%;padding:12px;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;
-  }
-  .btn-primary{background:var(--maroon);color:#fff;}
-  .btn-primary:active{background:var(--maroon-dark);}
-  .btn-secondary{background:#efe6db;color:var(--maroon-dark);margin-bottom:10px;}
-  .btn-submit{background:var(--gold);color:#3a2508;}
-  .btn-submit:disabled{opacity:.5;}
-  .qr-reader-wrap{position:relative;margin-bottom:6px;}
-  .qr-reader-box{width:100%;min-height:260px;border-radius:10px;overflow:hidden;background:#000;}
-  .scan-detected-label{font-size:12px;color:var(--maroon-dark);text-align:center;min-height:16px;margin-bottom:10px;}
-  .search-wrap{position:relative;}
-  .suggestions-dropdown{
-    position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--line);
-    border-top:none;border-radius:0 0 8px 8px;max-height:220px;overflow-y:auto;z-index:15;
-    box-shadow:0 4px 10px rgba(0,0,0,.12);display:none;margin-top:-10px;
-  }
-  .suggestion-item{padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer;}
-  .suggestion-item:last-child{border-bottom:none;}
-  .suggestion-item:active{background:#f5ebe0;}
-  .suggestion-name{font-weight:600;font-size:13px;color:var(--maroon-dark);}
-  .suggestion-meta{font-size:11px;color:#888;margin-top:2px;}
-  .item-box{border:1px dashed var(--gold);background:#fff8ec;border-radius:10px;padding:10px 12px;margin-bottom:10px;display:none;}
-  .item-box .name{font-weight:700;font-size:15px;color:var(--maroon-dark);}
-  .item-box .meta{font-size:12px;color:#777;margin-top:2px;}
-  .msg{font-size:13px;padding:10px 12px;border-radius:8px;margin-bottom:10px;display:none;}
-  .msg.ok{background:#e7f6ea;color:var(--ok);display:block;}
-  .msg.err{background:#fdecea;color:var(--warn);display:block;}
-  .stats{display:flex;gap:10px;flex-wrap:wrap;}
-  .stat{flex:1;min-width:120px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center;}
-  .stat .num{font-size:22px;font-weight:700;color:var(--maroon);}
-  .stat .lbl{font-size:11px;color:#777;margin-top:2px;}
-  table{width:100%;border-collapse:collapse;font-size:12.5px;}
-  th,td{text-align:left;padding:6px 4px;border-bottom:1px solid var(--line);}
-  th{color:#8a7a6d;font-weight:600;}
-  .lowstock{color:var(--warn);font-weight:700;}
-  .section-title{font-size:13px;font-weight:700;color:var(--maroon-dark);margin:14px 0 8px;}
-  .queue-row-del{background:none;border:none;color:var(--warn);font-weight:700;width:auto;padding:2px 8px;cursor:pointer;}
-  .queue-empty{font-size:12px;color:#999;padding:6px 0;}
-  .queue-summary{font-size:12px;color:#6b5c50;margin-bottom:8px;}
-  .spinner{display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px;}
-  @keyframes spin{to{transform:rotate(360deg);}}
-</style>
-</head>
-<body>
-
-<header>
-  <h1><img src="https://drive.google.com/thumbnail?id=18aiuiSN9uj-mJtOkGB1rNt4GP6yUbvuO&sz=w200" alt="Logo" class="brand-logo" onerror="this.style.display='none'"> RAGHUVIR SWEETS &amp; BAKERS</h1>
-  <p>Godown Dashboard <span id="testGear" onclick="testConnection()" style="cursor:pointer;">🔧</span> <span id="whatsappTestIcon" onclick="testWhatsApp()" style="cursor:pointer;">📲</span></p>
-</header>
-
-<button class="top-add-btn" id="topAddBtn" disabled onclick="topAddEntry()">💾 Save Entry</button>
-
-<div class="msg" id="testMsg" style="margin:14px;"></div>
-
-<div class="card" id="urlSetupCard" style="display:none;margin:14px;">
-  <label>⚠️ Web App URL not set - paste it here to continue</label>
-  <input type="text" id="urlSetupInput" placeholder="https://script.google.com/macros/s/XXXXX/exec">
-  <button class="btn-primary" onclick="saveUrlFallback()">💾 Save &amp; Continue</button>
-  <p style="font-size:11px;color:#888;margin-top:8px;">
-    This is saved only in this browser/device. To make it permanent for everyone, edit the
-    API_URL line near the top of this file's code instead.
-  </p>
-  <p id="debugUrlLine" style="font-size:11px;color:var(--warn);margin-top:6px;font-family:monospace;word-break:break-all;"></p>
-</div>
-
-<!-- ================= HOME PAGE ================= -->
-<div class="page active" id="pageHome">
-  <div class="home-title">Raghuvir Sweets &amp; Bakers</div>
-  <div class="home-subtitle">Godown Dashboard</div>
-  <button class="big-btn stock-in" onclick="showPage('pageIn')">📥 Stock In</button>
-  <button class="big-btn stock-out" onclick="showPage('pageOut')">📤 Stock Out</button>
-</div>
-
-<!-- ================= INWARD PAGE ================= -->
-<div class="page" id="pageIn">
-  <div class="card">
-    <span class="back-link" onclick="showPage('pageHome')">← Back</span>
-    <label>Type SKU or Item Name (or scan)</label>
-    <div class="search-wrap">
-      <input type="text" id="inSku" placeholder="Type SKU or item name, or scan…" autocomplete="off">
-      <div id="inSuggestions" class="suggestions-dropdown"></div>
-    </div>
-    <button class="btn-secondary" onclick="toggleCamera('in')">📷 Use Camera Scanner</button>
-    <div id="reader-in" class="reader-slot" style="display:none;">
-      <div class="qr-reader-wrap">
-        <div id="reader" class="qr-reader-box"></div>
-      </div>
-      <div id="scanProgress-in" class="scan-detected-label"></div>
-    </div>
-
-    <div class="msg" id="inMsg"></div>
-    <div class="item-box" id="inItemBox">
-      <div class="name" id="inItemName"></div>
-      <div class="meta" id="inItemMeta"></div>
-    </div>
-
-    <label>Quantity Received</label>
-    <input type="number" id="inQty" placeholder="e.g. 10" min="1">
-    <label>📷 Photo (required)</label>
-    <input type="file" accept="image/*" capture="environment" id="inPhotoInput" style="display:none;" onchange="handlePhotoCapture('in', this)">
-    <input type="file" accept="image/*" id="inPhotoUpload" style="display:none;" onchange="handlePhotoCapture('in', this)">
-    <div style="display:flex;gap:8px;">
-      <button class="btn-secondary" style="flex:1;" onclick="document.getElementById('inPhotoInput').click()">📷 Capture Photo</button>
-      <button class="btn-secondary" style="flex:1;" onclick="document.getElementById('inPhotoUpload').click()">🖼️ Upload Photo</button>
-    </div>
-    <div id="inPhotoStatus" style="display:none;margin-bottom:10px;">
-      <span style="font-size:12px;color:var(--ok);font-weight:600;">✅ Photo attached</span>
-      <span class="back-link" style="margin-left:10px;font-size:12px;color:var(--warn);" onclick="clearPhoto('in')">✕ Remove Photo</span>
-    </div>
-    <button class="btn-submit" id="inSubmitBtn" disabled onclick="addToQueue('in')">💾 Save Entry</button>
-  </div>
-
-  <div class="card">
-    <div class="section-title">📋 Entries to Submit</div>
-    <div class="queue-summary" id="inQueueSummary">No entries added yet.</div>
-    <table id="inQueueTable"></table>
-    <button class="btn-primary" id="inFinalSubmitBtn" disabled onclick="finalSubmit('in')" style="margin-top:10px;">✅ Final Submit</button>
-  </div>
-</div>
-
-<!-- ================= OUTWARD PAGE ================= -->
-<div class="page" id="pageOut">
-  <div class="card">
-    <span class="back-link" onclick="showPage('pageHome')">← Back</span>
-    <label>🏬 Branch <span class="back-link" style="margin:0 0 0 8px;font-size:12px;" onclick="loadBranches()">🔄 Retry</span></label>
-    <select id="outBranch"><option value="">Loading branches…</option></select>
-
-    <label>Type SKU or Item Name (or scan)</label>
-    <div class="search-wrap">
-      <input type="text" id="outSku" placeholder="Type SKU or item name, or scan…" autocomplete="off">
-      <div id="outSuggestions" class="suggestions-dropdown"></div>
-    </div>
-    <button class="btn-secondary" onclick="toggleCamera('out')">📷 Use Camera Scanner</button>
-    <div id="reader-out" class="reader-slot" style="display:none;">
-      <div class="qr-reader-wrap">
-        <div id="reader2" class="qr-reader-box"></div>
-      </div>
-      <div id="scanProgress-out" class="scan-detected-label"></div>
-    </div>
-
-    <div class="msg" id="outMsg"></div>
-    <div class="item-box" id="outItemBox">
-      <div class="name" id="outItemName"></div>
-      <div class="meta" id="outItemMeta"></div>
-    </div>
-
-    <label>Quantity Going Out</label>
-    <input type="number" id="outQty" placeholder="e.g. 5" min="1">
-    <label>📷 Photo (required)</label>
-    <input type="file" accept="image/*" capture="environment" id="outPhotoInput" style="display:none;" onchange="handlePhotoCapture('out', this)">
-    <input type="file" accept="image/*" id="outPhotoUpload" style="display:none;" onchange="handlePhotoCapture('out', this)">
-    <div style="display:flex;gap:8px;">
-      <button class="btn-secondary" style="flex:1;" onclick="document.getElementById('outPhotoInput').click()">📷 Capture Photo</button>
-      <button class="btn-secondary" style="flex:1;" onclick="document.getElementById('outPhotoUpload').click()">🖼️ Upload Photo</button>
-    </div>
-    <div id="outPhotoStatus" style="display:none;margin-bottom:10px;">
-      <span style="font-size:12px;color:var(--ok);font-weight:600;">✅ Photo attached</span>
-      <span class="back-link" style="margin-left:10px;font-size:12px;color:var(--warn);" onclick="clearPhoto('out')">✕ Remove Photo</span>
-    </div>
-    <button class="btn-submit" id="outSubmitBtn" disabled onclick="addToQueue('out')">💾 Save Entry</button>
-  </div>
-
-  <div class="card">
-    <div class="section-title">📋 Entries to Submit</div>
-    <div class="queue-summary" id="outQueueSummary">No entries added yet.</div>
-    <table id="outQueueTable"></table>
-    <button class="btn-primary" id="outFinalSubmitBtn" disabled onclick="finalSubmit('out')" style="margin-top:10px;">✅ Final Submit</button>
-  </div>
-</div>
-
-
-<script>
-// ---------------- PAGE NAVIGATION ----------------
-let currentMode = null; // 'in' | 'out' | null (home)
-
-function showPage(pageId) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById(pageId).classList.add('active');
-  stopCamera();
-
-  if (pageId === 'pageIn') { currentMode = 'in'; document.getElementById('inSku').focus(); }
-  else if (pageId === 'pageOut') { currentMode = 'out'; document.getElementById('outSku').focus(); }
-  else { currentMode = null; }
-
-  syncTopButton();
-}
-
-// Mirrors the in-form "Add Entry" button's enabled/disabled state onto the fixed top-corner
-// button, and shows it only while on the Inward/Outward pages (hidden on Home).
-function syncTopButton() {
-  const topBtn = document.getElementById('topAddBtn');
-  if (!currentMode) {
-    topBtn.classList.remove('show');
-    return;
-  }
-  topBtn.classList.add('show');
-  topBtn.disabled = document.getElementById(currentMode + 'SubmitBtn').disabled;
-}
-
-function topAddEntry() {
-  if (currentMode) addToQueue(currentMode);
-}
-
-// ============================= PASTE YOUR WEB APP URL BELOW ======================================
-// After deploying WebApp.gs in Apps Script (Deploy > New deployment > Web app), copy the URL
-// it gives you and paste it between the quotes here. This is the recommended permanent setup -
-// everyone who opens this hosted file gets it automatically, nothing to type on each device.
-const API_URL = "https://script.google.com/macros/s/AKfycbzRyb3a1UBD2HfiA3_OYPEVghv3Bu4yMkPMfqncCv6ScWFsVh77lxwp7Z2_WQiVaGT_/exec";
-// Example: const API_URL = "https://script.google.com/macros/s/AKfycb.../exec";
-
-// If the line above was never edited, fall back to a URL saved earlier in this browser (via the
-// on-page box that appears below), so the app still works instead of just showing an error.
-const URL_PLACEHOLDER = 'PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE';
-function getEffectiveApiUrl() {
-  if (API_URL.indexOf(URL_PLACEHOLDER) === -1 && API_URL.trim() !== '') return API_URL.trim();
-  return (localStorage.getItem('ims_api_url_fallback') || '').trim();
-}
-
-function saveUrlFallback() {
-  const url = document.getElementById('urlSetupInput').value.trim();
-  if (!url) { alert('Please paste your Web App URL.'); return; }
-  localStorage.setItem('ims_api_url_fallback', url);
-  document.getElementById('urlSetupCard').style.display = 'none';
-  document.getElementById('testMsg').style.display = 'none';
-  initData();
-}
-
-function testConnection() {
-  const el = document.getElementById('testMsg');
-  el.className = 'msg';
-  el.style.display = 'block';
-  el.textContent = 'Testing…';
-  callApi('ping').then(res => {
-    const issues = [];
-    if (res.missingSheets && res.missingSheets.length) {
-      issues.push('Missing sheet(s): ' + res.missingSheets.join(', ') + ' - run 📦 IMS Tools > 🚀 Setup System (Run Once) in the Google Sheet.');
-    }
-    if (!res.driveOk) {
-      issues.push('Drive access not authorized yet - run "oneTimeAuthorizeDriveAccess" in Apps Script, then redeploy. (' + (res.driveError || '') + ')');
-    }
-    if (issues.length) {
-      el.className = 'msg err';
-      el.textContent = '⚠️ ' + issues.join('  |  ');
-    } else {
-      el.className = 'msg ok';
-      el.textContent = '✅ Connected, all sheets found, and photo storage (Drive) is authorized. Everything should work.' +
-        (res.watiConfigured ? ' WhatsApp alerts (WATI) are configured.' : ' ℹ️ WhatsApp alerts (WATI) are not set up yet - fill in the WATI_ constants in the script if you want those.');
-    }
-  }).catch(err => {
-    el.className = 'msg err';
-    el.textContent = '❌ Could not connect: ' + err.message;
-  });
-}
-
-function testWhatsApp() {
-  const el = document.getElementById('testMsg');
-  el.className = 'msg';
-  el.style.display = 'block';
-  el.textContent = '📲 Sending test WhatsApp message…';
-  callApi('testWhatsApp').then(res => {
-    el.className = res.success ? 'msg ok' : 'msg err';
-    el.textContent = (res.success ? '✅ ' : '⚠️ ') + res.message;
-  }).catch(err => {
-    el.className = 'msg err';
-    el.textContent = '❌ ' + err.message;
-  });
-}
-
-// Sends Content-Type: text/plain so the browser treats it as a "simple request" and skips the
-// CORS preflight (OPTIONS) that Apps Script Web Apps don't handle - the JSON is still parsed
-// fine server-side via JSON.parse(e.postData.contents).
-function callApi(action, data) {
-  const url = getEffectiveApiUrl();
-  if (!url) {
-    document.getElementById('urlSetupCard').style.display = 'block';
-    return Promise.reject(new Error('Web App URL not set yet - paste it in the box above, or edit the API_URL constant in the code.'));
-  }
-  return fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(Object.assign({ action: action }, data || {}))
-  }).catch(networkErr => {
-    // fetch() itself failed - wrong/unreachable URL, no internet, or (less commonly) a CORS
-    // issue from the Apps Script deployment settings.
-    throw new Error('Could not reach the server at all: ' + networkErr.message +
-      '. Double-check the Web App URL is correct and your device is online.');
-  }).then(r => r.text()).then(text => {
-    let res;
-    try {
-      res = JSON.parse(text);
-    } catch (e) {
-      // The server sent back an HTML page instead of JSON. Most common causes:
-      // 1) A permission (e.g. Drive access for photos) hasn't been granted for THIS script
-      //    project yet - especially likely right after merging Code.gs + WebApp.gs into one
-      //    file, since that can end up as a fresh script identity needing fresh authorization.
-      // 2) The deployment is stale - code was edited but "New version" wasn't deployed.
-      throw new Error('Server did not return valid data (got a webpage instead of a real answer). ' +
-        'Most likely fix: in Apps Script, open the function dropdown, select "oneTimeAuthorizeDriveAccess", ' +
-        'click ▶ Run, approve the permission popup, then Deploy > Manage deployments > Edit > New version > Deploy. ' +
-        'If that doesn\'t fix it, tap ⚙️ → 🔧 Test Connection here to see a more specific diagnosis.');
-    }
-    if (res && res.error) throw new Error(res.error);
-    return res;
-  });
-}
-
-// ---------------- INIT ----------------
-function initData() {
-  loadBranches();
-}
-
-// Branches rarely change, so caching them locally means the dropdown can populate INSTANTLY on
-// every visit after the first, instead of waiting for a fresh Apps Script round-trip every time.
-// A background refresh still runs so the list stays correct if a branch is ever added/removed/
-// renamed - it just doesn't have to block what the user sees first.
-const BRANCH_CACHE_KEY = 'ims_branches_cache';
-
-function loadBranches() {
-  const sel = document.getElementById('outBranch');
-  const cached = localStorage.getItem(BRANCH_CACHE_KEY);
-
-  if (cached) {
-    try {
-      const list = JSON.parse(cached);
-      if (list && list.length) populateBranches(list); // instant, no waiting
-    } catch (e) { /* ignore a corrupted cache, fresh fetch below will fix it */ }
-  } else {
-    sel.innerHTML = '<option value="">Loading branches…</option>';
-  }
-
-  // Always fetch fresh in the background and update the cache + dropdown once it arrives -
-  // but only replace the dropdown's options if the user hasn't already picked one, so we don't
-  // yank a selection out from under them mid-entry.
-  callApi('getBranches').then(list => {
-    if (!list || !list.length) {
-      if (!cached) sel.innerHTML = '<option value="">⚠️ No active branches found - check Branches sheet</option>';
-      return;
-    }
-    localStorage.setItem(BRANCH_CACHE_KEY, JSON.stringify(list));
-    if (!sel.value) populateBranches(list);
-  }).catch(err => {
-    if (!cached) sel.innerHTML = '<option value="">⚠️ Could not load - tap 🔄 Retry (' + err.message + ')</option>';
-  });
-}
-
-window.onload = function() {
-  if (!getEffectiveApiUrl()) {
-    document.getElementById('urlSetupCard').style.display = 'block';
-    // Shows exactly what this LIVE page's code currently has for API_URL - if you edited the
-    // file and pasted your real URL but still see the placeholder text below, the page you're
-    // viewing is NOT the version you edited (stale GitHub Pages deploy or browser cache) -
-    // that's the fix to chase, not the code itself. Try a hard refresh (Ctrl+Shift+R) or
-    // re-uploading the file, and double-check you edited/uploaded the right file.
-    document.getElementById('debugUrlLine').textContent =
-      'This page\'s code currently has: API_URL = "' + API_URL + '"';
-  } else {
-    initData();
-  }
-
-  document.getElementById('inSku').addEventListener('keydown', e => { if (e.key === 'Enter') { hideSuggestions('in'); lookupSku('in'); } });
-  document.getElementById('outSku').addEventListener('keydown', e => { if (e.key === 'Enter') { hideSuggestions('out'); lookupSku('out'); } });
-  // Fallback for phone keyboards that don't fire a clean "Enter" keydown (common with predictive/
-  // transliteration keyboards) - firing on blur/change means the camera scan or picking a
-  // suggestion are never the only way in.
-  document.getElementById('inSku').addEventListener('change', () => lookupSku('in'));
-  document.getElementById('outSku').addEventListener('change', () => lookupSku('out'));
-  // Live suggestions as you type a SKU or item name.
-  document.getElementById('inSku').addEventListener('input', () => onSkuInput('in'));
-  document.getElementById('outSku').addEventListener('input', () => onSkuInput('out'));
-  // Close the suggestion dropdown when tapping/clicking anywhere outside it.
-  document.addEventListener('click', e => {
-    if (!e.target.closest('#inSku') && !e.target.closest('#inSuggestions')) hideSuggestions('in');
-    if (!e.target.closest('#outSku') && !e.target.closest('#outSuggestions')) hideSuggestions('out');
-  });
+// ============================= CONFIG ==========================================================
+const SHEETS = {
+  README: 'README',
+  DASHBOARD: 'Dashboard',
+  BRANCHES: 'Branches',
+  RACKS: 'Racks',
+  ITEM_MASTER: 'Item_Master',
+  INWARD: 'Inward_Entry',
+  OUTWARD: 'Outward_Entry',
+  LEDGER: 'Stock_Ledger',
+  BRANCH_LEDGER: 'Branch_Ledger',
+  BRANCH_STOCKOUT: 'Branch_Outward_Entry',
+  SETTINGS: 'Settings'
 };
 
-function populateBranches(list) {
-  const sel = document.getElementById('outBranch');
-  sel.innerHTML = '<option value="">-- Select Branch --</option>';
-  list.forEach(b => { const o = document.createElement('option'); o.value = b; o.textContent = b; sel.appendChild(o); });
+const BRAND_COLOR = '#6d2932';   // maroon - sweets shop feel
+const HEADER_BG = '#6d2932';
+const HEADER_FG = '#ffffff';
+
+// QR code generator (free, no key needed). The QR encodes the SKU code so any phone camera
+// or USB/Bluetooth QR/barcode scanner can read it.
+function qrFormula(cellRef) {
+  return '=IF(' + cellRef + '="","",IMAGE("https://api.qrserver.com/v1/create-qr-code/?size=120x120&data="&' + cellRef + '))';
 }
 
-// ---------------- CAMERA SCANNER ----------------
-let html5QrCode = null;
-let currentCameraMode = null;
-let cameraBusy = false; // guards against overlapping open/close calls (the actual bug fix below)
-
-const READER_IDS = { in: 'reader', out: 'reader2' };
-const TARGET_FIELD = { in: 'inSku', out: 'outSku' };
-
-// Shows a small live status label under the camera while scanning ("scanning..." feedback) -
-// scanning is immediate/automatic: as soon as a QR/barcode is detected, it's used right away.
-function resetLiveDetected(mode) {
-  const el = document.getElementById('scanProgress-' + mode);
-  if (el) el.textContent = '';
+// ============================= MENU ============================================================
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('📦 IMS Tools')
+    .addItem('🚀 1. Setup System (Run Once)', 'setupSystem')
+    .addSeparator()
+    .addItem('➕ Add New Item (Generate SKU)', 'addNewItemWizard')
+    .addItem('🧩 Bulk Assign SKUs (for pasted-in items)', 'bulkAssignSkuWizard')
+    .addItem('🏷️ Add New Rack', 'addNewRackWizard')
+    .addItem('🏬 Add New Branch', 'addNewBranchWizard')
+    .addSeparator()
+    .addItem('🔄 Refresh Stock Ledger', 'refreshStockLedger')
+    .addItem('📊 Refresh Branch-wise Summary', 'refreshBranchLedger')
+    .addItem('🔁 Refresh Everything', 'refreshAll')
+    .addSeparator()
+    .addItem('📲 Test WhatsApp Message', 'testWhatsAppSend')
+    .addToUi();
 }
 
-// Stops whatever camera session is running, if any, and waits for it to actually finish before
-// resolving. Captures the current instance into a local variable and clears the shared
-// html5QrCode reference IMMEDIATELY (synchronously) - this is the key fix: previously, stopping
-// was fire-and-forget, so if you reopened the camera quickly (e.g. right after an auto-scan),
-// the OLD stop's cleanup could finish AFTER a new camera had already started, wiping out the
-// reference to the new one and leaving the camera hardware in a stuck state where it looked
-// like nothing happened when tapping "Use Camera Scanner" again.
-async function stopCamera() {
-  const instance = html5QrCode;
-  html5QrCode = null;
-  ['in', 'out'].forEach(m => { document.getElementById('reader-' + m).style.display = 'none'; resetLiveDetected(m); });
-  if (instance) {
-    try { await instance.stop(); } catch (e) { /* already stopped/never started - fine */ }
-    try { await instance.clear(); } catch (e) { /* clear() can be sync/void in some versions - fine either way */ }
+// ============================= SETUP ===========================================================
+function setupSystem() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ui = SpreadsheetApp.getUi();
+
+  buildReadme(ss);
+  buildBranches(ss);
+  buildRacks(ss);
+  buildItemMaster(ss);
+  buildInward(ss);
+  buildOutward(ss);
+  buildLedger(ss);
+  buildBranchLedger(ss);
+  buildBranchStockOut(ss);
+  buildSettings(ss);
+  buildDashboard(ss);
+
+  // remove default "Sheet1" if empty and unused
+  const sheet1 = ss.getSheetByName('Sheet1');
+  if (sheet1 && ss.getSheets().length > 1) {
+    try { ss.deleteSheet(sheet1); } catch (e) {}
   }
+
+  installTriggers();
+
+  ss.setActiveSheet(ss.getSheetByName(SHEETS.README));
+  ui.alert('✅ Setup complete!', 'All sheets, dropdowns, and automation are ready.\n\nOpen the "README" tab first, then start with "Item_Master" to add your packing materials.', ui.ButtonSet.OK);
 }
 
-async function toggleCamera(mode) {
-  const slot = document.getElementById('reader-' + mode);
-  if (slot.style.display === 'block') {
-    await stopCamera();
-    return;
+function getOrCreateSheet(ss, name) {
+  let sh = ss.getSheetByName(name);
+  if (!sh) sh = ss.insertSheet(name);
+  return sh;
+}
+
+// Use this instead of ss.getSheetByName(...) anywhere a missing sheet should give a clear,
+// actionable error instead of a raw "Cannot read properties of null" crash. The most common
+// cause of a missing sheet is simply that Setup System hasn't been run yet on this spreadsheet.
+function getSheetOrThrow(sheetName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(sheetName);
+  if (!sh) {
+    throw new Error('Sheet "' + sheetName + '" was not found. In the Google Sheet, run menu ' +
+      '📦 IMS Tools > 🚀 1. Setup System (Run Once) to create all required sheets.');
   }
+  return sh;
+}
 
-  // Ignore rapid double-taps while a previous open/close is still in progress, instead of
-  // letting two overlapping attempts race each other.
-  if (cameraBusy) return;
-  cameraBusy = true;
+function styleHeaderRow(sh, numCols) {
+  const range = sh.getRange(1, 1, 1, numCols);
+  range.setBackground(HEADER_BG).setFontColor(HEADER_FG).setFontWeight('bold').setFontSize(10);
+  sh.setFrozenRows(1);
+  sh.setRowHeight(1, 28);
+}
 
+// ---------- README ----------
+function buildReadme(ss) {
+  const sh = getOrCreateSheet(ss, SHEETS.README);
+  sh.clear();
+  sh.setColumnWidth(1, 900);
+  const lines = [
+    ['RAGHUVIR SWEETS & BAKERS — INVENTORY MANAGEMENT SYSTEM'],
+    [''],
+    ['HOW THE CODING WORKS'],
+    ['• Racked items: SKU = RackCode + running number.  Example: RACK-001-A-001, RACK-001-A-002 ...'],
+    ['• Non-Racked items (loose store / no fixed rack): SKU = NR-ZoneCode + running number. Example: NR-STORE01-001'],
+    ['• Every SKU gets an auto-generated QR code (in Item_Master) that encodes the SKU text.'],
+    ['  Print it (sticker printer / A4 sheet) and stick it on the box/material. Any USB/Bluetooth QR'],
+    ['  scanner or phone camera app that types into a cell will work — it behaves like a keyboard.'],
+    [''],
+    ['DAILY USE'],
+    ['1) INWARD (material coming into store):'],
+    ['   Go to "Inward_Entry" sheet -> click the yellow "SCAN HERE" cell -> scan the box QR code.'],
+    ['   A popup will ask the Quantity. Enter it. Entry is logged automatically with date/time/user.'],
+    [''],
+    ['2) OUTWARD (material going OUT to a branch):'],
+    ['   Go to "Outward_Entry" sheet -> first select the BRANCH from the dropdown (top of sheet).'],
+    ['   Then click the yellow "SCAN HERE" cell and scan the box. Enter quantity when asked.'],
+    ['   The branch stays selected so you can keep scanning multiple boxes for the same branch/trip.'],
+    ['   Change the branch dropdown any time before scanning the next box.'],
+    [''],
+    ['3) STOCK LEDGER — "Stock_Ledger" sheet shows live current stock per SKU (auto-refreshes on'],
+    ['   every scan, or manually via menu 📦 IMS Tools -> Refresh Stock Ledger).'],
+    [''],
+    ['4) BRANCH TRACEABILITY — "Branch_Ledger" sheet shows how much of each item has gone to'],
+    ['   each branch (Ram Mandir, Vishrambagh, Savali Mithai, Savali Bakery, Savali Namkeen),'],
+    ['   so you can trace full outward history branch-wise any time.'],
+    [''],
+    ['ADDING NEW MATERIALS / RACKS / BRANCHES'],
+    ['• Menu 📦 IMS Tools -> "Add New Rack" to create racks like RACK-002-A, RACK-002-B etc.'],
+    ['• Menu 📦 IMS Tools -> "Add New Item (Generate SKU)" to register a new packing material —'],
+    ['  it will auto-generate the correct SKU code based on the rack (or non-rack zone) you choose.'],
+    ['• Menu 📦 IMS Tools -> "Add New Branch" if you open a new outlet in future.'],
+    [''],
+    ['DO NOT manually type into Stock_Ledger or Branch_Ledger — they are auto-calculated.'],
+    ['DO NOT delete the header row or the hidden helper columns in Inward_Entry / Outward_Entry.']
+  ];
+  sh.getRange(1, 1, lines.length, 1).setValues(lines);
+  sh.getRange(1, 1).setFontSize(14).setFontWeight('bold').setFontColor(BRAND_COLOR);
+  sh.getRange(3, 1).setFontWeight('bold');
+  sh.getRange(10, 1).setFontWeight('bold');
+  sh.getRange(27, 1).setFontWeight('bold');
+}
+
+// ---------- BRANCHES ----------
+function buildBranches(ss) {
+  const sh = getOrCreateSheet(ss, SHEETS.BRANCHES);
+  const isNew = sh.getLastRow() < 1; // truly empty sheet = first-ever run
+  const headers = ['Branch Code', 'Branch Name', 'Active'];
+  sh.getRange(1, 1, 1, headers.length).setValues([headers]); // header row only - NEVER wipes existing branches
+  styleHeaderRow(sh, headers.length);
+
+  if (isNew) {
+    const data = [
+      ['BR-01', 'Ram Mandir', true],
+      ['BR-02', 'Vishrambagh', true],
+      ['BR-03', 'Savali Mithai', true],
+      ['BR-04', 'Savali Bakery', true],
+      ['BR-05', 'Savali Namkeen', true]
+    ];
+    sh.getRange(2, 1, data.length, data[0].length).setValues(data);
+  }
+  sh.autoResizeColumns(1, headers.length);
+}
+
+// ---------- RACKS ----------
+function buildRacks(ss) {
+  const sh = getOrCreateSheet(ss, SHEETS.RACKS);
+  const isNew = sh.getLastRow() < 1;
+  const headers = ['Rack Code', 'Rack No.', 'Row/Level', 'Description'];
+  sh.getRange(1, 1, 1, headers.length).setValues([headers]); // header row only - NEVER wipes existing racks
+  styleHeaderRow(sh, headers.length);
+
+  if (isNew) {
+    const data = [
+      ['RACK-001-A', '001', 'A', 'Ground row - large boxes'],
+      ['RACK-001-B', '001', 'B', 'Second row'],
+      ['RACK-002-A', '002', 'A', ''],
+      ['RACK-002-B', '002', 'B', ''],
+      ['NR-STORE01', '-', '-', 'Non-rack loose storage zone 1']
+    ];
+    sh.getRange(2, 1, data.length, data[0].length).setValues(data);
+  }
+  sh.autoResizeColumns(1, headers.length);
+}
+
+// ---------- ITEM MASTER ----------
+// Columns: A SKU Code | B Item Name | C Category | D Storage Type | E Location Code | F Unit |
+//          G Reorder Level | H Current Stock | I Barcode Source | J Barcode Value | K QR Code (label)
+//
+// SKU Code = our own rack-based internal code (RACK-001-A-001 / NR-STORE01-001) - always exists,
+//            used for shelf organization and as the ledger identity.
+// Barcode Source = "Generated QR" (we print our own QR sticker) or "Existing Vendor Barcode"
+//                   (box already has a factory barcode - no sticker needed).
+// Barcode Value = the code that actually gets scanned day-to-day:
+//                   - Generated QR  -> same as SKU Code
+//                   - Existing Vendor Barcode -> the vendor's own barcode text
+// A scan is matched against BOTH SKU Code and Barcode Value, so either one works.
+function buildItemMaster(ss) {
+  const sh = getOrCreateSheet(ss, SHEETS.ITEM_MASTER);
+  const headers = ['SKU Code', 'Item Name', 'Category', 'Storage Type', 'Location Code',
+                    'Unit', 'Reorder Level', 'Current Stock', 'Barcode Source', 'Barcode Value', 'QR Code'];
+  // Header row + formatting/validation only - deliberately NEVER clears the sheet, since that
+  // would wipe every item (and every QR formula) you've already added. Safe to run any time.
+  sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+  styleHeaderRow(sh, headers.length);
+  sh.setColumnWidths(1, headers.length, 130);
+  sh.setColumnWidth(2, 220);
+  sh.setColumnWidth(11, 130);
+
+  // data validation for Storage Type
+  const storageRule = SpreadsheetApp.newDataValidation().requireValueInList(['Racked', 'Non-Racked'], true).build();
+  sh.getRange(2, 4, 998, 1).setDataValidation(storageRule);
+
+  // data validation for Barcode Source
+  const barcodeSourceRule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Generated QR', 'Existing Vendor Barcode'], true).build();
+  sh.getRange(2, 9, 998, 1).setDataValidation(barcodeSourceRule);
+
+  sh.setFrozenColumns(2);
+}
+
+// ---------- INWARD ----------
+function buildInward(ss) {
+  const sh = getOrCreateSheet(ss, SHEETS.INWARD);
+  // Only reset rows 1-4 (title, scan cell, header) - NEVER rows 5+, which hold real logged
+  // entries. Previously this used sh.clear(), which wiped the entire scan history every time.
+  sh.getRange(1, 1, 4, 10).clearContent();
+
+  sh.getRange('A1').setValue('INWARD ENTRY — Scan the box QR code in the yellow cell below');
+  sh.getRange('A1:H1').merge().setFontWeight('bold').setFontSize(12).setFontColor(BRAND_COLOR);
+
+  sh.getRange('A2').setValue('👉 SCAN HERE:');
+  sh.getRange('A2').setFontWeight('bold');
+  sh.getRange('B2').setBackground('#fff3b0').setFontWeight('bold').setFontSize(12)
+    .setNote('Click this cell, then scan the barcode/QR with your scanner. A popup will ask for quantity.');
+  sh.getRange('C2').setValue('(last scanned item name shows here)').setFontStyle('italic').setFontColor('#888888');
+
+  const headers = ['Timestamp', 'Entry ID', 'SKU Code', 'Item Name', 'Location', 'Qty', 'Entered By', 'Photo'];
+  sh.getRange(4, 1, 1, headers.length).setValues([headers]);
+  styleHeaderRow2(sh, 4, headers.length);
+  sh.setFrozenRows(4);
+  sh.setColumnWidths(1, headers.length, 130);
+  sh.setColumnWidth(4, 220);
+}
+
+// ---------- OUTWARD ----------
+function buildOutward(ss) {
+  const sh = getOrCreateSheet(ss, SHEETS.OUTWARD);
+  // Only reset rows 1-4 - NEVER rows 5+, which hold real logged entries.
+  sh.getRange(1, 1, 4, 10).clearContent();
+
+  sh.getRange('A1').setValue('OUTWARD ENTRY — 1) Select Branch   2) Scan the box QR code');
+  sh.getRange('A1:H1').merge().setFontWeight('bold').setFontSize(12).setFontColor(BRAND_COLOR);
+
+  sh.getRange('A2').setValue('🏬 BRANCH:');
+  sh.getRange('A2').setFontWeight('bold');
+  sh.getRange('B2').setBackground('#d9f2d0').setFontWeight('bold');
+  const branchRule = SpreadsheetApp.newDataValidation()
+      .requireValueInRange(ss.getRange("'" + SHEETS.BRANCHES + "'!B2:B50"), true)
+      .setAllowInvalid(false)
+      .build();
+  sh.getRange('B2').setDataValidation(branchRule);
+
+  sh.getRange('D2').setValue('👉 SCAN HERE:');
+  sh.getRange('D2').setFontWeight('bold');
+  sh.getRange('E2').setBackground('#fff3b0').setFontWeight('bold').setFontSize(12)
+    .setNote('Select the branch first (cell B2), then click this cell and scan the barcode/QR.');
+
+  const headers = ['Timestamp', 'Entry ID', 'SKU Code', 'Item Name', 'Location', 'Qty', 'Branch', 'Entered By', 'Photo'];
+  sh.getRange(4, 1, 1, headers.length).setValues([headers]);
+  styleHeaderRow2(sh, 4, headers.length);
+  sh.setFrozenRows(4);
+  sh.setColumnWidths(1, headers.length, 130);
+  sh.setColumnWidth(4, 220);
+}
+
+function styleHeaderRow2(sh, row, numCols) {
+  const range = sh.getRange(row, 1, 1, numCols);
+  range.setBackground(HEADER_BG).setFontColor(HEADER_FG).setFontWeight('bold').setFontSize(10);
+}
+
+// ---------- STOCK LEDGER ----------
+function buildLedger(ss) {
+  const sh = getOrCreateSheet(ss, SHEETS.LEDGER);
+  sh.clear();
+  const headers = ['SKU Code', 'Item Name', 'Location', 'Total Inward', 'Total Outward', 'Current Stock', 'Reorder Level', 'Status', 'Daily Avg Consumption'];
+  sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+  styleHeaderRow(sh, headers.length);
+  sh.setColumnWidths(1, headers.length, 130);
+  sh.setColumnWidth(2, 220);
+}
+
+// ---------- BRANCH LEDGER ----------
+function buildBranchLedger(ss) {
+  const sh = getOrCreateSheet(ss, SHEETS.BRANCH_LEDGER);
+  sh.clear();
+  const headers = ['SKU Code', 'Item Name', 'Branch', 'Total Qty Sent', 'Last Sent On'];
+  sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+  styleHeaderRow(sh, headers.length);
+  sh.setColumnWidths(1, headers.length, 150);
+  sh.setColumnWidth(2, 220);
+}
+
+// ---------- BRANCH STOCK-OUT ----------
+// Lets each branch (or an admin, on the branch's behalf) log its OWN stock going out - sales,
+// further dispatch, wastage, etc. Without this, a branch's "stock" only ever grows (everything
+// ever received from the godown) with no way to reflect what's since left that branch.
+function buildBranchStockOut(ss) {
+  const sh = getOrCreateSheet(ss, SHEETS.BRANCH_STOCKOUT);
+  const headers = ['Timestamp', 'Entry ID', 'Branch', 'SKU Code', 'Item Name', 'Qty', 'Reason/Remarks', 'Entered By'];
+  sh.getRange(1, 1, 1, headers.length).setValues([headers]); // header row only - preserves logged entries
+  styleHeaderRow(sh, headers.length);
+  sh.setColumnWidths(1, headers.length, 140);
+  sh.setColumnWidth(5, 220);
+}
+
+// ---------- SETTINGS ----------
+function buildSettings(ss) {
+  const sh = getOrCreateSheet(ss, SHEETS.SETTINGS);
+  sh.getRange('A1:B1').setValues([['Setting', 'Value']]);
+  styleHeaderRow(sh, 2);
+  sh.getRange('A2').setValue('Inward Entry Counter');
+  sh.getRange('A3').setValue('Outward Entry Counter');
+  sh.getRange('A4').setValue('Branch Stock-Out Counter');
+  sh.getRange('A5').setValue('WhatsApp: Last Notified Inward Row');
+  sh.getRange('A6').setValue('WhatsApp: Last Notified Outward Row');
+  // Only set VALUES if they're currently blank - never overwrite an existing counter/pointer,
+  // which could cause duplicate Entry IDs or duplicate/missed WhatsApp notifications.
+  if (sh.getRange('B2').getValue() === '') sh.getRange('B2').setValue(0);
+  if (sh.getRange('B3').getValue() === '') sh.getRange('B3').setValue(0);
+  if (sh.getRange('B4').getValue() === '') sh.getRange('B4').setValue(0);
+  if (sh.getRange('B5').getValue() === '') sh.getRange('B5').setValue(4); // row 4 = header row in Inward_Entry
+  if (sh.getRange('B6').getValue() === '') sh.getRange('B6').setValue(4); // row 4 = header row in Outward_Entry
+  sh.hideSheet();
+}
+
+// ---------- DASHBOARD ----------
+function buildDashboard(ss) {
+  const sh = getOrCreateSheet(ss, SHEETS.DASHBOARD);
+  sh.clear();
+  sh.getRange('A1').setValue('RAGHUVIR SWEETS & BAKERS — LIVE DASHBOARD');
+  sh.getRange('A1').setFontSize(16).setFontWeight('bold').setFontColor(BRAND_COLOR);
+  sh.getRange('A3').setValue('Total SKUs:');
+  sh.getRange('B3').setFormula("=COUNTA('" + SHEETS.ITEM_MASTER + "'!A2:A)");
+  sh.getRange('A4').setValue('Items Below Reorder Level:');
+  sh.getRange('B4').setFormula("=COUNTIF('" + SHEETS.LEDGER + "'!H2:H,\"⚠️ LOW STOCK\")");
+  sh.getRange('A5').setValue('Total Inward Entries:');
+  sh.getRange('B5').setFormula("=COUNTA('" + SHEETS.INWARD + "'!B5:B)");
+  sh.getRange('A6').setValue('Total Outward Entries:');
+  sh.getRange('B6').setFormula("=COUNTA('" + SHEETS.OUTWARD + "'!B5:B)");
+  sh.getRange('A3:A6').setFontWeight('bold');
+  sh.autoResizeColumns(1, 2);
+}
+
+// ============================= TRIGGERS ========================================================
+function installTriggers() {
+  // remove old triggers to avoid duplicates
+  ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  ScriptApp.newTrigger('onEditInstallable').forSpreadsheet(ss).onEdit().create();
+  // Checks every 5 minutes for new Inward/Outward rows and sends a WhatsApp summary if any are
+  // found - this is time-based rather than onEdit-based because entries logged through the web
+  // app (godown.html) are written via the script itself, and Apps Script's onEdit trigger does
+  // NOT fire for a script's own writes to its own spreadsheet - only for direct manual edits in
+  // the Sheet UI. Polling on a timer catches new rows regardless of how they got there.
+  ScriptApp.newTrigger('checkForNewEntriesAndNotify').timeBased().everyMinutes(5).create();
+}
+
+// Installable onEdit (simple trigger onEdit(e) can't show UI prompts reliably, so we use installable)
+function onEditInstallable(e) {
   try {
-    // If the scanner library script failed to load (blocked CDN, offline, slow network), calling
-    // "new Html5Qrcode(...)" would throw silently and the button would appear to do nothing.
-    if (typeof Html5Qrcode === 'undefined') {
-      alert('The camera scanner library has not finished loading yet (or failed to load - check your ' +
-        'internet connection). Wait a moment and try again, reload the page, or type/scan into the ' +
-        'text box with a USB scanner in the meantime.');
-      return;
+    const sh = e.range.getSheet();
+    const name = sh.getName();
+    if (name === SHEETS.INWARD && e.range.getA1Notation() === 'B2') {
+      handleInwardScan(sh, e);
+    } else if (name === SHEETS.OUTWARD && e.range.getA1Notation() === 'E2') {
+      handleOutwardScan(sh, e);
     }
-
-    // Mobile browsers (Chrome/Android, Safari/iOS) block camera access entirely on plain HTTP -
-    // only HTTPS (or true localhost on the SAME device) is allowed. Testing this page via a local
-    // dev server IP (e.g. 127.0.0.1:5500 or 192.168.x.x:5500) opened from a PHONE will silently
-    // fail here - host on GitHub Pages / Netlify (HTTPS) for the camera to work on mobile.
-    if (!window.isSecureContext) {
-      alert('Camera needs a secure (HTTPS) page to work on mobile. This page is currently loaded over ' +
-        'an insecure connection, which phone browsers block camera access on by default. ' +
-        'Host this file on GitHub Pages or Netlify (both give a free https:// URL) and open it from there. ' +
-        'You can still type or use a USB scanner into the text box for now.');
-      return;
-    }
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      alert('This browser does not support camera access. Please use a recent Chrome or Safari, or type/scan into the text box with a USB scanner.');
-      return;
-    }
-
-    // Make sure any previous session is FULLY stopped (and the camera hardware released) before
-    // starting a new one - awaited properly now instead of fire-and-forget.
-    await stopCamera();
-    // A short pause after stopping gives the camera hardware time to actually release on some
-    // phones - starting again immediately can otherwise silently fail to reacquire it.
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    slot.style.display = 'block';
-    currentCameraMode = mode;
-    resetLiveDetected(mode);
-    const hintEl = document.getElementById('scanProgress-' + mode);
-    if (hintEl) hintEl.textContent = '📌 If codes are close together, bring the camera in close so only ONE is visible in the box.';
-
-    // Wait for the browser to actually finish laying out the box we just un-hid before starting
-    // the camera. html5-qrcode measures the container's size immediately on start(); if that
-    // happens in the same tick as display:block, some browsers still report 0 width/height,
-    // which can result in a black box with no visible video and no scan overlay at all.
-    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-    await startCameraFor(mode);
   } catch (err) {
-    alert('Could not start the camera scanner: ' + err.message + '\nYou can still type or use a USB scanner into the text box.');
-    slot.style.display = 'none';
-  } finally {
-    cameraBusy = false;
+    SpreadsheetApp.getUi().alert('Error: ' + err.message);
   }
 }
 
-async function startCameraFor(mode) {
-  const slot = document.getElementById('reader-' + mode);
-  try {
-    // Forcibly wipe the container before starting a new session. html5-qrcode's own clear()
-    // doesn't always fully remove the previous session's internal <video>/<canvas> elements
-    // before a new instance targets the same container - leftover elements from the first scan
-    // can then conflict with the second one and render as a plain black screen instead of a
-    // live feed. Rebuilding the container from scratch guarantees a truly clean slate every time.
-    const container = document.getElementById(READER_IDS[mode]);
-    if (container) container.innerHTML = '';
-
-    const qr = new Html5Qrcode(READER_IDS[mode]);
-    html5QrCode = qr;
-
-    // Called whenever a QR/barcode is decoded in the camera view - used immediately (no manual
-    // confirm step), so scanning is fast: point the camera at a code and it's used right away.
-    const onScanSuccess = (decodedText) => {
-      resetLiveDetected(mode);
-      document.getElementById(TARGET_FIELD[mode]).value = decodedText;
-      stopCamera();
-      lookupSku(mode);
-    };
-    const onScanFailure = () => {
-      // No code decoded in this frame - nothing to do, the hint text stays visible until a
-      // code is actually found (handled in onScanSuccess) or the camera is closed.
-    };
-    // qrbox as a function (rather than a fixed pixel size) asks html5-qrcode to size the scan
-    // box relative to the ACTUAL rendered video dimensions - this avoids requesting a box bigger
-    // than the container (which can silently break rendering on narrow phone screens).
-    const config = {
-      fps: 10,
-      // A SMALLER box (relative to the camera view) on purpose: when several QR codes sit close
-      // together, a wide detection zone can catch more than one at a time and there's no telling
-      // which one gets used. Shrinking the zone means you have to physically bring the camera
-      // in close so only ONE code fills the frame - the neighbors simply don't fit anymore.
-      qrbox: (viewfinderWidth, viewfinderHeight) => {
-        const edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.4);
-        return { width: edge, height: edge };
-      },
-      aspectRatio: 1.0
-    };
-
-    // Prefer an explicit rear/back camera by device label (more reliable on Android than the
-    // generic facingMode constraint, which some devices/browsers ignore); fall back to facingMode
-    // if enumeration isn't available or no camera list comes back.
-    let cameras = [];
-    try { cameras = await Html5Qrcode.getCameras(); } catch (e) { /* enumeration failed - fall back below */ }
-
-    try {
-      if (cameras && cameras.length) {
-        const back = cameras.find(c => /back|rear|environment/i.test(c.label)) || cameras[cameras.length - 1];
-        await qr.start(back.id, config, onScanSuccess, onScanFailure);
-      } else {
-        await qr.start({ facingMode: 'environment' }, config, onScanSuccess, onScanFailure);
-      }
-    } catch (startErr) {
-      // First attempt failed - try once more with the generic facingMode constraint before
-      // giving up (covers cases where the specific device id didn't work but facingMode would).
-      await qr.start({ facingMode: 'environment' }, config, onScanSuccess, onScanFailure);
+// ============================= SCAN HANDLERS ===================================================
+// Matches a scanned value against EITHER the internal SKU Code (col A) OR the Barcode Value
+// (col J) - so it doesn't matter whether the box has our generated QR or the vendor's own
+// factory barcode, scanning either one resolves to the same item.
+function findItem(scannedValue) {
+  const sh = getSheetOrThrow(SHEETS.ITEM_MASTER);
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return null;
+  // Only read columns A-J (up to Barcode Value) - deliberately NOT column K (QR Code), which
+  // holds an =IMAGE() formula. Reading a range that includes IMAGE()-formula cells can add
+  // noticeable latency to what should be a fast lookup, since Sheets has to resolve the image
+  // fetch/render for those cells even though we never use that value here.
+  const data = sh.getRange(2, 1, lastRow - 1, 10).getValues();
+  const needle = String(scannedValue).trim().toUpperCase();
+  for (let i = 0; i < data.length; i++) {
+    const sku = String(data[i][0]).trim().toUpperCase();
+    const barcodeValue = String(data[i][9] || '').trim().toUpperCase();
+    if (sku === needle || (barcodeValue && barcodeValue === needle)) {
+      return { row: i + 2, sku: data[i][0], name: data[i][1], location: data[i][4] };
     }
-  } catch (err) {
-    let msg = 'Camera error: ' + err;
-    const errStr = String(err);
-    if (errStr.indexOf('NotAllowedError') !== -1 || errStr.indexOf('Permission') !== -1) {
-      msg = 'Camera permission was denied. Check your browser\'s site settings and allow camera access for this page, then try again.';
-    } else if (errStr.indexOf('NotFoundError') !== -1 || errStr.indexOf('NoCamerasFound') !== -1) {
-      msg = 'No camera was found on this device.';
-    } else if (errStr.indexOf('NotReadableError') !== -1) {
-      msg = 'The camera is already in use by another app/tab. Close it and try again.';
-    }
-    alert(msg + '\nYou can still type or use a USB scanner into the text box.');
-    html5QrCode = null;
-    slot.style.display = 'none';
   }
+  return null;
 }
 
-// ---------------- LOOKUP ----------------
-function lookupSku(mode) {
-  const sku = document.getElementById(mode + 'Sku').value.trim();
+function nextCounter(settingCell) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(SHEETS.SETTINGS);
+  if (!sh) {
+    // The hidden Settings sheet (holds the entry-ID counters) is easy to accidentally delete
+    // since it's hidden by default - self-heal instead of crashing every entry.
+    buildSettings(ss);
+    sh = ss.getSheetByName(SHEETS.SETTINGS);
+  }
+  const val = Number(sh.getRange(settingCell).getValue()) + 1;
+  sh.getRange(settingCell).setValue(val);
+  return val;
+}
+
+function handleInwardScan(sh, e) {
+  const ui = SpreadsheetApp.getUi();
+  const sku = e.range.getValue();
   if (!sku) return;
-  showMsg(mode, 'ok', '🔍 Looking up "' + sku + '"…'); // instant feedback while the request is in flight
-  callApi('lookupItem', { sku: sku }).then(res => {
-    showMsg(mode, '', ''); // clear the loading message now that we have a real result
-    showItem(mode, res);
-  }).catch(err => showMsg(mode, 'err', '❌ ' + err.message));
-}
 
-function showMsg(mode, cls, text) {
-  const el = document.getElementById(mode + 'Msg');
-  el.className = 'msg' + (cls ? ' ' + cls : '');
-  el.textContent = text;
-  el.style.display = cls ? 'block' : 'none';
-}
-
-// ---------------- LIVE SUGGESTIONS (type SKU or Item Name, pick from a dropdown) ----------------
-let suggestTimer = null;
-// Tracks the "latest" search per mode. If a slightly earlier search is still in flight over the
-// network when you tap a suggestion (or type more), its response can arrive AFTER that action -
-// clearTimeout() alone can't stop an already-sent request, so instead each response checks
-// whether it's still the most recent one before doing anything with it.
-let searchRequestId = { in: 0, out: 0 };
-
-function onSkuInput(mode) {
-  const query = document.getElementById(mode + 'Sku').value.trim();
-  clearTimeout(suggestTimer);
-  if (query.length < 2) {
-    searchRequestId[mode]++; // invalidate any still-in-flight request so it can't pop the dropdown back open
-    hideSuggestions(mode);
+  const item = findItem(sku);
+  if (!item) {
+    ui.alert('❌ Unknown SKU', 'SKU "' + sku + '" was not found in Item_Master.\nAdd it first via 📦 IMS Tools -> Add New Item.', ui.ButtonSet.OK);
+    sh.getRange('B2').clearContent();
     return;
   }
-  // Debounce so it doesn't fire an API call on every single keystroke.
-  suggestTimer = setTimeout(() => {
-    const myRequestId = ++searchRequestId[mode];
-    callApi('searchItems', { query: query }).then(results => {
-      if (myRequestId !== searchRequestId[mode]) return; // a newer search or a selection happened since - ignore this stale response
-      renderSuggestions(mode, results || []);
-    }).catch(() => {
-      if (myRequestId === searchRequestId[mode]) hideSuggestions(mode);
-    });
-  }, 250);
+  sh.getRange('C2').setValue(item.name + '  |  Location: ' + item.location);
+
+  const qtyResp = ui.prompt('Quantity - IN', 'Item: ' + item.name + '\nLocation: ' + item.location + '\n\nEnter quantity received:', ui.ButtonSet.OK_CANCEL);
+  if (qtyResp.getSelectedButton() !== ui.Button.OK) { sh.getRange('B2').clearContent(); return; }
+  const qty = Number(qtyResp.getResponseText());
+  if (!qty || qty <= 0) { ui.alert('Invalid quantity.'); sh.getRange('B2').clearContent(); return; }
+
+  const entryId = 'IN-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyMMdd') + '-' + nextCounter('B2');
+  const user = Session.getActiveUser().getEmail() || 'MIS User';
+  const lastRow = Math.max(sh.getLastRow() + 1, 5);
+  // Photo capture is only available from the web dashboard (needs a camera) - entries made
+  // directly in the Sheet just record a placeholder here.
+  sh.getRange(lastRow, 1, 1, 8).setValues([[new Date(), entryId, item.sku, item.name, item.location, qty, user, '—']]);
+
+  sh.getRange('B2').clearContent();
+  sh.getRange('C2').setValue('✅ Logged: ' + item.name + ' x ' + qty);
+
+  refreshStockLedger();
 }
 
-function renderSuggestions(mode, results) {
-  const dropdown = document.getElementById(mode + 'Suggestions');
-  if (!results.length) { hideSuggestions(mode); return; }
-  // mousedown + preventDefault (NOT onclick) is deliberate: mousedown fires BEFORE the input
-  // loses focus, so preventDefault() here stops the input's blur/change event from ever firing.
-  // Without this, blur fired first (triggering a lookup for the still-partially-typed text),
-  // and that stale lookup's response could arrive AFTER the selection and incorrectly overwrite
-  // the correctly-selected item with a "not found" error.
-  dropdown.innerHTML = results.map((it, i) =>
-    '<div class="suggestion-item" onmousedown="event.preventDefault(); selectSuggestion(\'' + mode + '\',' + i + ')">' +
-      '<div class="suggestion-name">' + it.name + '</div>' +
-      '<div class="suggestion-meta">SKU: ' + it.sku + '  |  ' + it.location + '  |  Stock: ' + it.currentStock + '</div>' +
-    '</div>'
-  ).join('');
-  dropdown.style.display = 'block';
-  window['lastSuggestions_' + mode] = results; // stash for selectSuggestion to read back by index
-}
-
-function hideSuggestions(mode) {
-  const dropdown = document.getElementById(mode + 'Suggestions');
-  dropdown.style.display = 'none';
-  dropdown.innerHTML = '';
-}
-
-function selectSuggestion(mode, index) {
-  searchRequestId[mode]++; // invalidate any pending/in-flight search so its late response can't reopen the dropdown
-  clearTimeout(suggestTimer);
-  const results = window['lastSuggestions_' + mode] || [];
-  const it = results[index];
-  if (!it) return;
-  document.getElementById(mode + 'Sku').value = it.sku;
-  hideSuggestions(mode);
-  showItem(mode, { found: true, sku: it.sku, name: it.name, location: it.location, currentStock: it.currentStock });
-}
-
-function showItem(mode, res) {
-  const box = document.getElementById(mode + 'ItemBox');
-  const submitBtn = document.getElementById(mode + 'SubmitBtn');
-  if (!res.found) {
-    box.style.display = 'none';
-    submitBtn.disabled = true;
-    showMsg(mode, 'err', '❌ SKU "' + res.sku + '" not found in Item_Master.');
-    syncTopButton();
+function handleOutwardScan(sh, e) {
+  const ui = SpreadsheetApp.getUi();
+  const branch = sh.getRange('B2').getValue();
+  if (!branch) {
+    ui.alert('⚠️ Select Branch First', 'Please choose the branch from the dropdown (cell B2) before scanning.', ui.ButtonSet.OK);
+    sh.getRange('E2').clearContent();
     return;
   }
-  document.getElementById(mode + 'ItemName').textContent = res.name;
-  document.getElementById(mode + 'ItemMeta').textContent =
-    'SKU: ' + res.sku + '  |  Location: ' + res.location + '  |  Current stock: ' + res.currentStock;
-  box.style.display = 'block';
-  submitBtn.disabled = false;
-  syncTopButton();
+  const sku = e.range.getValue();
+  if (!sku) return;
+
+  const item = findItem(sku);
+  if (!item) {
+    ui.alert('❌ Unknown SKU', 'SKU "' + sku + '" was not found in Item_Master.', ui.ButtonSet.OK);
+    sh.getRange('E2').clearContent();
+    return;
+  }
+
+  const qtyResp = ui.prompt('Quantity - OUT to ' + branch, 'Item: ' + item.name + '\nLocation: ' + item.location + '\n\nEnter quantity going out:', ui.ButtonSet.OK_CANCEL);
+  if (qtyResp.getSelectedButton() !== ui.Button.OK) { sh.getRange('E2').clearContent(); return; }
+  const qty = Number(qtyResp.getResponseText());
+  if (!qty || qty <= 0) { ui.alert('Invalid quantity.'); sh.getRange('E2').clearContent(); return; }
+
+  const entryId = 'OUT-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyMMdd') + '-' + nextCounter('B3');
+  const user = Session.getActiveUser().getEmail() || 'MIS User';
+  const lastRow = Math.max(sh.getLastRow() + 1, 5);
+  // Photo capture is only available from the web dashboard (needs a camera) - entries made
+  // directly in the Sheet just record a placeholder here.
+  sh.getRange(lastRow, 1, 1, 9).setValues([[new Date(), entryId, item.sku, item.name, item.location, qty, branch, user, '—']]);
+
+  sh.getRange('E2').clearContent();
+
+  refreshStockLedger();
+  refreshBranchLedger();
 }
 
-// ---------------- PHOTO CAPTURE ----------------
-const photoData = { in: null, out: null };
+// ============================= LEDGERS =========================================================
+// Writes SKU/Item Name/Location/Reorder Level as plain values, but Total Inward, Total Outward,
+// Current Stock, Status, and Daily Avg Consumption are written as REAL Google Sheets formulas
+// (SUMIF/IF/MINIFS) rather than script-computed numbers. This means the Stock_Ledger sheet keeps
+// itself live/self-updating the moment new Inward/Outward rows appear, and the calculations are
+// fully visible/auditable by clicking any cell - not hidden inside the script.
+//
+// Daily Avg Consumption = Total Outward ÷ (days since that SKU's first-ever Inward entry) -
+// i.e. average units going out per day since the item started being tracked.
+// Cheap alternative to always calling refreshStockLedger(): since Stock_Ledger's Total Inward/
+// Outward/Current Stock are now LIVE FORMULAS (SUMPRODUCT), they're already accurate at all
+// times without any script needing to run - a full refreshStockLedger() is genuinely only
+// needed to rebuild the ROW LIST when an item was added/removed, which is comparatively rare.
+// Calling the full rebuild (which clears + rewrites formulas across every row, then forces a
+// synchronous flush()) on EVERY single Dashboard load was the main cause of it feeling slow -
+// this just compares row counts first and skips the expensive rebuild when nothing changed.
+function ensureStockLedgerFresh() {
+  const itemSh = getSheetOrThrow(SHEETS.ITEM_MASTER);
+  const ledgerSh = getSheetOrThrow(SHEETS.LEDGER);
+  const itemRows = itemSh.getLastRow() > 1 ? itemSh.getRange(2, 1, itemSh.getLastRow() - 1, 1).getValues() : [];
+  const itemSkuCount = itemRows.filter(r => r[0]).length;
+  const ledgerRowCount = Math.max(ledgerSh.getLastRow() - 1, 0);
+  if (itemSkuCount !== ledgerRowCount) {
+    refreshStockLedger(); // row list is out of sync (an item was added/removed) - full rebuild needed
+  }
+  // otherwise: nothing to do - the formulas are already live and self-updating
+}
 
-function handlePhotoCapture(mode, input) {
-  const file = input.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    resizeImage(e.target.result, 800, 0.7, function(resizedDataUrl) {
-      photoData[mode] = resizedDataUrl;
-      // Photo is captured and stored, but we only show a small confirmation - not a full preview.
-      document.getElementById(mode + 'PhotoStatus').style.display = 'block';
-    });
+function refreshStockLedger() {
+  const itemSh = getSheetOrThrow(SHEETS.ITEM_MASTER);
+  const ledgerSh = getSheetOrThrow(SHEETS.LEDGER);
+
+  const items = itemSh.getRange(2, 1, Math.max(itemSh.getLastRow() - 1, 0), 7).getValues().filter(r => r[0]);
+  const n = items.length;
+
+  // Preserve any Reorder Level the user has already typed directly into Stock_Ledger, keyed by
+  // SKU - re-running this must NEVER overwrite a manual edit there. It only supplies a starting
+  // default (from Item_Master) for a SKU that doesn't have a Stock_Ledger row yet.
+  const existingReorder = {};
+  if (ledgerSh.getLastRow() > 1) {
+    const existingRows = ledgerSh.getRange(2, 1, ledgerSh.getLastRow() - 1, 7).getValues();
+    existingRows.forEach(r => { if (r[0]) existingReorder[String(r[0]).trim().toUpperCase()] = r[6]; });
+  }
+
+  if (ledgerSh.getLastRow() > 1) ledgerSh.getRange(2, 1, ledgerSh.getLastRow() - 1, 9).clearContent();
+  if (!n) return;
+
+  // A, B, C: SKU / Item Name / Location (plain values)
+  ledgerSh.getRange(2, 1, n, 3).setValues(items.map(r => [r[0], r[1], r[4]]));
+
+  // G: Reorder Level - reuse what was already in Stock_Ledger for this SKU if present (keeps
+  // your manual edit); only a brand-new SKU falls back to Item_Master's Reorder Level (or 0).
+  const reorderCol = items.map(r => {
+    const key = String(r[0]).trim().toUpperCase();
+    const preserved = existingReorder[key];
+    return [preserved !== undefined && preserved !== '' ? preserved : Number(r[6] || 0)];
+  });
+  ledgerSh.getRange(2, 7, n, 1).setValues(reorderCol);
+
+  const dFormulas = [], eFormulas = [], fFormulas = [], hFormulas = [], iFormulas = [];
+  for (let i = 0; i < n; i++) {
+    const row = i + 2;
+    // SUMIF with a plain exact-text match can silently undercount if the logged SKU has stray
+    // whitespace (very common after copy/pasting into a sheet) that doesn't exactly match
+    // Item_Master's SKU cell - this was the most likely cause of an incorrect Current Stock.
+    // SUMPRODUCT + TRIM + UPPER makes the match whitespace/case-tolerant. Also bounded to the
+    // actual data rows (5 onward) rather than the whole column, skipping the title/instruction
+    // rows 1-4 entirely.
+    dFormulas.push(['=SUMPRODUCT((TRIM(UPPER(Inward_Entry!C5:C10000))=TRIM(UPPER(A' + row + ')))*Inward_Entry!F5:F10000)']);
+    eFormulas.push(['=SUMPRODUCT((TRIM(UPPER(Outward_Entry!C5:C10000))=TRIM(UPPER(A' + row + ')))*Outward_Entry!F5:F10000)']);
+    fFormulas.push(['=D' + row + '-E' + row]);
+    hFormulas.push(['=IF(F' + row + '<=G' + row + ',"⚠️ LOW STOCK","✅ OK")']);
+    iFormulas.push(['=IFERROR(ROUND(E' + row + '/MAX(1,TODAY()-MINIFS(Inward_Entry!A5:A10000,Inward_Entry!C5:C10000,A' + row + ')),2),0)']);
+  }
+  ledgerSh.getRange(2, 4, n, 1).setFormulas(dFormulas); // D Total Inward
+  ledgerSh.getRange(2, 5, n, 1).setFormulas(eFormulas); // E Total Outward
+  ledgerSh.getRange(2, 6, n, 1).setFormulas(fFormulas); // F Current Stock
+  ledgerSh.getRange(2, 8, n, 1).setFormulas(hFormulas); // H Status
+  ledgerSh.getRange(2, 9, n, 1).setFormulas(iFormulas); // I Daily Avg Consumption
+
+  SpreadsheetApp.flush(); // make sure the formulas above have calculated before we read them back
+
+  // Push the now-calculated Current Stock back into Item_Master column H for quick reference
+  const currentStockValues = ledgerSh.getRange(2, 6, n, 1).getValues();
+  const stockMap = {};
+  items.forEach((r, i) => stockMap[r[0]] = currentStockValues[i][0]);
+  const currentStockCol = items.map(r => [stockMap[r[0]] !== undefined ? stockMap[r[0]] : 0]);
+  itemSh.getRange(2, 8, n, 1).setValues(currentStockCol);
+}
+
+function refreshBranchLedger() {
+  const outSh = getSheetOrThrow(SHEETS.OUTWARD);
+  const branchLedgerSh = getSheetOrThrow(SHEETS.BRANCH_LEDGER);
+
+  const outData = outSh.getLastRow() > 4 ? outSh.getRange(5, 1, outSh.getLastRow() - 4, 9).getValues() : [];
+  const map = {}; // key = sku|branch
+  outData.forEach(r => {
+    const [ts, id, skuRaw, name, loc, qty, branchRaw] = r;
+    const sku = String(skuRaw || '').trim();
+    const branch = String(branchRaw || '').trim();
+    if (!sku || !branch) return;
+    const key = sku + '||' + branch;
+    if (!map[key]) map[key] = { sku, name, branch, qty: 0, last: ts };
+    map[key].qty += Number(qty || 0);
+    if (ts > map[key].last) map[key].last = ts;
+  });
+
+  const rows = Object.values(map).map(m => [m.sku, m.name, m.branch, m.qty, m.last]);
+  if (branchLedgerSh.getLastRow() > 1) branchLedgerSh.getRange(2, 1, branchLedgerSh.getLastRow() - 1, 5).clearContent();
+  if (rows.length) branchLedgerSh.getRange(2, 1, rows.length, 5).setValues(rows);
+}
+
+function refreshAll() {
+  refreshStockLedger();
+  refreshBranchLedger();
+  SpreadsheetApp.getUi().alert('✅ Refreshed Stock_Ledger and Branch_Ledger.');
+}
+
+// ============================= WIZARDS (add item / rack / branch) ==============================
+function addNewRackWizard() {
+  const ui = SpreadsheetApp.getUi();
+  const sh = getSheetOrThrow(SHEETS.RACKS);
+
+  const rackNo = ui.prompt('New Rack', 'Rack Number (e.g. 003):', ui.ButtonSet.OK_CANCEL);
+  if (rackNo.getSelectedButton() !== ui.Button.OK || !rackNo.getResponseText()) return;
+  const row = ui.prompt('New Rack', 'Row/Level letter (e.g. A):', ui.ButtonSet.OK_CANCEL);
+  if (row.getSelectedButton() !== ui.Button.OK || !row.getResponseText()) return;
+  const desc = ui.prompt('New Rack', 'Description (optional):', ui.ButtonSet.OK_CANCEL);
+
+  const rackCode = 'RACK-' + rackNo.getResponseText().padStart(3, '0') + '-' + row.getResponseText().toUpperCase();
+  sh.appendRow([rackCode, rackNo.getResponseText().padStart(3, '0'), row.getResponseText().toUpperCase(), desc.getResponseText() || '']);
+  ui.alert('✅ Rack created: ' + rackCode);
+}
+
+function addNewBranchWizard() {
+  const ui = SpreadsheetApp.getUi();
+  const sh = getSheetOrThrow(SHEETS.BRANCHES);
+
+  const name = ui.prompt('New Branch', 'Branch Name (e.g. New Outlet):', ui.ButtonSet.OK_CANCEL);
+  if (name.getSelectedButton() !== ui.Button.OK || !name.getResponseText()) return;
+  const nextNum = sh.getLastRow(); // header=1, so lastRow = count+1
+  const code = 'BR-' + String(nextNum).padStart(2, '0');
+  sh.appendRow([code, name.getResponseText(), true]);
+  ui.alert('✅ Branch created: ' + name.getResponseText() + ' (' + code + ')\n\nNote: refresh the Outward_Entry branch dropdown range if needed (it already auto-includes new rows up to row 50).');
+}
+
+// ============================= BULK SKU ASSIGNMENT ==============================================
+// For Item_Master rows that already have an Item Name but a BLANK SKU Code (e.g. a product list
+// that was pasted straight in, bypassing the Add Item wizard) - assigns a proper rack-based SKU,
+// Storage Type, Barcode fields, and QR to each one in a single pass.
+//
+// Uses whatever Location Code is ALREADY typed in that row, if any. Only rows with a blank
+// Location Code fall back to defaultLocationCode (if one is given) - so you can pre-fill the
+// Location Code column yourself for finer control (different racks for different items) and
+// this will respect that, rather than forcing everything onto one rack.
+//
+// Returns { assigned, skipped, skippedNames } - shared by both the Sheet menu wizard and the
+// admin web dashboard, so the logic only lives in one place.
+function bulkAssignSkusCore(defaultLocationCode) {
+  const itemSh = getSheetOrThrow(SHEETS.ITEM_MASTER);
+  const rackSh = getSheetOrThrow(SHEETS.RACKS);
+  const rackCodes = rackSh.getRange(2, 1, Math.max(rackSh.getLastRow() - 1, 0), 1).getValues().flat().filter(String).map(c => String(c).toUpperCase());
+
+  const lastRow = itemSh.getLastRow();
+  const lastCol = itemSh.getLastColumn();
+  if (lastRow < 2) return { assigned: 0, skipped: 0, skippedNames: [] };
+
+  // Find columns by HEADER NAME rather than a fixed position - the sheet may still be on an
+  // older layout (e.g. before Barcode Source/Barcode Value existed), so this only touches
+  // columns that actually exist under the expected header, and simply skips the rest.
+  const headers = itemSh.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h).trim().toLowerCase());
+  const col = {
+    sku: headers.indexOf('sku code') + 1,
+    name: headers.indexOf('item name') + 1,
+    storageType: headers.indexOf('storage type') + 1,
+    location: headers.indexOf('location code') + 1,
+    barcodeSource: headers.indexOf('barcode source') + 1,
+    barcodeValue: headers.indexOf('barcode value') + 1,
+    qr: headers.indexOf('qr code') + 1
   };
-  reader.readAsDataURL(file);
-  input.value = ''; // allow capturing the same file again if needed
-}
-
-// Shrinks the photo client-side (max 800px wide, JPEG ~70% quality) before it's sent, so a
-// batch of several entries doesn't turn into a huge upload.
-function resizeImage(dataUrl, maxWidth, quality, callback) {
-  const img = new Image();
-  img.onload = function() {
-    let w = img.width, h = img.height;
-    if (w > maxWidth) { h = Math.round(h * (maxWidth / w)); w = maxWidth; }
-    const canvas = document.createElement('canvas');
-    canvas.width = w; canvas.height = h;
-    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-    callback(canvas.toDataURL('image/jpeg', quality));
-  };
-  img.src = dataUrl;
-}
-
-function clearPhoto(mode) {
-  photoData[mode] = null;
-  document.getElementById(mode + 'PhotoStatus').style.display = 'none';
-}
-
-// ---------------- ENTRY QUEUE (add multiple rows, then submit all at once) ----------------
-const queues = { in: [], out: [] };
-
-function addToQueue(mode) {
-  const sku = document.getElementById(mode + 'Sku').value.trim();
-  const name = document.getElementById(mode + 'ItemName').textContent;
-  const qty = Number(document.getElementById(mode + 'Qty').value);
-
-  if (!sku || !name) { showMsg(mode, 'err', '❌ Scan an item first.'); return; }
-  if (!qty || qty <= 0) { showMsg(mode, 'err', '❌ Enter a valid quantity.'); return; }
-  if (!photoData[mode]) { showMsg(mode, 'err', '📷 Photo is required - capture or upload one before saving this entry.'); return; }
-
-  const row = { sku: sku, name: name, qty: qty, photo: photoData[mode] };
-  if (mode === 'out') {
-    const branch = document.getElementById('outBranch').value;
-    if (!branch) { showMsg('out', 'err', '⚠️ Please select a branch first.'); return; }
-    row.branch = branch;
+  if (!col.sku || !col.name) {
+    return { assigned: 0, skipped: 0, skippedNames: [], error: 'Could not find "SKU Code" and/or "Item Name" columns in Item_Master.' };
   }
 
-  queues[mode].push(row);
-  renderQueue(mode);
-  showMsg(mode, 'ok', '✅ Added to list: ' + name + ' x ' + qty);
-  resetForm(mode);
-}
+  const data = itemSh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  const locationCounts = {}; // running per-location sequence counter, seeded from existing SKUs
+  data.forEach(r => {
+    const loc = col.location ? String(r[col.location - 1] || '').trim().toUpperCase() : '';
+    if (r[col.sku - 1] && loc) locationCounts[loc] = (locationCounts[loc] || 0) + 1;
+  });
 
-function removeQueueRow(mode, index) {
-  queues[mode].splice(index, 1);
-  renderQueue(mode);
-}
+  let assigned = 0;
+  const skippedNames = [];
+  const updates = [];
 
-function renderQueue(mode) {
-  const list = queues[mode];
-  const table = document.getElementById(mode + 'QueueTable');
-  const summary = document.getElementById(mode + 'QueueSummary');
-  const finalBtn = document.getElementById(mode + 'FinalSubmitBtn');
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const hasSku = !!row[col.sku - 1];
+    const itemName = row[col.name - 1];
+    if (hasSku || !itemName) continue; // only touch blank-SKU rows that actually have a name
 
-  if (!list.length) {
-    table.innerHTML = '';
-    summary.textContent = 'No entries added yet.';
-    finalBtn.disabled = true;
-    return;
-  }
-
-  const branchCol = mode === 'out' ? '<th>Branch</th>' : '';
-  const rowsHtml = list.map((r, i) => {
-    const branchCell = mode === 'out' ? '<td>' + r.branch + '</td>' : '';
-    const photoCell = '<td>' + (r.photo ? '📷' : '—') + '</td>';
-    const nameCell = '<td>' + r.name + (r.lastError ? '<br><span style="color:var(--warn);font-size:11px;">⚠️ ' + r.lastError + '</span>' : '') + '</td>';
-    return '<tr>' + nameCell + '<td>' + r.qty + '</td>' + branchCell + photoCell +
-      '<td><button class="queue-row-del" onclick="removeQueueRow(\'' + mode + '\',' + i + ')">✕</button></td></tr>';
-  }).join('');
-
-  table.innerHTML = '<tr><th>Item</th><th>Qty</th>' + branchCol + '<th>Photo</th><th></th></tr>' + rowsHtml;
-  summary.textContent = list.length + ' item' + (list.length === 1 ? '' : 's') + ' ready to submit.';
-  finalBtn.disabled = false;
-}
-
-// Submits every queued row one by one, shows progress, and clears only the ones that succeed
-// (failed rows stay in the list so nothing gets silently lost).
-// Submits the WHOLE queue in ONE call to the server (instead of one round-trip per item) - this
-// is what makes Final Submit fast even with several entries. The server writes all rows in one
-// bulk operation and refreshes the stock ledger only once at the end.
-function finalSubmit(mode) {
-  const list = queues[mode];
-  if (!list.length) return;
-
-  const finalBtn = document.getElementById(mode + 'FinalSubmitBtn');
-  finalBtn.disabled = true;
-  finalBtn.innerHTML = '<span class="spinner"></span>Submitting ' + list.length + ' ' + (list.length === 1 ? 'entry' : 'entries') + '…';
-
-  const action = mode === 'in' ? 'logBatchInward' : 'logBatchOutward';
-  const entries = list.map(row => mode === 'in'
-    ? { sku: row.sku, qty: row.qty, photo: row.photo }
-    : { sku: row.sku, qty: row.qty, branch: row.branch, photo: row.photo });
-
-  callApi(action, { entries: entries }).then(results => {
-    const stillFailed = [];
-    let successCount = 0;
-    (results || []).forEach((res, i) => {
-      if (res.success) {
-        successCount++;
-      } else {
-        list[i].lastError = res.message || 'Unknown error';
-        stillFailed.push(list[i]);
-      }
-    });
-
-    queues[mode] = stillFailed;
-    renderQueue(mode);
-    finalBtn.disabled = false;
-    finalBtn.textContent = '✅ Final Submit';
-    if (stillFailed.length) {
-      showMsg(mode, 'err', '⚠️ ' + successCount + ' submitted, ' + stillFailed.length +
-        ' failed. See the error under each failed item below - tap ⚙️ → 🔧 Test Connection to diagnose.');
-    } else {
-      showMsg(mode, 'ok', '✅ All ' + successCount + ' entries submitted successfully.');
+    let locationCode = col.location ? String(row[col.location - 1] || '').trim().toUpperCase() : '';
+    if (!locationCode) {
+      if (!defaultLocationCode) { skippedNames.push(itemName); continue; }
+      locationCode = String(defaultLocationCode).trim().toUpperCase();
     }
-  }).catch(err => {
-    finalBtn.disabled = false;
-    finalBtn.textContent = '✅ Final Submit';
-    showMsg(mode, 'err', '❌ ' + err.message);
+
+    locationCounts[locationCode] = (locationCounts[locationCode] || 0) + 1;
+    const seq = String(locationCounts[locationCode]).padStart(3, '0');
+    const sku = locationCode + '-' + seq;
+    const isRacked = locationCode.indexOf('RACK-') === 0;
+
+    updates.push({ sheetRow: i + 2, sku: sku, storageType: isRacked ? 'Racked' : 'Non-Racked', locationCode: locationCode });
+    assigned++;
+  }
+
+  updates.forEach(u => {
+    itemSh.getRange(u.sheetRow, col.sku).setValue(u.sku);
+    if (col.storageType) itemSh.getRange(u.sheetRow, col.storageType).setValue(u.storageType);
+    if (col.location) itemSh.getRange(u.sheetRow, col.location).setValue(u.locationCode);
+    if (col.barcodeSource) itemSh.getRange(u.sheetRow, col.barcodeSource).setValue('Generated QR');
+    if (col.barcodeValue) itemSh.getRange(u.sheetRow, col.barcodeValue).setValue(u.sku);
+    if (col.qr) itemSh.getRange(u.sheetRow, col.qr).setFormula(qrFormula(columnToLetter(col.sku) + u.sheetRow));
+  });
+
+  if (assigned) refreshStockLedger();
+
+  return { assigned: assigned, skipped: skippedNames.length, skippedNames: skippedNames };
+}
+
+// Converts a 1-based column number to its letter (1 -> A, 2 -> B, ... 27 -> AA) - needed since
+// the SKU column position isn't guaranteed to be A on every sheet layout.
+function columnToLetter(colNum) {
+  let letter = '';
+  while (colNum > 0) {
+    const rem = (colNum - 1) % 26;
+    letter = String.fromCharCode(65 + rem) + letter;
+    colNum = Math.floor((colNum - 1) / 26);
+  }
+  return letter;
+}
+
+function bulkAssignSkuWizard() {
+  const ui = SpreadsheetApp.getUi();
+  const itemSh = getSheetOrThrow(SHEETS.ITEM_MASTER);
+  const data = itemSh.getRange(2, 1, Math.max(itemSh.getLastRow() - 1, 0), 5).getValues();
+  const blankCount = data.filter(r => !r[0] && r[1]).length;
+  const missingLocationCount = data.filter(r => !r[0] && r[1] && !String(r[4] || '').trim()).length;
+
+  if (!blankCount) {
+    ui.alert('Nothing to do', 'Every item with a name already has a SKU Code assigned.', ui.ButtonSet.OK);
+    return;
+  }
+
+  let defaultLocationCode = '';
+  if (missingLocationCount > 0) {
+    const resp = ui.prompt('Bulk Assign SKUs',
+      blankCount + ' item(s) need a SKU. ' + missingLocationCount + ' of those also have no Location Code set.\n\n' +
+      'Enter a default Rack/Zone code to use for those (e.g. RACK-002-A or NR-STORE01) - or leave blank ' +
+      'to skip them for now (you can fill in Location Code yourself and re-run this later).',
+      ui.ButtonSet.OK_CANCEL);
+    if (resp.getSelectedButton() !== ui.Button.OK) return;
+    defaultLocationCode = resp.getResponseText().trim();
+  }
+
+  const result = bulkAssignSkusCore(defaultLocationCode);
+  let msg = '✅ Assigned SKUs to ' + result.assigned + ' item(s).';
+  if (result.skipped) {
+    msg += '\n\n⚠️ Skipped ' + result.skipped + ' item(s) with no Location Code and no default given:\n' +
+      result.skippedNames.slice(0, 15).join(', ') + (result.skippedNames.length > 15 ? ', ...' : '');
+  }
+  ui.alert('Bulk Assign SKUs', msg, ui.ButtonSet.OK);
+}
+
+function addNewItemWizard() {
+  const ui = SpreadsheetApp.getUi();
+  const itemSh = getSheetOrThrow(SHEETS.ITEM_MASTER);
+  const rackSh = getSheetOrThrow(SHEETS.RACKS);
+
+  const nameResp = ui.prompt('New Item - Step 1/5', 'Item Name (e.g. Kaju Katli Box - 500g):', ui.ButtonSet.OK_CANCEL);
+  if (nameResp.getSelectedButton() !== ui.Button.OK || !nameResp.getResponseText()) return;
+  const itemName = nameResp.getResponseText();
+
+  const catResp = ui.prompt('New Item - Step 2/5', 'Category (e.g. Packing Box, Ribbon, Sticker, Raw Material):', ui.ButtonSet.OK_CANCEL);
+  if (catResp.getSelectedButton() !== ui.Button.OK) return;
+  const category = catResp.getResponseText();
+
+  const storageResp = ui.prompt('New Item - Step 3/5', 'Is this item stored on a RACK?\nType  R  for Racked, or  N  for Non-Racked:', ui.ButtonSet.OK_CANCEL);
+  if (storageResp.getSelectedButton() !== ui.Button.OK) return;
+  const isRacked = storageResp.getResponseText().trim().toUpperCase().startsWith('R');
+
+  let locationCode = '';
+  const rackData = rackSh.getRange(2, 1, Math.max(rackSh.getLastRow() - 1, 0), 1).getValues().flat().filter(String);
+
+  if (isRacked) {
+    const rackResp = ui.prompt('New Item - Step 4/5', 'Enter Rack Code (existing or new).\nAvailable racks:\n' + rackData.filter(r => r.indexOf('RACK-') === 0).join(', '), ui.ButtonSet.OK_CANCEL);
+    if (rackResp.getSelectedButton() !== ui.Button.OK || !rackResp.getResponseText()) return;
+    locationCode = rackResp.getResponseText().trim().toUpperCase();
+    if (rackData.indexOf(locationCode) === -1) {
+      // Not in the Racks sheet yet - register it automatically instead of rejecting, so typing
+      // a brand-new rack code here just works.
+      rackSh.appendRow([locationCode, '', '', 'Added automatically via Add New Item']);
+    }
+  } else {
+    const zoneResp = ui.prompt('New Item - Step 4/5', 'Enter Non-Rack Zone Code (e.g. NR-STORE01):', ui.ButtonSet.OK_CANCEL);
+    if (zoneResp.getSelectedButton() !== ui.Button.OK) return;
+    locationCode = zoneResp.getResponseText().trim().toUpperCase();
+  }
+
+  const unitResp = ui.prompt('New Item - Step 5/6', 'Unit (e.g. Pcs, Box, Roll) and Reorder Level, separated by comma. Example: Pcs, 50', ui.ButtonSet.OK_CANCEL);
+  if (unitResp.getSelectedButton() !== ui.Button.OK) return;
+  const parts = unitResp.getResponseText().split(',');
+  const unit = (parts[0] || '').trim() || 'Pcs';
+  const reorder = Number((parts[1] || '0').trim()) || 0;
+
+  // generate sequence number for this location -> this becomes our internal SKU Code
+  const existing = itemSh.getRange(2, 5, Math.max(itemSh.getLastRow() - 1, 0), 1).getValues().flat();
+  const countForLocation = existing.filter(loc => String(loc).trim().toUpperCase() === locationCode).length;
+  const seq = String(countForLocation + 1).padStart(3, '0');
+  const sku = locationCode + '-' + seq;
+
+  // Step 6: does the box already have a printed barcode from the vendor, or should we
+  // generate our own QR sticker?
+  const barcodeResp = ui.prompt('New Item - Step 6/6',
+    'Does this material ALREADY have a barcode printed on it by the vendor?\n' +
+    'Type  E  = Existing vendor barcode (scan/type it next)\n' +
+    'Type  G  = Generate a new QR sticker for us to print', ui.ButtonSet.OK_CANCEL);
+  if (barcodeResp.getSelectedButton() !== ui.Button.OK) return;
+  const useExisting = barcodeResp.getResponseText().trim().toUpperCase().startsWith('E');
+
+  let barcodeSource, barcodeValue;
+  if (useExisting) {
+    const existingBarcodeResp = ui.prompt('Existing Barcode', 'Scan or type the vendor\'s existing barcode now:', ui.ButtonSet.OK_CANCEL);
+    if (existingBarcodeResp.getSelectedButton() !== ui.Button.OK || !existingBarcodeResp.getResponseText()) {
+      ui.alert('Cancelled - no barcode entered.');
+      return;
+    }
+    barcodeSource = 'Existing Vendor Barcode';
+    barcodeValue = existingBarcodeResp.getResponseText().trim();
+  } else {
+    barcodeSource = 'Generated QR';
+    barcodeValue = sku; // our own QR encodes the internal SKU Code
+  }
+
+  const newRow = itemSh.getLastRow() + 1;
+  itemSh.getRange(newRow, 1, 1, 10).setValues([[sku, itemName, category, isRacked ? 'Racked' : 'Non-Racked',
+    locationCode, unit, reorder, 0, barcodeSource, barcodeValue]]);
+
+  if (!useExisting) {
+    itemSh.getRange(newRow, 11).setFormula(qrFormula('A' + newRow));
+  } else {
+    itemSh.getRange(newRow, 11).setValue('— vendor barcode, no label needed —');
+  }
+
+  const summary = 'SKU Code: ' + sku + '\nItem: ' + itemName + '\nLocation: ' + locationCode +
+    '\nBarcode: ' + barcodeSource + ' (' + barcodeValue + ')' +
+    (useExisting ? '\n\nNo sticker needed - scan the box\'s existing barcode directly.'
+                 : '\n\nA QR code has been generated in Item_Master column K. Print and stick it on the box.');
+  ui.alert('✅ Item created!', summary, ui.ButtonSet.OK);
+}
+
+// ===============================================================================================
+// WEB APP LAYER (formerly WebApp.gs) - JSON API for godown.html / admin.html
+// ===============================================================================================
+
+// ============================= ONE-TIME AUTHORIZATION HELPER =====================================
+// Photo capture needs Google Drive access, which is a NEW permission scope beyond what the sheet
+// already had. Apps Script can't grant a brand-new scope in response to an anonymous web request
+// (fetch from godown.html) - it just fails and Google returns an HTML page instead of your JSON,
+// which shows up in the browser as "Unexpected token '<', <!DOCTYPE...' is not valid JSON".
+//
+// FIX (one-time, takes 30 seconds):
+// 1. In this Apps Script editor, use the function dropdown (top toolbar) and select
+//    "oneTimeAuthorizeDriveAccess".
+// 2. Click the ▶ Run button.
+// 3. A popup will ask for permission - click "Continue" / "Advanced > Go to project (unsafe)" >
+//    "Allow". (It's your own script on your own account - this warning is normal for scripts
+//    that aren't published on the Marketplace.)
+// 4. Then go to Deploy -> Manage deployments -> Edit (pencil) -> New version -> Deploy, so the
+//    live Web App URL picks up the authorized code.
+function oneTimeAuthorizeDriveAccess() {
+  const folder = getOrCreatePhotosFolder();
+  Logger.log('Drive access authorized. Photos folder: ' + folder.getUrl());
+}
+
+// ============================= DIAGNOSTICS =======================================================
+// A lightweight action to test the connection and check whether Drive access (needed for photos)
+// has been authorized, without having to submit a real stock entry to find out.
+function webPing() {
+  let driveOk = false, driveError = '';
+  try {
+    getOrCreatePhotosFolder();
+    driveOk = true;
+  } catch (err) {
+    driveError = err.message;
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const requiredSheets = ['Branches', 'Racks', 'Item_Master', 'Inward_Entry', 'Outward_Entry', 'Stock_Ledger', 'Branch_Ledger', 'Branch_Outward_Entry', 'Settings'];
+  const missingSheets = requiredSheets.filter(name => !ss.getSheetByName(name));
+
+  return { ok: true, driveOk: driveOk, driveError: driveError, missingSheets: missingSheets, watiConfigured: isWatiConfigured() };
+}
+
+// This only gets hit if someone opens the raw Web App URL directly in a browser (a GET request) -
+// the actual godown.html / admin.html dashboards are hosted externally (GitHub Pages/Netlify)
+// and talk to this script entirely through doPost, never doGet. So this doesn't need to serve a
+// real page - it's just a friendly message in case someone lands here by mistake, and it avoids
+// depending on an "Index" HTML file that most setups of this system don't have/need.
+// This only gets hit if someone opens the raw Web App URL directly in a browser (a GET request) -
+// the actual godown.html / admin.html dashboards are hosted externally (GitHub Pages/Netlify)
+// and talk to this script entirely through doPost, never doGet. So this doesn't need to serve a
+// real page - it's just a friendly message in case someone lands here by mistake, and it avoids
+// depending on an "Index" HTML file that most setups of this system don't have/need.
+function doGet(e) {
+  return HtmlService.createHtmlOutput(
+    '<div style="font-family:sans-serif;max-width:480px;margin:60px auto;text-align:center;color:#4e1e25;">' +
+    '<h2>🍬 Raghuvir Sweets &amp; Bakers - IMS</h2>' +
+    '<p>This is the backend API for the Inventory Management System.</p>' +
+    '<p>Please open the Godown or Admin dashboard link you were given, instead of this URL directly.</p>' +
+    '</div>'
+  ).setTitle('Raghuvir IMS - Backend API');
+}
+
+// ============================= JSON API (for an externally-hosted scanning page) ================
+// Apps Script web apps render inside a Google iframe (script.googleusercontent.com), and browsers
+// often block camera access inside that embedded context. If camera scanning fails there, host
+// external.html (given separately) on GitHub Pages / Netlify instead — a normal top-level HTTPS
+// page has no such restriction — and point it at this doPost endpoint via fetch().
+//
+// Sending the request body as Content-Type: text/plain (done in external.html) avoids a CORS
+// preflight, so no extra CORS setup is needed on this side.
+function doPost(e) {
+  let result;
+  try {
+    const body = JSON.parse(e.postData.contents);
+    const action = body.action;
+    switch (action) {
+      case 'getBranches': result = webGetBranches(); break;
+      case 'getRacks':    result = webGetRacks(); break;
+      case 'lookupItem':  result = webLookupItem(body.sku); break;
+      case 'searchItems': result = webSearchItems(body.query); break;
+      case 'logInward':   result = webLogInward(body.sku, body.qty, body.photo); break;
+      case 'logOutward':  result = webLogOutward(body.sku, body.qty, body.branch, body.photo); break;
+      case 'logBatchInward':  result = webLogBatchInward(body.entries); break;
+      case 'logBatchOutward': result = webLogBatchOutward(body.entries); break;
+      case 'addItem':     result = webAddItem(body.payload); break;
+      case 'bulkAssignSkus': result = webBulkAssignSkus(body.defaultLocationCode); break;
+      case 'deleteItem':  result = webDeleteItem(body.sku); break;
+      case 'addBranch':   result = webAddBranch(body.branchName); break;
+      case 'deleteBranch':result = webDeleteBranch(body.branchName); break;
+      case 'getDashboard':result = webGetDashboard(); break;
+      case 'getLocationStock': result = webGetLocationStock(); break;
+      case 'getStockHealth': result = webGetStockHealth(); break;
+      case 'logBranchStockOut': result = webLogBranchStockOut(body.branch, body.sku, body.qty, body.remarks); break;
+      case 'getSheetData':result = webGetSheetTable(body.sheetName); break;
+      case 'getAvailableTables': result = webGetAvailableTables(); break;
+      case 'ping': result = webPing(); break;
+      case 'getEntriesWithPhotos': result = webGetEntriesWithPhotos(body.type); break;
+      case 'testWhatsApp': result = testWhatsAppSend(); break;
+      default: result = { error: 'Unknown action: ' + action };
+    }
+  } catch (err) {
+    result = { error: err.message };
+  }
+  return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+}
+
+// ============================= DATA FOR CLIENT ==================================================
+// Accepts a real boolean TRUE, or the common text equivalents ("TRUE", "Yes", "1") - Google Sheets
+// checkboxes normally store real booleans, but manually typed cells often don't, and the previous
+// strict "=== true" check silently returned zero branches whenever that happened.
+function isActiveFlag(val) {
+  if (val === true) return true;
+  if (val === false || val === '' || val === null || val === undefined) return false;
+  const s = String(val).trim().toUpperCase();
+  return s === 'TRUE' || s === 'YES' || s === '1';
+}
+
+function webGetBranches() {
+  const sh = getSheetOrThrow(SHEETS.BRANCHES);
+  const lastRow = sh.getLastRow();
+  const lastCol = sh.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return [];
+
+  // Read by HEADER NAME rather than a fixed column position - this makes it work correctly
+  // regardless of what order the Branch Code / Branch Name / Active columns happen to be in
+  // (a common cause of this silently returning zero branches was the columns being in a
+  // different order than the code assumed).
+  const headers = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h).trim().toLowerCase());
+  const codeIdx = headers.indexOf('branch code');
+  const nameIdx = headers.indexOf('branch name');
+  const activeIdx = headers.indexOf('active');
+
+  if (nameIdx === -1) {
+    throw new Error('Branches sheet needs a "Branch Name" column header - could not find one. Check row 1 of the Branches sheet.');
+  }
+
+  const data = sh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  return data
+    .filter(r => (codeIdx === -1 || r[codeIdx]) && (activeIdx === -1 || isActiveFlag(r[activeIdx])))
+    .map(r => String(r[nameIdx]).trim())
+    .filter(name => name); // drop any blank rows
+}
+
+// Live search-as-you-type: matches partial text against BOTH SKU Code and Item Name, so typing
+// either "RACK-001" or "kaju" both work. Returns up to 8 matches with current stock, for a
+// suggestion dropdown - NOT an exact lookup (that's webLookupItem, still used after camera scans).
+function webSearchItems(query) {
+  const q = String(query || '').trim().toUpperCase();
+  if (q.length < 2) return [];
+
+  const itemSh = getSheetOrThrow(SHEETS.ITEM_MASTER);
+  const lastRow = itemSh.getLastRow();
+  // Same reasoning as findItem() - deliberately excludes column K (QR Code / IMAGE formula) to
+  // keep this fast, since it's only reading columns A, B, E which don't need it.
+  const data = lastRow > 1 ? itemSh.getRange(2, 1, lastRow - 1, 5).getValues() : [];
+  const ledgerSh = getSheetOrThrow(SHEETS.LEDGER);
+  const ledgerData = ledgerSh.getLastRow() > 1 ? ledgerSh.getRange(2, 1, ledgerSh.getLastRow() - 1, 6).getValues() : [];
+  const stockMap = {};
+  ledgerData.forEach(r => { stockMap[String(r[0]).trim().toUpperCase()] = r[5]; });
+
+  const results = [];
+  for (let i = 0; i < data.length && results.length < 8; i++) {
+    const sku = String(data[i][0] || '').trim();
+    const name = String(data[i][1] || '').trim();
+    if (!sku && !name) continue;
+    if (sku.toUpperCase().indexOf(q) !== -1 || name.toUpperCase().indexOf(q) !== -1) {
+      results.push({
+        sku: sku,
+        name: name,
+        location: data[i][4],
+        currentStock: stockMap[sku.toUpperCase()] !== undefined ? stockMap[sku.toUpperCase()] : 0
+      });
+    }
+  }
+  return results;
+}
+
+function webLookupItem(sku) {
+  const item = findItem(sku);
+  if (!item) return { found: false, sku: sku };
+  const ledgerSh = getSheetOrThrow(SHEETS.LEDGER);
+  const ledgerData = ledgerSh.getLastRow() > 1 ? ledgerSh.getRange(2, 1, ledgerSh.getLastRow() - 1, 8).getValues() : [];
+  let currentStock = 0, reorder = 0;
+  for (const row of ledgerData) {
+    if (String(row[0]).trim().toUpperCase() === String(sku).trim().toUpperCase()) {
+      currentStock = row[5];
+      reorder = row[6];
+      break;
+    }
+  }
+  return { found: true, sku: item.sku, name: item.name, location: item.location, currentStock: currentStock, reorder: reorder };
+}
+
+// ============================= PHOTO STORAGE =====================================================
+// Saves a base64 data-URL photo (e.g. "data:image/jpeg;base64,....") to a dedicated Drive folder
+// and returns a shareable view link, so the log sheet stores a link instead of the remarks text
+// that used to go there. Returns '' if no photo was captured for that entry.
+function savePhotoToDrive(base64DataUrl, filenamePrefix) {
+  if (!base64DataUrl) return '';
+  try {
+    const match = String(base64DataUrl).match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
+    if (!match) return '';
+    const mimeType = match[1];
+    const bytes = Utilities.base64Decode(match[2]);
+    const blob = Utilities.newBlob(bytes, mimeType, filenamePrefix + '.jpg');
+    const folder = getOrCreatePhotosFolder();
+    const file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return file.getUrl();
+  } catch (err) {
+    return ''; // don't block the stock entry just because the photo failed to save
+  }
+}
+
+function getOrCreatePhotosFolder() {
+  const props = PropertiesService.getScriptProperties();
+  const cachedId = props.getProperty('IMS_PHOTOS_FOLDER_ID');
+  if (cachedId) {
+    try {
+      return DriveApp.getFolderById(cachedId); // fast direct lookup - no search needed
+    } catch (e) {
+      // Folder was deleted/moved out of trash or the cached ID is otherwise invalid - fall
+      // through and re-find/re-create it below, then re-cache the (possibly new) ID.
+    }
+  }
+  const folderName = 'Raghuvir_IMS_Photos';
+  const existing = DriveApp.getFoldersByName(folderName); // slow search - only happens once, then cached
+  const folder = existing.hasNext() ? existing.next() : DriveApp.createFolder(folderName);
+  props.setProperty('IMS_PHOTOS_FOLDER_ID', folder.getId());
+  return folder;
+}
+
+// ============================= LOGGING (called from web page) ==================================
+// ============================= ENTRIES WITH PHOTOS (for the photo-viewing dashboard) ============
+// Converts a Drive file share link (what savePhotoToDrive stores, e.g.
+// ".../file/d/FILE_ID/view?...") into a directly embeddable thumbnail image URL - the share
+// link itself can't be used as an <img src>, only this thumbnail form can.
+function driveUrlToThumbnail(url) {
+  if (!url || String(url).indexOf('drive.google.com') === -1) return '';
+  const match = String(url).match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (!match) return '';
+  return 'https://drive.google.com/thumbnail?id=' + match[1] + '&sz=w400';
+}
+
+// type: 'inward' or 'outward'. Returns the most recent entries first, each with a photo
+// thumbnail URL (blank if that entry had no photo attached).
+function webGetEntriesWithPhotos(type) {
+  const isOutward = type === 'outward';
+  const sh = getSheetOrThrow(isOutward ? SHEETS.OUTWARD : SHEETS.INWARD);
+  const lastRow = sh.getLastRow();
+  if (lastRow < 5) return [];
+
+  const numCols = isOutward ? 9 : 8;
+  const data = sh.getRange(5, 1, lastRow - 4, numCols).getValues();
+
+  const entries = data.filter(r => r[2]).map(r => {
+    const base = {
+      timestamp: Utilities.formatDate(r[0], Session.getScriptTimeZone(), 'dd-MMM-yyyy HH:mm'),
+      entryId: r[1], sku: r[2], name: r[3], location: r[4], qty: r[5]
+    };
+    if (isOutward) {
+      base.branch = r[6];
+      base.enteredBy = r[7];
+      base.photoThumb = driveUrlToThumbnail(r[8]);
+      base.photoUrl = r[8] || '';
+    } else {
+      base.enteredBy = r[6];
+      base.photoThumb = driveUrlToThumbnail(r[7]);
+      base.photoUrl = r[7] || '';
+    }
+    return base;
+  });
+
+  return entries.reverse(); // most recent first
+}
+
+function webLogInward(sku, qty, photo) {
+  const item = findItem(sku);
+  if (!item) return { success: false, message: 'SKU "' + sku + '" not found in Item_Master.' };
+  qty = Number(qty);
+  if (!qty || qty <= 0) return { success: false, message: 'Invalid quantity.' };
+
+  const sh = getSheetOrThrow(SHEETS.INWARD);
+  const entryId = 'IN-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyMMdd') + '-' + nextCounter('B2');
+  const user = Session.getActiveUser().getEmail() || 'Web Scan User';
+  const lastRow = Math.max(sh.getLastRow() + 1, 5);
+  const photoUrl = savePhotoToDrive(photo, item.sku + '_IN_' + entryId);
+  sh.getRange(lastRow, 1, 1, 8).setValues([[new Date(), entryId, item.sku, item.name, item.location, qty, user, photoUrl || '—']]);
+
+  refreshStockLedger();
+  return { success: true, message: 'Logged: ' + item.name + '  x ' + qty, entryId: entryId };
+}
+
+function webLogOutward(sku, qty, branch, photo) {
+  if (!branch) return { success: false, message: 'Please select a branch.' };
+  const item = findItem(sku);
+  if (!item) return { success: false, message: 'SKU "' + sku + '" not found in Item_Master.' };
+  qty = Number(qty);
+  if (!qty || qty <= 0) return { success: false, message: 'Invalid quantity.' };
+
+  const sh = getSheetOrThrow(SHEETS.OUTWARD);
+  const entryId = 'OUT-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyMMdd') + '-' + nextCounter('B3');
+  const user = Session.getActiveUser().getEmail() || 'Web Scan User';
+  const lastRow = Math.max(sh.getLastRow() + 1, 5);
+  const photoUrl = savePhotoToDrive(photo, item.sku + '_OUT_' + entryId);
+  sh.getRange(lastRow, 1, 1, 9).setValues([[new Date(), entryId, item.sku, item.name, item.location, qty, branch, user, photoUrl || '—']]);
+
+  refreshStockLedger();
+  refreshBranchLedger();
+  return { success: true, message: 'Logged: ' + item.name + '  x ' + qty + '  -> ' + branch, entryId: entryId };
+}
+
+// ============================= ADD ITEM (registration from the web dashboard) ===================
+function webGetRacks() {
+  const sh = getSheetOrThrow(SHEETS.RACKS);
+  const data = sh.getRange(2, 1, Math.max(sh.getLastRow() - 1, 0), 1).getValues().flat().filter(String);
+  return data; // list of rack/zone codes, e.g. RACK-001-A, NR-STORE01
+}
+
+// payload = { itemName, category, isRacked, locationCode, unit, reorder, barcodeMode, existingBarcode }
+// barcodeMode is either 'existing' or 'generate'
+// Wraps the shared bulkAssignSkusCore() (defined in Code.gs, same Apps Script project) for the
+// web dashboard - see that function for the full explanation of what this does.
+function webBulkAssignSkus(defaultLocationCode) {
+  return bulkAssignSkusCore(defaultLocationCode || '');
+}
+
+function webAddItem(payload) {
+  const itemSh = getSheetOrThrow(SHEETS.ITEM_MASTER);
+  const rackSh = getSheetOrThrow(SHEETS.RACKS);
+
+  if (!payload.itemName) return { success: false, message: 'Item name is required.' };
+  const locationCode = String(payload.locationCode || '').trim().toUpperCase();
+  if (!locationCode) return { success: false, message: 'Please choose or type a rack / zone code.' };
+
+  if (payload.isRacked) {
+    const rackCodes = rackSh.getRange(2, 1, Math.max(rackSh.getLastRow() - 1, 0), 1).getValues().flat();
+    if (rackCodes.map(r => String(r).toUpperCase()).indexOf(locationCode) === -1) {
+      // Manually-typed rack code that isn't registered yet in the Racks sheet - register it
+      // automatically instead of rejecting, so "type manually" actually works end to end.
+      rackSh.appendRow([locationCode, '', '', 'Added automatically via Add Item']);
+    }
+  }
+
+  // generate next sequence number for this location -> becomes the internal SKU Code
+  const existingLocations = itemSh.getRange(2, 5, Math.max(itemSh.getLastRow() - 1, 0), 1).getValues().flat();
+  const countForLocation = existingLocations.filter(loc => String(loc).trim().toUpperCase() === locationCode).length;
+  const seq = String(countForLocation + 1).padStart(3, '0');
+  const sku = locationCode + '-' + seq;
+
+  const useExisting = payload.barcodeMode === 'existing';
+  let barcodeSource, barcodeValue;
+  if (useExisting) {
+    if (!payload.existingBarcode) return { success: false, message: 'Please scan/enter the existing barcode.' };
+    barcodeSource = 'Existing Vendor Barcode';
+    barcodeValue = String(payload.existingBarcode).trim();
+  } else {
+    barcodeSource = 'Generated QR';
+    barcodeValue = sku;
+  }
+
+  const unit = payload.unit || 'Pcs';
+  const reorder = Number(payload.reorder) || 0;
+
+  const newRow = itemSh.getLastRow() + 1;
+  itemSh.getRange(newRow, 1, 1, 10).setValues([[sku, payload.itemName, payload.category || '',
+    payload.isRacked ? 'Racked' : 'Non-Racked', locationCode, unit, reorder, 0, barcodeSource, barcodeValue]]);
+
+  if (!useExisting) {
+    itemSh.getRange(newRow, 11).setFormula(qrFormula('A' + newRow));
+  } else {
+    itemSh.getRange(newRow, 11).setValue('— vendor barcode, no label needed —');
+  }
+
+  // Rate / Qty per Kg / Valuation - these are extra columns you added yourself to Item_Master,
+  // wherever they happen to be, so they're located by HEADER NAME rather than a fixed position.
+  // Valuation (if that column exists) is set as a formula: Rate * Current Stock, so it stays
+  // live as stock moves, instead of a one-time snapshot number.
+  const lastCol = itemSh.getLastColumn();
+  const headerRow = itemSh.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h).trim().toLowerCase());
+  const rateIdx = headerRow.findIndex(h => h.indexOf('rate') !== -1);
+  const qtyPerKgIdx = headerRow.findIndex(h => h.indexOf('qty per kg') !== -1 || h.indexOf('qty/kg') !== -1);
+  const valuationIdx = headerRow.findIndex(h => h.indexOf('valuation') !== -1);
+  const currentStockIdx = headerRow.findIndex(h => h.indexOf('current stock') !== -1);
+
+  if (rateIdx !== -1) itemSh.getRange(newRow, rateIdx + 1).setValue(Number(payload.rate) || 0);
+  if (qtyPerKgIdx !== -1) itemSh.getRange(newRow, qtyPerKgIdx + 1).setValue(Number(payload.qtyPerKg) || 0);
+  if (valuationIdx !== -1 && rateIdx !== -1 && currentStockIdx !== -1) {
+    const rateCol = columnToLetter(rateIdx + 1);
+    const stockCol = columnToLetter(currentStockIdx + 1);
+    itemSh.getRange(newRow, valuationIdx + 1).setFormula('=' + rateCol + newRow + '*' + stockCol + newRow);
+  }
+
+  refreshStockLedger();
+
+  return {
+    success: true,
+    sku: sku,
+    barcodeSource: barcodeSource,
+    barcodeValue: barcodeValue,
+    message: 'Item created: ' + payload.itemName + '  |  SKU: ' + sku +
+      (useExisting ? '  |  Scan the vendor barcode directly.' : '  |  Print the QR sticker from Item_Master column K.')
+  };
+}
+
+// ============================= BATCH LOGGING (fast multi-entry submit) ==========================
+// Submitting entries ONE AT A TIME (a separate round-trip to Apps Script per item, each followed
+// by a full ledger refresh) is what made "Final Submit" slow with several queued entries - every
+// round-trip pays Apps Script's per-call overhead, and the ledger was being recalculated from
+// scratch after every single row. These batch versions accept the WHOLE queue in one call, write
+// all rows in a single bulk setValues(), and refresh the ledger only ONCE at the end.
+// ============================= WHATSAPP NOTIFICATIONS (via WATI) ================================
+// Checks every 5 minutes for new Inward/Outward rows and sends your team a WhatsApp alert if any
+// are found - batched into ONE message per check rather than one per entry. Runs on a time
+// trigger (not onEdit), which is deliberate: entries logged through the web app (godown.html)
+// are written by the script itself, and Apps Script's onEdit trigger does NOT fire for a
+// script's own writes - only for direct manual edits in the Sheet UI. A 5-minute poll catches
+// new rows no matter how they got there (web app, the Sheet's scan menu, or a manual edit).
+// Uses WATI (wati.io), a WhatsApp Business API provider - REQUIRES your own WATI account.
+// ONE template is used for both Stock In and Stock Out entries.
+//
+// STEP 1 - Create this template in WATI (Settings -> Broadcast -> Message Templates ->
+// New Template). WhatsApp requires templates to be submitted for approval before they can be
+// used - approval usually takes a few minutes to a few hours. Use category "Utility" (this is a
+// transactional/operational alert, not marketing).
+//
+// ---- Name it exactly: stock_entry_alert --------------------------------------------------------
+// Body text to paste into WATI's template editor (the {{1}} .. {{4}} become the variables) - the
+// blank line before Entered by is a REAL line break in the STATIC template text, which works
+// fine; only the {{2}} VARIABLE's own value cannot contain line breaks (see note below):
+//
+//   📦 *{{1}} Recorded*
+//
+//   {{2}}
+//
+//   Entered by: {{3}}
+//   Date/Time: {{4}}
+//
+//   _Raghuvir Sweets & Bakers - Inventory System_
+//
+// (WhatsApp templates support *bold* and _italic_ using those characters, and emoji, as shown.)
+//
+// IMPORTANT: WhatsApp template PARAMETERS (the {{ }} values, filled in at send time) cannot
+// contain line breaks - Meta strips/ignores "\n" inside a variable's value, which is why an
+// earlier version of this that tried to put each item on its own line inside {{2}} arrived on
+// WhatsApp as one run-on line with no spacing at all. Only the STATIC text you type directly
+// into the template body (like the blank line above) can have real line breaks - {{2}}'s value
+// has to stay on a single line, so it's built using clear separators instead:
+//
+// {{1}} will be filled with "Stock In" or "Stock Out".
+// {{2}} is the item list, formatted differently depending on entry type - both single-line:
+//   - Stock In: "Item Name - Qty" per item, separated by " | ", no branch (doesn't apply):
+//       Kaju Katli - 250gm - 10 | Mithai Box - 1kg - 5
+//   - Stock Out: grouped BY BRANCH, "🏬 Branch: Item - Qty, Item - Qty" per branch, branches
+//     separated by " | ":
+//       🏬 Ram Mandir: Kaju Katli - 250gm - 8, Decorative Ribbon Roll - 2 | 🏬 Vishrambagh: Mithai Box - 1kg - 3
+//
+// STEP 2 - Fill in your account details below:
+// 1. WATI dashboard -> Settings -> API Docs: copy your "API Endpoint" (e.g.
+//    https://live-mt-server.wati.io/12345/api/v1) and your "Access Token".
+// 2. Once WhatsApp has approved the template above, its name goes in WATI_TEMPLATE_NAME below
+//    (only change this if you named it something different).
+// 3. Fill in the 3 mobile numbers - country code + number, digits only, no + or spaces
+//    (e.g. "919876543210").
+// 4. Redeploy (Deploy > Manage deployments > New version).
+//
+// Until these are filled in, this silently does nothing - it will NEVER block or fail a stock
+// entry just because WhatsApp sending isn't configured yet or a message fails to send.
+const WATI_API_ENDPOINT = 'https://live-mt-server.wati.io/10149689'; // e.g. https://live-mt-server.wati.io/12345/api/v1
+const WATI_ACCESS_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1bmlxdWVfbmFtZSI6Im5pa2l0dGFubmFAcmFnaHV2aXJzd2VldHMuY28uaW4iLCJuYW1laWQiOiJuaWtpdHRhbm5hQHJhZ2h1dmlyc3dlZXRzLmNvLmluIiwiZW1haWwiOiJuaWtpdHRhbm5hQHJhZ2h1dmlyc3dlZXRzLmNvLmluIiwiYXV0aF90aW1lIjoiMDgvMDkvMjAyNiAwNzoxNjo0NSIsInRlbmFudF9pZCI6IjEwMTQ5Njg5IiwiZGJfbmFtZSI6Im10LXByb2QtVGVuYW50cyIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IkFETUlOSVNUUkFUT1IiLCJleHAiOjI1MzQwMjMwMDgwMCwiaXNzIjoiQ2xhcmVfQUkiLCJhdWQiOiJDbGFyZV9BSSJ9.zx46ILZ8TEv4RbHPPDYrV4VvdBHvtzGGyPKYptxKc8s';
+const WATI_TEMPLATE_NAME = 'stock_entry_alert'; // must exactly match the approved template name in WATI
+const WATI_PHONE_NUMBERS = [
+  '919112636666',
+  '918793416415',
+  '919175686898',
+  '918380036661'
+];
+
+// WATI's actual send endpoint needs a "/api/v1" segment (e.g.
+// https://live-mt-server.wati.io/12345/api/v1) - if the endpoint above was pasted without it
+// (a very easy thing to miss when copying from WATI's dashboard), this adds it automatically
+// instead of silently sending to the wrong URL.
+function getWatiBaseUrl() {
+  let url = WATI_API_ENDPOINT.replace(/\/+$/, ''); // strip any trailing slash(es)
+  if (!/\/api\/v\d+$/i.test(url)) url += '/api/v1';
+  return url;
+}
+
+function isWatiConfigured() {
+  return WATI_API_ENDPOINT.indexOf('PASTE_YOUR') === -1 && WATI_ACCESS_TOKEN.indexOf('PASTE_YOUR') === -1;
+}
+
+// entryType: "Stock In" or "Stock Out". itemSummary e.g. "Kaju Katli Box x10, Mithai Box x5".
+// location: rack/location for Stock In, branch name(s) for Stock Out. Sends to all 3 numbers.
+// itemLines: array of "Item Name * Qty" strings, e.g. ["Kaju Katli - 250gm * 8", "Decorative Ribbon Roll * 2"].
+// locationOrBranch: rack/location for Stock In, branch name(s) for Stock Out - appended at the
+// end in parentheses, e.g. combined into: "Kaju Katli - 250gm * 8 | Decorative Ribbon Roll * 2 | (Ram Mandir)"
+// entryType: "Stock In" or "Stock Out" - shown first. messageBody: the fully-formatted item
+// list text (built by the caller - see checkForNewEntriesAndNotify for the exact format used
+// for each type). enteredBy: who made the entries.
+function sendWhatsAppAlert(entryType, messageBody, enteredBy) {
+  if (!isWatiConfigured()) return; // not set up yet - skip silently, never blocks the actual entry
+  if (!messageBody) {
+    // This function expects to be called internally (from checkForNewEntriesAndNotify or
+    // testWhatsAppSend) with real data - if you're trying to manually test sending, run
+    // "testWhatsAppSend" instead (Apps Script function dropdown -> testWhatsAppSend -> ▶ Run),
+    // NOT this function directly, since this one needs proper arguments to build a message.
+    Logger.log('sendWhatsAppAlert called without a message body - nothing sent. ' +
+      'To manually test WhatsApp sending, run "testWhatsAppSend" instead.');
+    return;
+  }
+
+  const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd-MMM-yyyy HH:mm');
+  const paramValues = [entryType, messageBody, enteredBy, timestamp];
+
+  WATI_PHONE_NUMBERS.forEach(number => {
+    if (!number || number.indexOf('PASTE_MOBILE') !== -1) return;
+    try {
+      const url = getWatiBaseUrl() + '/sendTemplateMessage?whatsappNumber=' + encodeURIComponent(number);
+      const payload = {
+        template_name: WATI_TEMPLATE_NAME,
+        broadcast_name: WATI_TEMPLATE_NAME + '_' + new Date().getTime(),
+        parameters: paramValues.map((value, i) => ({ name: String(i + 1), value: String(value) }))
+      };
+      UrlFetchApp.fetch(url, {
+        method: 'post',
+        contentType: 'application/json',
+        headers: { Authorization: 'Bearer ' + WATI_ACCESS_TOKEN },
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true // never let a WhatsApp API error surface as a script failure
+      });
+    } catch (err) {
+      // Swallow any error - a failed WhatsApp send must never block or fail the actual stock entry.
+      Logger.log('WATI send failed for ' + number + ': ' + err.message);
+    }
   });
 }
 
-function resetForm(mode) {
-  searchRequestId[mode]++; // invalidate any pending search so it can't reopen suggestions after reset
-  document.getElementById(mode + 'Sku').value = '';
-  document.getElementById(mode + 'Qty').value = '';
-  clearPhoto(mode);
-  hideSuggestions(mode);
-  document.getElementById(mode + 'ItemBox').style.display = 'none';
-  document.getElementById(mode + 'SubmitBtn').disabled = true;
-  document.getElementById(mode + 'Sku').focus();
-  syncTopButton();
+// Runs every 5 minutes (installed by installTriggers/Setup System). Compares each log sheet's
+// current last row against the last row it already sent a notification for (tracked in
+// Settings), and if new rows have appeared since then - from ANY source: the web app, the
+// Sheet's own scan menu, or someone typing a row in directly - sends ONE consolidated WhatsApp
+// summary covering all of them, then moves the pointer forward so they aren't sent again.
+// Sends one sample WhatsApp message right now, to all 3 configured numbers, so you can verify
+// the whole WATI setup (endpoint, token, template approval, phone numbers) actually works
+// without waiting for a real stock entry or the 5-minute trigger. Run this directly: in the
+// Apps Script editor, use the function dropdown (top toolbar) -> select "testWhatsAppSend" ->
+// click ▶ Run. Also available from the Sheet's 📦 IMS Tools menu and from the web dashboard's
+// 🔧 Test Connection button.
+function testWhatsAppSend() {
+  if (!isWatiConfigured()) {
+    const msg = 'WATI is not configured yet. Fill in WATI_API_ENDPOINT and WATI_ACCESS_TOKEN ' +
+      'near the top of this file (search for "WATI_API_ENDPOINT"), then run this again.';
+    Logger.log(msg);
+    try { SpreadsheetApp.getUi().alert('WhatsApp Test', msg, SpreadsheetApp.getUi().ButtonSet.OK); } catch (e) { /* no UI context (e.g. run from editor) - Logger.log above still shows it */ }
+    return { success: false, message: msg };
+  }
+
+  const testMessageBody = '🏬 Test Branch A: Test Item - Sample - 5, Another Test Item - 2 | 🏬 Test Branch B: Test Item - Sample - 1';
+  sendWhatsAppAlert('TEST', testMessageBody, 'This is a test message');
+
+  const msg = 'Test WhatsApp message sent to: ' + WATI_PHONE_NUMBERS.filter(n => n && n.indexOf('PASTE_MOBILE') === -1).join(', ') +
+    '. Check those phones now. If nothing arrives within a minute, check Apps Script → ' +
+    'Executions (left sidebar) for the actual WATI API response, and confirm your ' +
+    '"stock_entry_alert" template is approved in WATI.';
+  Logger.log(msg);
+  try { SpreadsheetApp.getUi().alert('WhatsApp Test', msg, SpreadsheetApp.getUi().ButtonSet.OK); } catch (e) { /* no UI context - fine */ }
+  return { success: true, message: msg };
 }
-</script>
-</body>
-</html>
+
+function checkForNewEntriesAndNotify() {
+  if (!isWatiConfigured()) return;
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const settingsSh = ss.getSheetByName(SHEETS.SETTINGS);
+  if (!settingsSh) return;
+
+  // Stock In: no branch involved, just each item + qty separated by " | " on one line.
+  // (WhatsApp template PARAMETERS cannot contain line breaks - Meta strips/ignores "\n" inside
+  // a {{ }} variable, which is why an earlier version that used \n here collapsed into one run-on
+  // line when it actually arrived on WhatsApp. Only the STATIC text around {{2}} in the template
+  // itself can have real line breaks - the variable's own value has to stay single-line.)
+  checkSheetForNewEntries(ss, settingsSh, SHEETS.INWARD, 'B5', 8, (newRows) => {
+    const messageBody = newRows.map(r => r[3] + ' - ' + r[5]).join(' | ');
+    const enteredBy = Array.from(new Set(newRows.map(r => r[6]))).join(', ');
+    sendWhatsAppAlert('Stock In', messageBody, enteredBy);
+  });
+
+  // Stock Out: grouped BY BRANCH on one line each - "🏬 Branch: Item - Qty, Item - Qty", with
+  // different branches separated by " | ". Still clearly readable without needing line breaks.
+  checkSheetForNewEntries(ss, settingsSh, SHEETS.OUTWARD, 'B6', 9, (newRows) => {
+    const byBranch = {};
+    const branchOrder = [];
+    newRows.forEach(r => {
+      const branch = r[6] || '(No branch)';
+      if (!byBranch[branch]) { byBranch[branch] = []; branchOrder.push(branch); }
+      byBranch[branch].push(r[3] + ' - ' + r[5]);
+    });
+    const messageBody = branchOrder.map(branch => '🏬 ' + branch + ': ' + byBranch[branch].join(', ')).join(' | ');
+    const enteredBy = Array.from(new Set(newRows.map(r => r[7]))).join(', ');
+    sendWhatsAppAlert('Stock Out', messageBody, enteredBy);
+  });
+}
+
+// Shared helper: reads any new rows since the last notified pointer, calls onFound with them
+// (if any real rows exist), then advances the pointer regardless - so a blank/partial row never
+// gets stuck re-checked forever, and nothing is ever sent twice.
+function checkSheetForNewEntries(ss, settingsSh, sheetName, pointerCell, numCols, onFound) {
+  const sh = ss.getSheetByName(sheetName);
+  if (!sh) return;
+
+  const lastNotifiedRow = Number(settingsSh.getRange(pointerCell).getValue()) || 4;
+  const currentLastRow = sh.getLastRow();
+  if (currentLastRow <= lastNotifiedRow) return; // nothing new
+
+  const newRows = sh.getRange(lastNotifiedRow + 1, 1, currentLastRow - lastNotifiedRow, numCols)
+    .getValues()
+    .filter(r => r[2]); // only rows that actually have a SKU (skips accidental blank rows)
+
+  if (newRows.length) onFound(newRows);
+  settingsSh.getRange(pointerCell).setValue(currentLastRow);
+}
+
+function webLogBatchInward(entries) {
+  if (!entries || !entries.length) return [];
+  const sh = getSheetOrThrow(SHEETS.INWARD);
+  const user = Session.getActiveUser().getEmail() || 'Web Scan User';
+  const results = [];
+  const rows = [];
+
+  entries.forEach(e => {
+    const item = findItem(e.sku);
+    if (!item) { results.push({ success: false, message: 'SKU "' + e.sku + '" not found in Item_Master.' }); return; }
+    const qty = Number(e.qty);
+    if (!qty || qty <= 0) { results.push({ success: false, message: 'Invalid quantity for ' + e.sku + '.' }); return; }
+    const entryId = 'IN-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyMMdd') + '-' + nextCounter('B2');
+    const photoUrl = savePhotoToDrive(e.photo, item.sku + '_IN_' + entryId);
+    rows.push([new Date(), entryId, item.sku, item.name, item.location, qty, user, photoUrl || '—']);
+    results.push({ success: true, message: 'Logged: ' + item.name + '  x ' + qty });
+  });
+
+  if (rows.length) {
+    const lastRow = Math.max(sh.getLastRow() + 1, 5);
+    sh.getRange(lastRow, 1, rows.length, 8).setValues(rows);
+    refreshStockLedger();
+    // No instant WhatsApp send here - the checkForNewEntriesAndNotify() time trigger (every
+    // 5 minutes) picks up new rows and sends a batched summary instead, regardless of whether
+    // they came from here, the Sheet's scan menu, or a manual edit.
+  }
+  return results;
+}
+
+function webLogBatchOutward(entries) {
+  if (!entries || !entries.length) return [];
+  const sh = getSheetOrThrow(SHEETS.OUTWARD);
+  const user = Session.getActiveUser().getEmail() || 'Web Scan User';
+  const results = [];
+  const rows = [];
+
+  entries.forEach(e => {
+    if (!e.branch) { results.push({ success: false, message: 'Branch missing for ' + e.sku + '.' }); return; }
+    const item = findItem(e.sku);
+    if (!item) { results.push({ success: false, message: 'SKU "' + e.sku + '" not found in Item_Master.' }); return; }
+    const qty = Number(e.qty);
+    if (!qty || qty <= 0) { results.push({ success: false, message: 'Invalid quantity for ' + e.sku + '.' }); return; }
+    const entryId = 'OUT-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyMMdd') + '-' + nextCounter('B3');
+    const photoUrl = savePhotoToDrive(e.photo, item.sku + '_OUT_' + entryId);
+    rows.push([new Date(), entryId, item.sku, item.name, item.location, qty, e.branch, user, photoUrl || '—']);
+    results.push({ success: true, message: 'Logged: ' + item.name + '  x ' + qty + '  -> ' + e.branch });
+  });
+
+  if (rows.length) {
+    const lastRow = Math.max(sh.getLastRow() + 1, 5);
+    sh.getRange(lastRow, 1, rows.length, 9).setValues(rows);
+    refreshStockLedger();
+    refreshBranchLedger();
+    // No instant WhatsApp send here - the checkForNewEntriesAndNotify() time trigger (every
+    // 5 minutes) picks up new rows and sends a batched summary instead.
+  }
+  return results;
+}
+
+// ============================= BRANCH STOCK-OUT (branch's own sales/dispatch/wastage) ===========
+function webLogBranchStockOut(branch, sku, qty, remarks) {
+  if (!branch) return { success: false, message: 'Branch is required.' };
+  const item = findItem(sku);
+  if (!item) return { success: false, message: 'SKU "' + sku + '" not found in Item_Master.' };
+  qty = Number(qty);
+  if (!qty || qty <= 0) return { success: false, message: 'Invalid quantity.' };
+
+  const sh = getSheetOrThrow(SHEETS.BRANCH_STOCKOUT);
+  const entryId = 'BOUT-' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyMMdd') + '-' + nextCounter('B4');
+  const user = Session.getActiveUser().getEmail() || 'Admin';
+  sh.appendRow([new Date(), entryId, branch, item.sku, item.name, qty, remarks || '', user]);
+
+  return { success: true, message: 'Logged stock-out: ' + item.name + '  x ' + qty + '  from ' + branch };
+}
+
+// ============================= ADMIN: DELETE / MANAGE =============================================
+function webDeleteItem(sku) {
+  if (!sku) return { success: false, message: 'SKU is required.' };
+  const sh = getSheetOrThrow(SHEETS.ITEM_MASTER);
+  const data = sh.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim().toUpperCase() === String(sku).trim().toUpperCase()) {
+      sh.deleteRow(i + 1);
+      refreshStockLedger();
+      return { success: true, message: 'Deleted item: ' + sku };
+    }
+  }
+  return { success: false, message: 'SKU not found: ' + sku };
+}
+
+// Reads/writes the Branches sheet by HEADER NAME (not fixed column position) - same reasoning
+// as webGetBranches: the physical column order isn't guaranteed, so this works either way.
+function webAddBranch(branchName) {
+  if (!branchName) return { success: false, message: 'Branch name is required.' };
+  const sh = getSheetOrThrow(SHEETS.BRANCHES);
+  const lastCol = Math.max(sh.getLastColumn(), 1);
+  const headers = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h).trim().toLowerCase());
+  const codeIdx = headers.indexOf('branch code');
+  const nameIdx = headers.indexOf('branch name');
+  const activeIdx = headers.indexOf('active');
+  if (nameIdx === -1) return { success: false, message: 'Branches sheet is missing a "Branch Name" column header.' };
+
+  const newRow = new Array(lastCol).fill('');
+  const branchCount = Math.max(sh.getLastRow() - 1, 0);
+  if (codeIdx !== -1) newRow[codeIdx] = 'BR-' + String(branchCount + 1).padStart(2, '0');
+  newRow[nameIdx] = branchName;
+  if (activeIdx !== -1) newRow[activeIdx] = true;
+  sh.appendRow(newRow);
+  return { success: true, message: 'Branch created: ' + branchName };
+}
+
+function webDeleteBranch(branchName) {
+  if (!branchName) return { success: false, message: 'Branch name is required.' };
+  const sh = getSheetOrThrow(SHEETS.BRANCHES);
+  const lastCol = Math.max(sh.getLastColumn(), 1);
+  const data = sh.getDataRange().getValues();
+  const headers = data[0].map(h => String(h).trim().toLowerCase());
+  const nameIdx = headers.indexOf('branch name');
+  if (nameIdx === -1) return { success: false, message: 'Branches sheet is missing a "Branch Name" column header.' };
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][nameIdx]).trim().toLowerCase() === String(branchName).trim().toLowerCase()) {
+      sh.deleteRow(i + 1);
+      return { success: true, message: 'Deleted branch: ' + branchName };
+    }
+  }
+  return { success: false, message: 'Branch not found: ' + branchName };
+}
+
+// ============================= LOCATION-WISE STOCK (Godown vs each Branch) ======================
+// "Savali Godown Stock" = current stock at the warehouse itself: everything scanned IN, minus
+// everything scanned OUT to any branch (this is exactly Stock_Ledger's Current Stock column).
+//
+// Each branch's stock = everything that has been sent TO that branch via Outward entries (this
+// system doesn't track a branch's own further stock-out/sales yet - if that's tracked on another
+// platform, this number represents "total received at this branch so far", not a live net figure).
+// ============================= STOCK HEALTH (color-coded, for the Supervisor dashboard) =========
+// Compares each item's Current Stock against its own Reorder Level (from Item_Master) and
+// assigns a color band:
+//   red        <= 100% of Reorder Level  (at/below reorder point - reorder now)
+//   orange     100% - 130% of Reorder Level  (roughly the 20-30% buffer range above reorder)
+//   lightbrown 130% - 150% of Reorder Level  (roughly the 40-50% buffer range above reorder)
+//   green      > 150% of Reorder Level  (well stocked)
+// These exact cutoffs (100/130/150) are the one place to change if you want different bands -
+// everything else derives from them.
+const STOCK_HEALTH_THRESHOLDS = { orange: 100, lightbrown: 130, green: 150 };
+
+// Shared by webGetStockHealth() and webGetLocationStock()'s Godown table, so both dashboards
+// always agree on which color a given stock/reorder pair gets.
+function computeStockHealthBand(stock, reorder) {
+  if (reorder <= 0) return stock > 0 ? 'green' : 'red';
+  const ratio = (stock / reorder) * 100;
+  if (ratio <= STOCK_HEALTH_THRESHOLDS.orange) return 'red';
+  if (ratio <= STOCK_HEALTH_THRESHOLDS.lightbrown) return 'orange';
+  if (ratio <= STOCK_HEALTH_THRESHOLDS.green) return 'lightbrown';
+  return 'green';
+}
+
+function webGetStockHealth() {
+  // Only rebuilds Stock_Ledger's row list if it's actually out of sync with Item_Master (an item
+  // was added/removed) - the Current Stock/formulas themselves are always already live, so this
+  // avoids an expensive full rebuild+flush on every single load. Reorder Level and Current Stock
+  // are then read STRAIGHT FROM ITEM_MASTER by header name - Item_Master is the sheet you
+  // actually edit Reorder Level in, so this is the source of truth.
+  ensureStockLedgerFresh();
+
+  const itemSh = getSheetOrThrow(SHEETS.ITEM_MASTER);
+  const lastRow = itemSh.getLastRow();
+  if (lastRow < 2) return [];
+  const lastCol = itemSh.getLastColumn();
+
+  const headers = itemSh.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h).trim().toLowerCase());
+  const skuIdx = headers.indexOf('sku code');
+  const nameIdx = headers.indexOf('item name');
+  const locIdx = headers.indexOf('location code');
+  const reorderIdx = headers.indexOf('reorder level');
+  const stockIdx = headers.indexOf('current stock');
+  if (skuIdx === -1 || reorderIdx === -1 || stockIdx === -1) {
+    throw new Error('Item_Master is missing one of the required columns: "SKU Code", "Reorder Level", or "Current Stock".');
+  }
+
+  const data = itemSh.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  return data.filter(r => r[skuIdx]).map(r => {
+    const sku = r[skuIdx];
+    const name = nameIdx !== -1 ? r[nameIdx] : '';
+    const location = locIdx !== -1 ? r[locIdx] : '';
+    const stock = Number(r[stockIdx]) || 0;
+    const reorder = Number(r[reorderIdx]) || 0;
+    const ratio = reorder > 0 ? Math.round((stock / reorder) * 100) : null;
+    const band = computeStockHealthBand(stock, reorder);
+    return { sku: sku, name: name, location: location, stock: stock, reorder: reorder, ratio: ratio, band: band };
+  });
+}
+
+function webGetLocationStock() {
+  // Only rebuilds Stock_Ledger's row list if it's out of sync with Item_Master - the underlying
+  // formulas are already live, so this avoids the expensive full rebuild+flush on every single
+  // Dashboard load (this was the main cause of the Admin Dashboard feeling slow to open).
+  ensureStockLedgerFresh();
+  refreshBranchLedger();
+
+  const ledgerSh = getSheetOrThrow(SHEETS.LEDGER);
+  const branchLedgerSh = getSheetOrThrow(SHEETS.BRANCH_LEDGER);
+  // Branch_Outward_Entry is the newest sheet added to this system - if Setup System hasn't been
+  // re-run yet since it was introduced, it may not exist. Rather than breaking the whole
+  // Dashboard over one missing (optional, until you actually log a stock-out) sheet, just treat
+  // it as "no stock-out entries yet" and keep going.
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const stockOutSh = ss.getSheetByName(SHEETS.BRANCH_STOCKOUT);
+
+  const ledgerData = ledgerSh.getLastRow() > 1 ? ledgerSh.getRange(2, 1, ledgerSh.getLastRow() - 1, 8).getValues() : [];
+
+  // Reorder Level lookup from Item_Master (the authoritative source, same as webGetStockHealth)
+  // by SKU, so the Godown table's color bands are computed consistently with the Low Stock
+  // Alert dashboard rather than a separately-tracked copy.
+  const itemSh = getSheetOrThrow(SHEETS.ITEM_MASTER);
+  const itemLastRow = itemSh.getLastRow();
+  const itemLastCol = itemSh.getLastColumn();
+  const reorderMap = {};
+  if (itemLastRow > 1) {
+    const itemHeaders = itemSh.getRange(1, 1, 1, itemLastCol).getValues()[0].map(h => String(h).trim().toLowerCase());
+    const imSkuIdx = itemHeaders.indexOf('sku code');
+    const imReorderIdx = itemHeaders.indexOf('reorder level');
+    if (imSkuIdx !== -1 && imReorderIdx !== -1) {
+      itemSh.getRange(2, 1, itemLastRow - 1, itemLastCol).getValues().forEach(r => {
+        if (r[imSkuIdx]) reorderMap[String(r[imSkuIdx]).trim().toUpperCase()] = Number(r[imReorderIdx]) || 0;
+      });
+    }
+  }
+
+  const godownItems = ledgerData
+    .filter(r => r[0] && Number(r[5]) !== 0)
+    .map(r => {
+      const sku = r[0], stock = Number(r[5]) || 0;
+      const reorder = reorderMap[String(sku).trim().toUpperCase()] || 0;
+      return { sku: sku, name: r[1], location: r[2], stock: stock, reorder: reorder, band: computeStockHealthBand(stock, reorder) };
+    });
+  const godownTotal = godownItems.reduce((sum, it) => sum + it.stock, 0);
+
+  const branchData = branchLedgerSh.getLastRow() > 1 ? branchLedgerSh.getRange(2, 1, branchLedgerSh.getLastRow() - 1, 5).getValues() : [];
+  const stockOutData = (stockOutSh && stockOutSh.getLastRow() > 1) ? stockOutSh.getRange(2, 1, stockOutSh.getLastRow() - 1, 8).getValues() : [];
+  const branchNames = webGetBranches(); // every active branch shows up, even with 0 received so far
+
+  const branches = branchNames.map(name => {
+    // Received per SKU (from Branch_Ledger - built from Outward entries sent to this branch)
+    const receivedMap = {};
+    branchData.filter(r => String(r[2]).trim() === name).forEach(r => {
+      receivedMap[r[0]] = receivedMap[r[0]] || { sku: r[0], name: r[1], received: 0 };
+      receivedMap[r[0]].received += Number(r[3]) || 0;
+    });
+    // Stock-out per SKU (from Branch_Outward_Entry - the branch's own sales/dispatch/wastage entries)
+    const stockOutMap = {};
+    stockOutData.filter(r => String(r[2]).trim() === name).forEach(r => {
+      const sku = r[3];
+      stockOutMap[sku] = stockOutMap[sku] || { sku: sku, name: r[4], stockOut: 0 };
+      stockOutMap[sku].stockOut += Number(r[5]) || 0;
+    });
+
+    const allSkus = Array.from(new Set(Object.keys(receivedMap).concat(Object.keys(stockOutMap))));
+    const items = allSkus.map(sku => {
+      const received = receivedMap[sku] ? receivedMap[sku].received : 0;
+      const stockOut = stockOutMap[sku] ? stockOutMap[sku].stockOut : 0;
+      const name = receivedMap[sku] ? receivedMap[sku].name : stockOutMap[sku].name;
+      return { sku: sku, name: name, received: received, stockOut: stockOut, net: received - stockOut };
+    });
+
+    const totalReceived = items.reduce((sum, it) => sum + it.received, 0);
+    const totalStockOut = items.reduce((sum, it) => sum + it.stockOut, 0);
+    return { name: name, totalUnits: totalReceived - totalStockOut, totalReceived: totalReceived, totalStockOut: totalStockOut, items: items };
+  });
+
+  return { godown: { totalUnits: godownTotal, items: godownItems }, branches: branches };
+}
+
+// ============================= ADMIN: GENERIC TABLE READER ======================================
+// Returns any sheet's data as {headers, rows} for a read-only admin table view.
+// Whitelisted by name so the API can't be used to dump arbitrary sheets.
+const ADMIN_VIEWABLE_SHEETS = {
+  'Item_Master':    { headerRow: 1 },
+  'Inward_Entry':   { headerRow: 4 },
+  'Outward_Entry':  { headerRow: 4 },
+  'Stock_Ledger':   { headerRow: 1 },
+  'Branch_Ledger':  { headerRow: 1 },
+  'Branch_Outward_Entry':{ headerRow: 1 },
+  'Branches':       { headerRow: 1 },
+  'Racks':          { headerRow: 1 }
+};
+
+function webGetSheetTable(sheetName) {
+  const config = ADMIN_VIEWABLE_SHEETS[sheetName];
+  if (!config) return { error: 'Sheet "' + sheetName + '" is not available for viewing.' };
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(sheetName);
+  if (!sh) return { headers: [], rows: [] };
+
+  const lastRow = sh.getLastRow();
+  const lastCol = sh.getLastColumn();
+  if (lastRow < config.headerRow || lastCol < 1) return { headers: [], rows: [] };
+
+  const headers = sh.getRange(config.headerRow, 1, 1, lastCol).getValues()[0];
+  const dataRows = lastRow > config.headerRow
+    ? sh.getRange(config.headerRow + 1, 1, lastRow - config.headerRow, lastCol).getValues()
+    : [];
+
+  let rows = dataRows
+    .filter(r => r.some(c => c !== '' && c !== null))
+    .map(r => r.map(c => (c instanceof Date)
+      ? Utilities.formatDate(c, Session.getScriptTimeZone(), 'dd-MMM-yyyy HH:mm')
+      : c));
+
+  // Item_Master's "QR Code" column holds an =IMAGE(...) formula - reading that via getValues()
+  // does NOT come back as a normal string/number (it shows up as "[object Object]" once rendered
+  // in a plain HTML table). Replace it with an actual small clickable QR thumbnail built from
+  // that row's own SKU instead, which displays correctly.
+  if (sheetName === 'Item_Master') {
+    const skuIdx = headers.findIndex(h => String(h).toLowerCase().indexOf('sku') !== -1);
+    const qrIdx = headers.findIndex(h => String(h).toLowerCase().indexOf('qr') !== -1);
+    if (qrIdx !== -1 && skuIdx !== -1) {
+      rows = rows.map(r => {
+        const sku = r[skuIdx];
+        r[qrIdx] = sku
+          ? '<a href="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(sku) +
+            '" target="_blank"><img src="https://api.qrserver.com/v1/create-qr-code/?size=50x50&data=' +
+            encodeURIComponent(sku) + '" style="width:36px;height:36px;border-radius:4px;vertical-align:middle;"></a>'
+          : '';
+        return r;
+      });
+    }
+  }
+
+  // Inward_Entry / Outward_Entry's "Photo" column stores a Drive share link (plain text) - turn
+  // it into an actual clickable photo thumbnail (or a plain dash if that entry had no photo),
+  // same idea as the QR thumbnail above.
+  if (sheetName === 'Inward_Entry' || sheetName === 'Outward_Entry') {
+    const photoIdx = headers.findIndex(h => String(h).toLowerCase().indexOf('photo') !== -1);
+    if (photoIdx !== -1) {
+      rows = rows.map(r => {
+        const url = r[photoIdx];
+        const thumb = driveUrlToThumbnail(url);
+        r[photoIdx] = thumb
+          ? '<a href="' + url + '" target="_blank"><img src="' + thumb.replace('w400', 'w80') +
+            '" style="width:40px;height:40px;object-fit:cover;border-radius:4px;vertical-align:middle;" alt="View Photo"></a>'
+          : '—';
+        return r;
+      });
+    }
+  }
+
+  return { headers: headers, rows: rows };
+}
+
+function webGetAvailableTables() {
+  return Object.keys(ADMIN_VIEWABLE_SHEETS);
+}
+
+// ============================= DASHBOARD DATA ====================================================
+function webGetDashboard() {
+  const ledgerSh = getSheetOrThrow(SHEETS.LEDGER);
+  const inSh = getSheetOrThrow(SHEETS.INWARD);
+  const outSh = getSheetOrThrow(SHEETS.OUTWARD);
+
+  const ledgerData = ledgerSh.getLastRow() > 1 ? ledgerSh.getRange(2, 1, ledgerSh.getLastRow() - 1, 8).getValues() : [];
+  const lowStock = ledgerData.filter(r => r[7] && String(r[7]).indexOf('LOW') !== -1)
+                              .map(r => ({ sku: r[0], name: r[1], stock: r[5], reorder: r[6] }));
+
+  const inCount = inSh.getLastRow() > 4 ? inSh.getLastRow() - 4 : 0;
+  const outCount = outSh.getLastRow() > 4 ? outSh.getLastRow() - 4 : 0;
+
+  const recentInward = inSh.getLastRow() > 4
+    ? inSh.getRange(Math.max(5, inSh.getLastRow() - 9), 1, Math.min(10, inSh.getLastRow() - 4), 8).getValues()
+        .reverse().map(r => ({ time: r[0], sku: r[2], name: r[3], qty: r[5] }))
+    : [];
+
+  const recentOutward = outSh.getLastRow() > 4
+    ? outSh.getRange(Math.max(5, outSh.getLastRow() - 9), 1, Math.min(10, outSh.getLastRow() - 4), 9).getValues()
+        .reverse().map(r => ({ time: r[0], sku: r[2], name: r[3], qty: r[5], branch: r[6] }))
+    : [];
+
+  return {
+    totalSKUs: ledgerData.length,
+    lowStockCount: lowStock.length,
+    lowStock: lowStock,
+    totalInward: inCount,
+    totalOutward: outCount,
+    recentInward: recentInward,
+    recentOutward: recentOutward
+  };
+}
