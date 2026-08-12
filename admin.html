@@ -440,6 +440,19 @@ function setupExtraFilter() {
   wrap.style.display = 'block';
 }
 
+// Caps any number to 2 decimal places for display (e.g. 1.50033434245 -> "1.50") - whole
+// numbers and non-numeric text pass through untouched. This is a display-only safeguard on top
+// of the actual formulas being rounded at the source - catches any value that still ends up
+// with excess decimals for any reason.
+function formatCellValue(v) {
+  if (v === null || v === undefined || v === '') return '';
+  if (typeof v === 'string' && v.indexOf('<') !== -1) return v; // HTML (QR/photo thumbnails etc.) - leave alone
+  const n = Number(v);
+  if (isNaN(n)) return v; // not a number - leave as-is
+  if (Number.isInteger(n)) return n;
+  return n.toFixed(2);
+}
+
 function renderTable(rows) {
   const isItemMaster = currentTableKey === 'Item_Master';
   const isBranches = currentTableKey === 'Branches';
@@ -462,7 +475,7 @@ function renderTable(rows) {
     tbody = '<tbody>' + rows.map(r => {
       const cells = r.map((c, i) => {
         const isStatusCol = currentHeaders[i] === 'Status' && String(c).indexOf('LOW') !== -1;
-        return '<td' + (isStatusCol ? ' class="lowstock"' : '') + '>' + (c === null || c === undefined ? '' : c) + '</td>';
+        return '<td' + (isStatusCol ? ' class="lowstock"' : '') + '>' + formatCellValue(c) + '</td>';
       }).join('');
       let actionCell = '';
       if (isItemMaster && skuIdx !== -1) {
@@ -754,7 +767,7 @@ function buildLocationTable(headers, rows, rowBands) {
   const tbody = rows.length
     ? '<tbody>' + rows.map((r, i) => {
         const rowClass = rowBands && rowBands[i] ? ' class="row-' + rowBands[i] + '"' : '';
-        return '<tr' + rowClass + '>' + r.map(v => '<td>' + (v === null || v === undefined ? '' : v) + '</td>').join('') + '</tr>';
+        return '<tr' + rowClass + '>' + r.map(v => '<td>' + formatCellValue(v) + '</td>').join('') + '</tr>';
       }).join('') + '</tbody>'
     : '<tbody><tr><td colspan="' + headers.length + '" class="empty-msg">No stock recorded yet.</td></tr></tbody>';
   return '<div class="location-table-wrap"><table>' + thead + tbody + '</table></div>';
