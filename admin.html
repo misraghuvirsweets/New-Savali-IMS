@@ -670,7 +670,15 @@ function renderSelectedLocation() {
       '<div class="stat"><div class="num">' + godown.totalUnits + '</div><div class="lbl">🏭 Savali Godown (units in stock)</div></div>';
     document.getElementById('locationDetailWrap').innerHTML =
       '<div class="section-title">🏭 Savali Godown — Item-wise Current Stock (Stock In − Stock Out to all branches)</div>' +
-      buildLocationTable(['SKU', 'Item', 'Rack/Location', 'Current Stock'], godown.items.map(it => [it.sku, it.name, it.location, it.stock]));
+      '<div class="legend" style="max-width:1100px;margin:0 auto 8px;padding:0 14px;gap:12px;flex-wrap:wrap;font-size:11px;color:#555;">' +
+        '<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;border-radius:3px;display:inline-block;background:#c0392b;"></span> Red — at/below reorder</span>' +
+        '<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;border-radius:3px;display:inline-block;background:#d97b1f;"></span> Orange — 100–130%</span>' +
+        '<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;border-radius:3px;display:inline-block;background:#8a6a3f;"></span> Light Brown — 130–150%</span>' +
+        '<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;border-radius:3px;display:inline-block;background:#2f8f4e;"></span> Green — above 150%</span>' +
+      '</div>' +
+      buildLocationTable(['SKU', 'Item', 'Rack/Location', 'Current Stock', 'Reorder Level'],
+        godown.items.map(it => [it.sku, it.name, it.location, it.stock, it.reorder]),
+        godown.items.map(it => it.band));
   } else {
     stockOutCard.style.display = 'block';
     const branch = (locationStockData.branches || []).find(b => b.name === sel.value) ||
@@ -715,10 +723,13 @@ function submitBranchStockOut() {
   }).catch(err => showMsg('err', '❌ ' + err.message));
 }
 
-function buildLocationTable(headers, rows) {
+function buildLocationTable(headers, rows, rowBands) {
   const thead = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead>';
   const tbody = rows.length
-    ? '<tbody>' + rows.map(r => '<tr>' + r.map(v => '<td>' + (v === null || v === undefined ? '' : v) + '</td>').join('') + '</tr>').join('') + '</tbody>'
+    ? '<tbody>' + rows.map((r, i) => {
+        const rowClass = rowBands && rowBands[i] ? ' class="row-' + rowBands[i] + '"' : '';
+        return '<tr' + rowClass + '>' + r.map(v => '<td>' + (v === null || v === undefined ? '' : v) + '</td>').join('') + '</tr>';
+      }).join('') + '</tbody>'
     : '<tbody><tr><td colspan="' + headers.length + '" class="empty-msg">No stock recorded yet.</td></tr></tbody>';
   return '<div class="location-table-wrap"><table>' + thead + tbody + '</table></div>';
 }
