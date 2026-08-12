@@ -929,6 +929,15 @@ function renderHealthStats(items) {
     '<div class="stat stat-green"><div class="num">' + counts.green + '</div><div class="lbl">🟢 Green</div></div>';
 }
 
+// Caps any number to 2 decimal places for display - whole numbers pass through untouched.
+function formatCellValue(v) {
+  if (v === null || v === undefined || v === '') return '';
+  const n = Number(v);
+  if (isNaN(n)) return v;
+  if (Number.isInteger(n)) return n;
+  return n.toFixed(2);
+}
+
 function renderHealthTable(items) {
   const thead = '<thead><tr><th>SKU</th><th>Item</th><th>Location</th><th>Stock</th><th>Reorder</th><th>%</th><th>Status</th></tr></thead>';
   let tbody;
@@ -938,7 +947,7 @@ function renderHealthTable(items) {
     tbody = '<tbody>' + items.map(it => {
       const pillLabel = { red: 'LOW', orange: 'WATCH', lightbrown: 'OK', green: 'GOOD' }[it.band] || '';
       return '<tr class="row-' + it.band + '"><td>' + it.sku + '</td><td>' + it.name + '</td><td>' + (it.location || '') +
-        '</td><td>' + it.stock + '</td><td>' + it.reorder + '</td><td>' + (it.ratio !== null ? it.ratio + '%' : '—') +
+        '</td><td>' + formatCellValue(it.stock) + '</td><td>' + formatCellValue(it.reorder) + '</td><td>' + (it.ratio !== null ? formatCellValue(it.ratio) + '%' : '—') +
         '</td><td><span class="band-pill ' + it.band + '">' + pillLabel + '</span></td></tr>';
     }).join('') + '</tbody>';
   }
