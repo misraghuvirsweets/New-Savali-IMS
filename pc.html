@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Raghuvir IMS - Entries &amp; Photos</title>
+<style>
+  :root{
+    --maroon:#6d2932; --maroon-dark:#4e1e25; --gold:#c98a2c; --bg:#faf6f1;
+    --ok:#2f8f4e; --warn:#c0392b; --card:#ffffff; --line:#e7ddd2;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:#2a2a2a;overflow-x:hidden;}
+  header{background:var(--maroon);color:#fff;padding:12px 16px;text-align:center;position:sticky;top:0;z-index:10;box-shadow:0 2px 6px rgba(0,0,0,.15);}
+  header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.3px;display:flex;align-items:center;justify-content:center;gap:8px;}
+  header p{margin:2px 0 0;font-size:11px;opacity:.85;}
+  .brand-logo{height:52px;width:52px;object-fit:contain;border-radius:10px;background:#fff;padding:3px;}
+
+  .tabs{display:flex;background:var(--maroon-dark);position:sticky;top:76px;z-index:9;}
+  .tab{flex:1;text-align:center;padding:11px 4px;font-size:13px;color:#f0d9d2;cursor:pointer;border-bottom:3px solid transparent;}
+  .tab.active{color:#fff;border-bottom:3px solid var(--gold);font-weight:600;}
+
+  .toolbar{max-width:700px;margin:14px auto 0;padding:0 14px;display:flex;gap:10px;align-items:center;}
+  input[type=text]{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;background:#fff;}
+  button{padding:10px 14px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
+  .btn-secondary{background:#efe6db;color:var(--maroon-dark);}
+  .count-badge{font-size:12px;color:#777;white-space:nowrap;}
+
+  .msg{font-size:13px;padding:10px 12px;border-radius:8px;margin:14px;display:none;}
+  .msg.ok{background:#e7f6ea;color:var(--ok);display:block;}
+  .msg.err{background:#fdecea;color:var(--warn);display:block;}
+
+  .entry-list{max-width:700px;margin:14px auto 24px;padding:0 14px;}
+  .entry-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px;display:flex;gap:12px;}
+  .entry-photo{width:76px;height:76px;border-radius:8px;object-fit:cover;flex:0 0 auto;background:#eee;cursor:pointer;}
+  .entry-photo-placeholder{width:76px;height:76px;border-radius:8px;flex:0 0 auto;background:#f1e6d8;display:flex;align-items:center;justify-content:center;font-size:22px;color:#c9b79a;}
+  .entry-info{flex:1;min-width:0;}
+  .entry-name{font-weight:700;font-size:14px;color:var(--maroon-dark);}
+  .entry-meta{font-size:12px;color:#777;margin-top:3px;line-height:1.5;}
+  .entry-qty{display:inline-block;background:#efe6db;color:var(--maroon-dark);font-weight:700;font-size:12px;padding:2px 8px;border-radius:10px;margin-top:4px;}
+  .entry-branch{display:inline-block;background:#d9f2d0;color:#2f6b1a;font-weight:700;font-size:11px;padding:2px 8px;border-radius:10px;margin-top:4px;margin-left:6px;}
+  .empty-msg{padding:30px;text-align:center;color:#999;font-size:13px;}
+
+  /* Fullscreen photo viewer */
+  .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:50;padding:20px;}
+  .lightbox.show{display:flex;}
+  .lightbox img{max-width:100%;max-height:100%;border-radius:8px;}
+  .lightbox-close{position:absolute;top:16px;right:20px;color:#fff;font-size:28px;cursor:pointer;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1><img src="https://drive.google.com/thumbnail?id=18aiuiSN9uj-mJtOkGB1rNt4GP6yUbvuO&sz=w200" alt="Logo" class="brand-logo" onerror="this.style.display='none'"> RAGHUVIR SWEETS &amp; BAKERS</h1>
+  <p>Entries &amp; Photos Dashboard</p>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-type="inward">📥 Stock In</div>
+  <div class="tab" data-type="outward">📤 Stock Out</div>
+</div>
+
+<div class="msg" id="testMsg"></div>
+
+<div class="toolbar">
+  <input type="text" id="searchBox" placeholder="🔍 Search item or SKU…" oninput="applyFilter()">
+  <button class="btn-secondary" onclick="loadEntries()">🔄</button>
+</div>
+<div class="toolbar" style="justify-content:flex-end;padding-top:6px;">
+  <span class="count-badge" id="countBadge"></span>
+</div>
+
+<div class="entry-list" id="entryList">
+  <div class="empty-msg">Loading…</div>
+</div>
+
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <span class="lightbox-close">&times;</span>
+  <img id="lightboxImg" src="" alt="Photo">
+</div>
+
+<script>
+// ============================= PASTE YOUR WEB APP URL BELOW ======================================
+const API_URL = "https://script.google.com/macros/s/AKfycbzRyb3a1UBD2HfiA3_OYPEVghv3Bu4yMkPMfqncCv6ScWFsVh77lxwp7Z2_WQiVaGT_/exec";
+
+function callApi(action, data) {
+  return fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(Object.assign({ action: action }, data || {}))
+  }).catch(networkErr => {
+    throw new Error('Could not reach the server: ' + networkErr.message);
+  }).then(r => r.text()).then(text => {
+    let res;
+    try { res = JSON.parse(text); }
+    catch (e) { throw new Error('Server did not return valid data - check the Web App URL and deployment.'); }
+    if (res && res.error) throw new Error(res.error);
+    return res;
+  });
+}
+
+let currentType = 'inward';
+let allEntries = [];
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentType = tab.dataset.type;
+    document.getElementById('searchBox').value = '';
+    loadEntries();
+  });
+});
+
+function loadEntries() {
+  document.getElementById('entryList').innerHTML = '<div class="empty-msg">Loading…</div>';
+  const msgEl = document.getElementById('testMsg');
+  msgEl.style.display = 'none';
+  callApi('getEntriesWithPhotos', { type: currentType }).then(entries => {
+    allEntries = entries || [];
+    applyFilter();
+  }).catch(err => {
+    msgEl.className = 'msg err';
+    msgEl.style.display = 'block';
+    msgEl.textContent = '❌ ' + err.message;
+    document.getElementById('entryList').innerHTML = '';
+  });
+}
+
+function applyFilter() {
+  const q = document.getElementById('searchBox').value.trim().toLowerCase();
+  const filtered = q
+    ? allEntries.filter(e => (e.sku + ' ' + e.name).toLowerCase().indexOf(q) !== -1)
+    : allEntries;
+  renderEntries(filtered);
+}
+
+function renderEntries(entries) {
+  document.getElementById('countBadge').textContent = entries.length + ' entr' + (entries.length === 1 ? 'y' : 'ies');
+  if (!entries.length) {
+    document.getElementById('entryList').innerHTML = '<div class="empty-msg">No entries found.</div>';
+    return;
+  }
+  document.getElementById('entryList').innerHTML = entries.map(e => {
+    const photoHtml = e.photoThumb
+      ? '<img class="entry-photo" src="' + e.photoThumb + '" alt="Photo" onclick="openLightbox(\'' + e.photoThumb.replace('w400', 'w1200') + '\')">'
+      : '<div class="entry-photo-placeholder">📷</div>';
+    const branchHtml = e.branch ? '<span class="entry-branch">🏬 ' + e.branch + '</span>' : '';
+    return '<div class="entry-card">' + photoHtml +
+      '<div class="entry-info">' +
+        '<div class="entry-name">' + e.name + '</div>' +
+        '<div class="entry-meta">SKU: ' + e.sku + ' &nbsp;|&nbsp; ' + e.location + '<br>' +
+          '🕒 ' + e.timestamp + ' &nbsp;|&nbsp; 👤 ' + e.enteredBy + '</div>' +
+        '<span class="entry-qty">Qty: ' + e.qty + '</span>' + branchHtml +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+function openLightbox(url) {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.add('show');
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('show');
+  document.getElementById('lightboxImg').src = '';
+}
+
+window.onload = function() {
+  if (API_URL.indexOf('PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE') !== -1) {
+    const el = document.getElementById('testMsg');
+    el.className = 'msg err';
+    el.style.display = 'block';
+    el.textContent = '⚠️ Web App URL not set - open this file\'s code and paste your deployed URL into the API_URL constant near the top of the <script> section.';
+    document.getElementById('entryList').innerHTML = '';
+    return;
+  }
+  loadEntries();
+};
+</script>
+</body>
+</html>
