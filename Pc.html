@@ -83,7 +83,7 @@
 // ============================= PASTE YOUR WEB APP URL BELOW ======================================
 const API_URL = "https://script.google.com/macros/s/AKfycbzRyb3a1UBD2HfiA3_OYPEVghv3Bu4yMkPMfqncCv6ScWFsVh77lxwp7Z2_WQiVaGT_/exec";
 
-function callApi(action, data) {
+function rawCallApi(action, data) {
   return fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -96,6 +96,19 @@ function callApi(action, data) {
     catch (e) { throw new Error('Server did not return valid data - check the Web App URL and deployment.'); }
     if (res && res.error) throw new Error(res.error);
     return res;
+  });
+}
+
+// Apps Script Web Apps can fail the very first request after a fresh deployment (or after
+// being idle) while the runtime "cold starts" - retrying once automatically means the user
+// never has to manually reload the page.
+function callApi(action, data, attempt) {
+  attempt = attempt || 1;
+  return rawCallApi(action, data).catch(err => {
+    if (attempt < 2) {
+      return new Promise(resolve => setTimeout(resolve, 900)).then(() => callApi(action, data, attempt + 1));
+    }
+    throw err;
   });
 }
 
