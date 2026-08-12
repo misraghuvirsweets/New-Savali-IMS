@@ -367,12 +367,27 @@ const EXTRA_FILTER_CONFIG = {
   'Branch_Ledger': { headerMatch: 'branch', label: 'Filter by Branch' }
 };
 
+let currentStockHealthMap = {}; // SKU -> band, sourced from getStockHealth (Item_Master) - kept
+                                 // in sync with the Supervisor dashboard's coloring logic
+
 function loadCurrentTable() {
   document.getElementById('dataTable').innerHTML = '<thead><tr><th>Loading…</th></tr></thead><tbody></tbody>';
   document.getElementById('countBadge').textContent = '';
-  callApi('getSheetData', { sheetName: currentTableKey }).then(res => {
+
+  const tableRequest = callApi('getSheetData', { sheetName: currentTableKey });
+  // For Stock_Ledger specifically, also fetch the authoritative color bands - computed
+  // server-side from Item_Master's Reorder Level (the exact same source the Supervisor
+  // dashboard's Low Stock Alert uses), rather than trusting Stock_Ledger's own Reorder Level
+  // column, which can drift out of sync with Item_Master.
+  const healthRequest = currentTableKey === 'Stock_Ledger' ? callApi('getStockHealth') : Promise.resolve(null);
+
+  Promise.all([tableRequest, healthRequest]).then(([res, health]) => {
     currentHeaders = res.headers || [];
     currentRows = res.rows || [];
+    currentStockHealthMap = {};
+    if (health) {
+      health.forEach(it => { currentStockHealthMap[String(it.sku).trim().toUpperCase()] = it.band; });
+    }
     setupExtraFilter();
     renderTable(currentRows);
   }).catch(err => {
@@ -399,19 +414,6 @@ function setupExtraFilter() {
   wrap.style.display = 'block';
 }
 
-// Same band logic/thresholds as the Supervisor dashboard's Low Stock Alert (Code.gs
-// STOCK_HEALTH_THRESHOLDS) - kept in sync manually since this is a client-side convenience
-// coloring on top of data already in the table, not a separate server call.
-const STOCK_HEALTH_THRESHOLDS = { orange: 100, lightbrown: 130, green: 150 };
-function getStockHealthBand(stock, reorder) {
-  if (reorder <= 0) return stock > 0 ? 'green' : 'red';
-  const ratio = (stock / reorder) * 100;
-  if (ratio <= STOCK_HEALTH_THRESHOLDS.orange) return 'red';
-  if (ratio <= STOCK_HEALTH_THRESHOLDS.lightbrown) return 'orange';
-  if (ratio <= STOCK_HEALTH_THRESHOLDS.green) return 'lightbrown';
-  return 'green';
-}
-
 function renderTable(rows) {
   const isItemMaster = currentTableKey === 'Item_Master';
   const isBranches = currentTableKey === 'Branches';
@@ -420,10 +422,9 @@ function renderTable(rows) {
   const branchNameIdx = isBranches ? currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('name') !== -1) : -1;
   const hasAction = (isItemMaster && skuIdx !== -1) || (isBranches && branchNameIdx !== -1);
 
-  // For Stock_Ledger: find the Current Stock / Reorder Level columns by header name so row
-  // coloring works regardless of exact column order.
-  const stockColIdx = isStockLedger ? currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('current stock') !== -1) : -1;
-  const reorderColIdx = isStockLedger ? currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('reorder') !== -1) : -1;
+  // For Stock_Ledger: find the SKU column so each row can be matched against
+  // currentStockHealthMap (the authoritative, Item_Master-sourced band) for coloring.
+  const ledgerSkuIdx = isStockLedger ? currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('sku') !== -1) : -1;
 
   const thead = '<thead><tr>' + currentHeaders.map(h => '<th>' + h + '</th>').join('') +
     (hasAction ? '<th>Action</th>' : '') + '</tr></thead>';
@@ -447,10 +448,9 @@ function renderTable(rows) {
       }
 
       let rowClass = '';
-      if (isStockLedger && stockColIdx !== -1 && reorderColIdx !== -1) {
-        const stock = Number(r[stockColIdx]) || 0;
-        const reorder = Number(r[reorderColIdx]) || 0;
-        rowClass = ' class="row-' + getStockHealthBand(stock, reorder) + '"';
+      if (isStockLedger && ledgerSkuIdx !== -1) {
+        const band = currentStockHealthMap[String(r[ledgerSkuIdx]).trim().toUpperCase()];
+        if (band) rowClass = ' class="row-' + band + '"';
       }
 
       return '<tr' + rowClass + '>' + cells + actionCell + '</tr>';
