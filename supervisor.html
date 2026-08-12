@@ -354,7 +354,11 @@ function testWhatsApp() {
 // CORS preflight (OPTIONS) that Apps Script Web Apps don't handle - the JSON is still parsed
 // fine server-side via JSON.parse(e.postData.contents). The Web App URL is hardcoded in the
 // API_URL constant above - there is no on-page prompt for it, by design.
-function callApi(action, data) {
+// Sends the actual HTTP request once. rawCallApi is wrapped by callApi() below, which adds
+// automatic retry - Apps Script Web Apps can fail the very first request after a fresh
+// deployment (or after being idle a while) while the runtime "cold starts", then work fine on
+// the next try. Retrying automatically means the user never has to manually reload the page.
+function rawCallApi(action, data) {
   return fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -380,6 +384,24 @@ function callApi(action, data) {
     }
     if (res && res.error) throw new Error(res.error);
     return res;
+  });
+}
+
+const RETRYABLE_ACTIONS = ['ping', 'getBranches', 'getRacks', 'lookupItem', 'searchItems',
+  'getSheetData', 'getStockHealth', 'getLocationStock', 'getEntriesWithPhotos', 'getAvailableTables', 'getDashboard'];
+
+function callApi(action, data, attempt) {
+  attempt = attempt || 1;
+  return rawCallApi(action, data).catch(err => {
+    // Read-only actions are safe to auto-retry (a common cause of the first request failing is
+    // Apps Script "cold starting" right after a fresh deployment/idle period). WRITE actions
+    // (logging Stock In/Out entries) are deliberately NEVER auto-retried here - if the first
+    // attempt actually succeeded server-side but the response just failed to arrive, blindly
+    // retrying could create a duplicate entry.
+    if (attempt < 2 && RETRYABLE_ACTIONS.indexOf(action) !== -1) {
+      return new Promise(resolve => setTimeout(resolve, 900)).then(() => callApi(action, data, attempt + 1));
+    }
+    throw err;
   });
 }
 
@@ -914,7 +936,7 @@ function renderHealthTable(items) {
     tbody = '<tbody><tr><td colspan="7" class="empty-msg" style="padding:20px;text-align:center;color:#999;">No items found.</td></tr></tbody>';
   } else {
     tbody = '<tbody>' + items.map(it => {
-      const pillLabel = { red: 'LOW', orange: 'AVERAGE', lightbrown: 'OK', green: 'GOOD' }[it.band] || '';
+      const pillLabel = { red: 'LOW', orange: 'WATCH', lightbrown: 'OK', green: 'GOOD' }[it.band] || '';
       return '<tr class="row-' + it.band + '"><td>' + it.sku + '</td><td>' + it.name + '</td><td>' + (it.location || '') +
         '</td><td>' + it.stock + '</td><td>' + it.reorder + '</td><td>' + (it.ratio !== null ? it.ratio + '%' : '—') +
         '</td><td><span class="band-pill ' + it.band + '">' + pillLabel + '</span></td></tr>';
