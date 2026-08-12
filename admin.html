@@ -219,7 +219,11 @@ let currentTableKey = DASHBOARD_KEY;
 let currentHeaders = [];
 let currentRows = [];
 
-function callApi(action, data) {
+// Sends the actual HTTP request once. rawCallApi is wrapped by callApi() below, which adds
+// automatic retry - Apps Script Web Apps can fail the very first request after a fresh
+// deployment (or after being idle a while) while the runtime "cold starts", then work fine on
+// the next try. Retrying automatically means the user never has to manually reload the page.
+function rawCallApi(action, data) {
   const url = getEffectiveApiUrl();
   if (!url) {
     document.getElementById('urlSetupCard').style.display = 'block';
@@ -240,6 +244,23 @@ function callApi(action, data) {
     return res;
   });
 }
+
+function callApi(action, data, attempt) {
+  attempt = attempt || 1;
+  return rawCallApi(action, data).catch(err => {
+    // Read-only actions are safe to auto-retry (a common cause of the first request failing is
+    // Apps Script "cold starting" right after a fresh deployment). WRITE actions (adding/
+    // deleting items or branches, bulk assign, logging stock-out) are deliberately NEVER
+    // auto-retried - if the first attempt actually succeeded server-side but the response just
+    // failed to arrive, blindly retrying could create a duplicate.
+    if (attempt < 2 && RETRYABLE_ACTIONS.indexOf(action) !== -1) {
+      return new Promise(resolve => setTimeout(resolve, 900)).then(() => callApi(action, data, attempt + 1));
+    }
+    throw err;
+  });
+}
+const RETRYABLE_ACTIONS = ['ping', 'getBranches', 'getRacks', 'lookupItem', 'searchItems',
+  'getSheetData', 'getStockHealth', 'getLocationStock', 'getEntriesWithPhotos', 'getAvailableTables', 'getDashboard'];
 
 function buildTabs() {
   const bar = document.getElementById('tabBar');
@@ -374,20 +395,25 @@ function loadCurrentTable() {
   document.getElementById('dataTable').innerHTML = '<thead><tr><th>Loading…</th></tr></thead><tbody></tbody>';
   document.getElementById('countBadge').textContent = '';
 
-  const tableRequest = callApi('getSheetData', { sheetName: currentTableKey });
-  // For Stock_Ledger specifically, also fetch the authoritative color bands - computed
-  // server-side from Item_Master's Reorder Level (the exact same source the Supervisor
-  // dashboard's Low Stock Alert uses), rather than trusting Stock_Ledger's own Reorder Level
-  // column, which can drift out of sync with Item_Master.
-  const healthRequest = currentTableKey === 'Stock_Ledger' ? callApi('getStockHealth') : Promise.resolve(null);
-
-  Promise.all([tableRequest, healthRequest]).then(([res, health]) => {
+  // Sequential, not parallel: firing getSheetData and getStockHealth at the exact same time
+  // could both trigger a Stock_Ledger rebuild concurrently, which risks intermittent failures.
+  // One request finishing before the next starts is safer, even though very slightly slower.
+  callApi('getSheetData', { sheetName: currentTableKey }).then(res => {
     currentHeaders = res.headers || [];
     currentRows = res.rows || [];
-    currentStockHealthMap = {};
-    if (health) {
-      health.forEach(it => { currentStockHealthMap[String(it.sku).trim().toUpperCase()] = it.band; });
+
+    if (currentTableKey === 'Stock_Ledger') {
+      // Also fetch the authoritative color bands - computed server-side from Item_Master's
+      // Reorder Level (the exact same source the Supervisor dashboard's Low Stock Alert uses),
+      // rather than trusting Stock_Ledger's own Reorder Level column, which can drift out of
+      // sync with Item_Master.
+      return callApi('getStockHealth').then(health => {
+        currentStockHealthMap = {};
+        (health || []).forEach(it => { currentStockHealthMap[String(it.sku).trim().toUpperCase()] = it.band; });
+      });
     }
+    currentStockHealthMap = {};
+  }).then(() => {
     setupExtraFilter();
     renderTable(currentRows);
   }).catch(err => {
