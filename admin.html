@@ -10,89 +10,105 @@
     --ok:#2f8f4e; --warn:#c0392b; --card:#ffffff; --line:#e7ddd2;
   }
   *{box-sizing:border-box;}
-  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:#2a2a2a;overflow-x:hidden;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:#2a2a2a;overflow-x:hidden;}
   header{background:var(--maroon);color:#fff;padding:12px 16px;text-align:center;position:sticky;top:0;z-index:10;box-shadow:0 2px 6px rgba(0,0,0,.15);}
   header h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.3px;display:flex;align-items:center;justify-content:center;gap:8px;}
   header p{margin:2px 0 0;font-size:11px;opacity:.85;}
   .brand-logo{height:68px;width:68px;object-fit:contain;border-radius:12px;background:#fff;padding:4px;}
   .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
   label{font-size:12px;font-weight:600;color:#6b5c50;display:block;margin-bottom:5px;}
-  input[type=text], input[type=number], input[type=date], select{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:15px;margin-bottom:10px;background:#fff;}
+  input[type=text], input[type=number], input[type=date], select{width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:14px;margin-bottom:10px;background:#fff;font-family:inherit;}
   .msg{font-size:13px;padding:10px 12px;border-radius:8px;margin-bottom:10px;display:none;}
   .msg.ok{background:#e7f6ea;color:var(--ok);display:block;}
   .msg.err{background:#fdecea;color:var(--warn);display:block;}
   input:focus, select:focus{outline:none;border-color:var(--gold);}
-  button{padding:10px 14px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
+  button{padding:9px 14px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
   .btn-primary{background:var(--maroon);color:#fff;}
+  .btn-primary:hover{background:var(--maroon-dark);}
   .btn-secondary{background:#efe6db;color:var(--maroon-dark);}
+  .btn-secondary:hover{background:#e2d4c3;}
 
-  .tabs{display:flex;flex-wrap:wrap;gap:6px;padding:12px 14px 0;max-width:1100px;margin:0 auto;}
-  .tab{padding:9px 14px;font-size:13px;border-radius:8px 8px 0 0;color:var(--maroon-dark);cursor:pointer;background:#efe1d3;border:1px solid var(--line);border-bottom:none;}
-  .tab.active{background:var(--card);font-weight:700;color:var(--maroon);}
+  .tabs{display:flex;flex-wrap:wrap;gap:6px;padding:12px 14px 0;max-width:1200px;margin:0 auto;}
+  .tab{padding:9px 14px;font-size:13px;border-radius:8px 8px 0 0;color:var(--maroon-dark);cursor:pointer;background:#efe1d3;border:1px solid var(--line);border-bottom:none;user-select:none;}
+  .tab.active{background:var(--card);font-weight:700;color:var(--maroon);border-top:2px solid var(--maroon);}
+  .tab-badge{background:var(--gold);color:#fff;font-size:10px;padding:2px 6px;border-radius:10px;margin-left:4px;}
 
-  .toolbar{max-width:1100px;margin:0 auto;padding:0 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .toolbar{max-width:1200px;margin:0 auto;padding:0 14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
   .toolbar input[type=text]{flex:1;min-width:180px;margin-bottom:0;}
-  .date-filter-wrap{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-  .date-filter-wrap input[type=date]{width:auto;margin-bottom:0;padding:8px 10px;}
-  .count-badge{font-size:12px;color:#777;white-space:nowrap;}
+  .toolbar input[type=date]{width:auto;min-width:135px;margin-bottom:0;}
+  .toolbar select{width:auto;min-width:160px;margin-bottom:0;}
+  .count-badge{font-size:12px;color:#777;white-space:nowrap;margin-left:auto;}
 
-  .table-wrap{max-width:1100px;margin:10px auto 24px;padding:0 14px;overflow-x:auto;}
+  .table-wrap{max-width:1200px;margin:10px auto 24px;padding:0 14px;overflow-x:auto;}
   table{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;}
   th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap;}
   th{background:#f1e6d8;color:var(--maroon-dark);font-weight:700;position:sticky;top:0;}
   tr:hover td{background:#fbf6ee;}
   .lowstock{color:var(--warn);font-weight:700;}
   .empty-msg{padding:20px;text-align:center;color:#999;font-size:13px;}
-  .clickable-qty{color:var(--maroon);font-weight:700;text-decoration:underline;cursor:pointer;}
 
-  tr.row-red{background:#fbe1df;} tr.row-red td{color:#7a1f19;font-weight:600;}
-  tr.row-orange{background:#fce6cf;} tr.row-orange td{color:#7a4a12;}
-  tr.row-lightbrown{background:#f1e3cf;} tr.row-lightbrown td{color:#5c4726;}
-  tr.row-green{background:#e2f4e6;} tr.row-green td{color:#1f5c34;}
+  /* Stock health color coding */
+  tr.row-red{background:#fbe1df;}
+  tr.row-red td{color:#7a1f19;font-weight:600;}
+  tr.row-orange{background:#fce6cf;}
+  tr.row-orange td{color:#7a4a12;}
+  tr.row-lightbrown{background:#f1e3cf;}
+  tr.row-lightbrown td{color:#5c4726;}
+  tr.row-green{background:#e2f4e6;}
+  tr.row-green td{color:#1f5c34;}
 
-  .stats{display:flex;gap:10px;flex-wrap:wrap;max-width:1100px;margin:10px auto;padding:0 14px;}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;max-width:1200px;margin:10px auto;padding:0 14px;}
   .stat{flex:1;min-width:140px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;}
   .stat .num{font-size:22px;font-weight:700;color:var(--maroon);}
   .stat .lbl{font-size:11px;color:#777;margin-top:2px;}
-  .section-title{font-size:13px;font-weight:700;color:var(--maroon-dark);margin:16px auto 8px;max-width:1100px;padding:0 14px;}
-  .location-table-wrap{max-width:1100px;margin:0 auto 10px;padding:0 14px;overflow-x:auto;}
+  .section-title{font-size:13px;font-weight:700;color:var(--maroon-dark);margin:16px auto 8px;max-width:1200px;padding:0 14px;}
+  .location-table-wrap{max-width:1200px;margin:0 auto 10px;padding:0 14px;overflow-x:auto;}
 
-  .modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:999;justify-content:center;align-items:center;}
-  .modal-card{background:#fff;padding:20px;border-radius:12px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.2);}
-  .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:1px solid var(--line);padding-bottom:8px;}
-  .modal-header h3{margin:0;font-size:15px;color:var(--maroon-dark);}
-  .modal-close{cursor:pointer;font-weight:bold;font-size:18px;color:#888;}
+  /* Total Stock Out Tab Styling */
+  .filter-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:10px;margin-bottom:10px;}
+  .num-clickable{color:var(--maroon);font-weight:700;cursor:pointer;background:#fbe1df;padding:3px 8px;border-radius:6px;border:1px solid #f0b5b2;display:inline-block;}
+  .num-clickable:hover{background:#f8cbca;text-decoration:underline;}
+
+  /* Modal / Popup */
+  .modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:99;padding:14px;}
+  .modal-card{background:#fff;border-radius:14px;max-width:850px;width:100%;max-height:90vh;display:flex;flex-col;flex-direction:column;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.25);}
+  .modal-header{background:var(--maroon);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;}
+  .modal-body{padding:14px;overflow-y:auto;flex:1;}
+  .modal-footer{padding:10px 14px;background:#faf6f1;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;}
 </style>
 </head>
 <body>
 
 <header>
   <h1><img src="https://drive.google.com/thumbnail?id=18aiuiSN9uj-mJtOkGB1rNt4GP6yUbvuO&sz=w200" alt="Logo" class="brand-logo" onerror="this.style.display='none'"> RAGHUVIR SWEETS &amp; BAKERS</h1>
-  <p>Admin Dashboard — All Records</p>
+  <p>Admin Dashboard — Inventory &amp; Stock Out Management</p>
 </header>
 
 <div class="msg" id="testMsg" style="margin:14px;"></div>
 
-<div class="card" id="urlSetupCard" style="display:none;margin:14px;">
+<div class="card" id="urlSetupCard" style="display:none;max-width:1200px;margin:14px auto;">
   <label>⚠️ Web App URL not set - paste it here to continue</label>
   <input type="text" id="urlSetupInput" placeholder="https://script.google.com/macros/s/XXXXX/exec">
   <button class="btn-primary" onclick="saveUrlFallback()">💾 Save &amp; Continue</button>
   <p style="font-size:11px;color:#888;margin-top:8px;">
-    This is saved only in this browser/device.
+    This is saved in this browser. To make it permanent for everyone, edit the API_URL line near the top of this code.
   </p>
   <p id="debugUrlLine" style="font-size:11px;color:var(--warn);margin-top:6px;font-family:monospace;word-break:break-all;"></p>
 </div>
 
 <div class="tabs" id="tabBar"></div>
 
+<!-- TOOLBAR FOR GENERIC TABLES (Item_Master, Inward_Entry, Outward_Entry, etc.) -->
 <div class="toolbar" id="toolbarView">
   <input type="text" id="searchBox" placeholder="🔍 Search this table…" oninput="applyFilter()">
   
-  <div class="date-filter-wrap" id="logDateFilterWrap" style="display:none;">
-    <label style="margin:0;">From:</label>
-    <input type="date" id="logStartDate" onchange="applyFilter()">
-    <label style="margin:0;">To:</label>
-    <input type="date" id="logEndDate" onchange="applyFilter()">
+  <!-- Date Pickers for Inward and Outward Entry logs -->
+  <div id="logDateFilterWrap" style="display:none;align-items:center;gap:6px;">
+    <span style="font-size:12px;font-weight:600;color:#6b5c50;">From:</span>
+    <input type="date" id="logStartDate" onchange="applyFilter()" title="Filter Start Date">
+    <span style="font-size:12px;font-weight:600;color:#6b5c50;">To:</span>
+    <input type="date" id="logEndDate" onchange="applyFilter()" title="Filter End Date">
+    <button class="btn-secondary" onclick="clearLogDates()" style="padding:7px 10px;font-size:12px;">✕ Clear Dates</button>
   </div>
 
   <select id="extraFilterSelect" style="display:none;flex:0 0 auto;min-width:160px;" onchange="applyFilter()"><option value="">All</option></select>
@@ -102,78 +118,14 @@
   <span class="count-badge" id="countBadge"></span>
 </div>
 
-<div class="legend" id="stockHealthLegend" style="display:none;max-width:1100px;margin:0 auto 8px;padding:0 14px;gap:12px;flex-wrap:wrap;font-size:11px;color:#555;">
+<div class="legend" id="stockHealthLegend" style="display:none;max-width:1200px;margin:0 auto 8px;padding:0 14px;gap:12px;flex-wrap:wrap;font-size:11px;color:#555;">
   <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;border-radius:3px;display:inline-block;background:#c0392b;"></span> Red — at/below reorder</span>
   <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;border-radius:3px;display:inline-block;background:#d97b1f;"></span> Orange — 100–130% of reorder</span>
   <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;border-radius:3px;display:inline-block;background:#8a6a3f;"></span> Light Brown — 130–150%</span>
   <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;border-radius:3px;display:inline-block;background:#2f8f4e;"></span> Green — above 150%</span>
 </div>
 
-<!-- Total Stock Out Analytics Tab View -->
-<div id="stockOutReportView" style="display:none; max-width:1100px; margin:14px auto;">
-  <div class="card">
-    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
-      <div style="flex:1; min-width:180px;">
-        <label>Category</label>
-        <select id="stockOutCategorySelect">
-          <option value="">-- Select Category --</option>
-        </select>
-      </div>
-      <div style="flex:1; min-width:140px;">
-        <label>Start Date</label>
-        <input type="date" id="stockOutStartDate">
-      </div>
-      <div style="flex:1; min-width:140px;">
-        <label>End Date</label>
-        <input type="date" id="stockOutEndDate">
-      </div>
-      <div style="margin-bottom:10px;">
-        <button class="btn-primary" onclick="generateStockOutReport()">🔍 Generate Analytics</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="table-wrap">
-    <table id="stockOutReportTable">
-      <thead>
-        <tr>
-          <th>Item Name</th>
-          <th>Total Stock Out</th>
-          <th>Per Kg Qty (Master)</th>
-          <th>Avg Qty / Day</th>
-          <th>Avg Consumption</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr><td colspan="5" class="empty-msg">Select filters and click Generate Analytics.</td></tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<!-- Modal for Date-wise Stock Out Breakdown -->
-<div class="modal-overlay" id="detailModal">
-  <div class="modal-card">
-    <div class="modal-header">
-      <h3 id="modalTitle">Stock Out Breakdown</h3>
-      <span class="modal-close" onclick="closeModal()">&times;</span>
-    </div>
-    <div id="modalBody">
-      <table style="width:100%;">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Entered By</th>
-            <th>Target Branch</th>
-            <th>Qty</th>
-          </tr>
-        </thead>
-        <tbody id="modalTableBody"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
+<!-- STANDARD TABLE VIEW -->
 <div class="table-wrap" id="tableView">
   <table id="dataTable">
     <thead><tr><th>Loading…</th></tr></thead>
@@ -181,20 +133,87 @@
   </table>
 </div>
 
+<!-- TOTAL STOCK OUT TAB VIEW -->
+<div id="totalStockOutView" style="display:none;max-width:1200px;margin:0 auto;padding:0 14px;">
+  <div class="card" style="margin:10px 0;">
+    <div style="font-weight:700;font-size:14px;color:var(--maroon);margin-bottom:10px;">
+      📤 Total Stock Out Analysis &amp; Average Consumption
+    </div>
+    
+    <div class="filter-grid">
+      <div>
+        <label>Category (e.g. Packing Material, Sweets, Cake)</label>
+        <select id="tsoCategorySelect" onchange="renderTotalStockOut()"><option value="">All Categories</option></select>
+      </div>
+      <div>
+        <label>Start Date</label>
+        <input type="date" id="tsoStartDate" onchange="renderTotalStockOut()">
+      </div>
+      <div>
+        <label>End Date</label>
+        <input type="date" id="tsoEndDate" onchange="renderTotalStockOut()">
+      </div>
+      <div>
+        <label>Search Item</label>
+        <input type="text" id="tsoSearchInput" placeholder="🔍 Search item name or SKU..." oninput="renderTotalStockOut()">
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px;">
+      <span style="font-size:11px;color:#777;font-weight:600;">Quick Presets:</span>
+      <button class="btn-secondary" style="padding:5px 9px;font-size:11px;" onclick="setTsoDates('june15')">1/6 - 15/6 (15 Days)</button>
+      <button class="btn-secondary" style="padding:5px 9px;font-size:11px;" onclick="setTsoDates('thisMonth')">This Month</button>
+      <button class="btn-secondary" style="padding:5px 9px;font-size:11px;" onclick="setTsoDates('7days')">Last 7 Days</button>
+      <button class="btn-secondary" style="padding:5px 9px;font-size:11px;" onclick="setTsoDates('all')">All Time</button>
+      <button class="btn-primary" style="padding:6px 12px;font-size:12px;margin-left:auto;" onclick="loadTotalStockOutData()">🔄 Refresh Data</button>
+    </div>
+  </div>
+
+  <div class="stats" id="tsoStatsRow" style="margin:10px 0;padding:0;"></div>
+
+  <div class="card" style="margin:10px 0;background:#fff9e6;border-color:#fae19c;font-size:12px;color:#7a4a12;">
+    💡 <strong>Formula:</strong> 
+    <strong>Avg Qty</strong> = Total Stock Out ÷ Picked Days (<span id="tsoDaysBadge">15</span> days). &nbsp;|&nbsp;
+    <strong>Average Consumptions</strong> = (Total Stock Out × Per Kg Qty from Master) ÷ Picked Days. &nbsp;|&nbsp;
+    Click on any <span style="text-decoration:underline;font-weight:700;">Total Stock Out number</span> to see date-wise entries, branches, and operators.
+  </div>
+
+  <div class="table-wrap" style="margin:10px 0;padding:0;">
+    <table id="tsoTable">
+      <thead>
+        <tr>
+          <th>SKU Code</th>
+          <th>Item Name</th>
+          <th>Category</th>
+          <th>Location</th>
+          <th>Unit</th>
+          <th style="text-align:right;">Total Stock Out</th>
+          <th style="text-align:right;">Per Kg Qty (From Master)</th>
+          <th style="text-align:right;">Average Qty</th>
+          <th style="text-align:right;">Average Consumptions</th>
+          <th style="text-align:center;">Action</th>
+        </tr>
+      </thead>
+      <tbody id="tsoTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- DASHBOARD VIEW -->
 <div id="dashboardView" style="display:none;">
-  <div class="card" style="max-width:1100px;margin:14px auto;">
+  <div class="card" style="max-width:1200px;margin:14px auto;">
     <label>📍 Select Location</label>
     <select id="locationSelect" onchange="renderSelectedLocation()"><option value="">Loading…</option></select>
   </div>
   <div class="stats" id="locationStatsRow"></div>
 
-  <div class="card" id="logStockOutCard" style="display:none;max-width:1100px;margin:10px auto;">
+  <div class="card" id="logStockOutCard" style="display:none;max-width:1200px;margin:10px auto;">
     <label>➖ Log Stock-Out for this Branch (sale / dispatch / wastage)</label>
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
       <input type="text" id="stockOutSku" placeholder="SKU Code (e.g. RACK-001-A-001)" style="flex:2;min-width:160px;">
       <input type="number" id="stockOutQty" placeholder="Qty" style="flex:1;min-width:80px;">
     </div>
-    <input type="text" id="stockOutRemarks" placeholder="Reason / remarks (optional)">
+    <input type="text" id="stockOutRemarks" placeholder="Reason / remarks (optional) - e.g. Sold to customer">
     <div class="msg" id="stockOutMsg"></div>
     <button class="btn-primary" onclick="submitBranchStockOut()" style="width:100%;">✅ Log Stock-Out</button>
   </div>
@@ -202,11 +221,12 @@
   <div id="locationDetailWrap"></div>
 </div>
 
-<div class="card" id="addItemView" style="display:none;max-width:1100px;margin:10px auto 24px;">
+<!-- ADD ITEM VIEW -->
+<div class="card" id="addItemView" style="display:none;max-width:1200px;margin:10px auto 24px;">
   <label>Item Name</label>
   <input type="text" id="addName" placeholder="e.g. Kaju Katli Box - 500g">
   <label>Category</label>
-  <input type="text" id="addCategory" placeholder="e.g. Packing Box, Ribbon, Sticker">
+  <input type="text" id="addCategory" placeholder="e.g. Packing Material, Sweets, Cake">
 
   <label>Storage Type</label>
   <select id="addStorageType">
@@ -224,25 +244,26 @@
   <input type="number" id="addReorder" placeholder="e.g. 50" value="0">
   <label>Rate (₹ per unit)</label>
   <input type="number" id="addRate" placeholder="e.g. 250" step="0.01">
-  <label>Qty per Kg</label>
-  <input type="number" id="addQtyPerKg" placeholder="e.g. 4" step="0.01">
+  <label>Qty per Kg (From Master)</label>
+  <input type="number" id="addQtyPerKg" placeholder="e.g. 4" step="0.01" value="1">
 
   <label>Barcode</label>
   <select id="addBarcodeMode">
-    <option value="generate">Generate a new QR sticker</option>
-    <option value="existing">Use existing vendor barcode</option>
+    <option value="generate">Generate a new QR sticker (we print &amp; stick it)</option>
+    <option value="existing">Use existing vendor barcode (already on the box)</option>
   </select>
 
   <div id="addExistingBarcodeBlock" style="display:none;">
     <label>Existing barcode value</label>
-    <input type="text" id="addExistingBarcode" placeholder="Type or scan existing barcode">
+    <input type="text" id="addExistingBarcode" placeholder="Type or scan the existing barcode">
   </div>
 
   <div class="msg" id="addMsg"></div>
   <button class="btn-primary" id="addSubmitBtn" onclick="submitAddItem()" style="width:100%;">✅ Create Item</button>
 </div>
 
-<div class="card" id="addBranchView" style="display:none;max-width:1100px;margin:10px auto 24px;">
+<!-- ADD BRANCH VIEW -->
+<div class="card" id="addBranchView" style="display:none;max-width:1200px;margin:10px auto 24px;">
   <label>Add New Branch</label>
   <div style="display:flex;gap:10px;">
     <input type="text" id="newBranchName" placeholder="e.g. New Outlet Name" style="flex:1;">
@@ -251,8 +272,41 @@
   <div class="msg" id="branchMsg"></div>
 </div>
 
+<!-- DRILL-DOWN POPUP MODAL FOR TOTAL STOCK OUT -->
+<div class="modal-overlay" id="drillDownModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div>
+        <h3 id="modalTitle" style="margin:0;font-size:15px;">Date-wise Stock Out Details</h3>
+        <span id="modalSubtitle" style="font-size:11px;opacity:.9;"></span>
+      </div>
+      <button onclick="closeDrillDownModal()" style="background:none;border:none;color:#fff;font-size:18px;cursor:pointer;">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody">
+      <table style="width:100%;border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f1e6d8;color:#4e1e25;">
+            <th>#</th>
+            <th>Date &amp; Time</th>
+            <th>Entry ID</th>
+            <th style="text-align:right;">Quantity</th>
+            <th>Branch (Destination)</th>
+            <th>Entered By</th>
+          </tr>
+        </thead>
+        <tbody id="modalTableBody"></tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <span id="modalTotalSummary" style="font-size:12px;font-weight:700;color:var(--maroon);"></span>
+      <button class="btn-primary" onclick="closeDrillDownModal()">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const TABLES = [
+  { key: 'Total_Stock_Out', label: '📤 Total Stock Out' },
   { key: 'Item_Master',   label: '📦 Item Master' },
   { key: 'Stock_Ledger',  label: '📊 Stock Ledger' },
   { key: 'Inward_Entry',  label: '📥 Inward Log' },
@@ -263,10 +317,11 @@ const TABLES = [
   { key: 'Racks',         label: '🗄️ Racks' }
 ];
 const DASHBOARD_KEY = 'Dashboard';
-const STOCK_OUT_TAB_KEY = 'Total_Stock_Out_Tab';
+const TOTAL_STOCK_OUT_KEY = 'Total_Stock_Out';
 
+// ============================= API URL SETUP ====================================================
 const API_URL = "https://script.google.com/macros/s/AKfycbzRyb3a1UBD2HfiA3_OYPEVghv3Bu4yMkPMfqncCv6ScWFsVh77lxwp7Z2_WQiVaGT_/exec";
-const URL_PLACEHOLDER = 'https://script.google.com/macros/s/AKfycbzRyb3a1UBD2HfiA3_OYPEVghv3Bu4yMkPMfqncCv6ScWFsVh77lxwp7Z2_WQiVaGT_/exec';
+const URL_PLACEHOLDER = 'PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE';
 
 function getEffectiveApiUrl() {
   if (API_URL.indexOf(URL_PLACEHOLDER) === -1 && API_URL.trim() !== '') return API_URL.trim();
@@ -282,16 +337,20 @@ function saveUrlFallback() {
   loadCurrentTable();
 }
 
-let currentTableKey = DASHBOARD_KEY;
+let currentTableKey = TOTAL_STOCK_OUT_KEY;
 let currentHeaders = [];
 let currentRows = [];
-let masterItemsMap = {};
+
+// Cache for Total Stock Out calculations
+let tsoItemMasterRows = [];
+let tsoOutwardRows = [];
+let tsoCalculatedItems = [];
 
 function rawCallApi(action, data) {
   const url = getEffectiveApiUrl();
   if (!url) {
     document.getElementById('urlSetupCard').style.display = 'block';
-    return Promise.reject(new Error('Web App URL not set yet.'));
+    return Promise.reject(new Error('Web App URL not set yet - paste it in the box above.'));
   }
   return fetch(url, {
     method: 'POST',
@@ -299,8 +358,11 @@ function rawCallApi(action, data) {
     body: JSON.stringify(Object.assign({ action: action }, data || {}))
   }).then(r => r.text()).then(text => {
     let res;
-    try { res = JSON.parse(text); } 
-    catch (e) { throw new Error('Server returned invalid JSON.'); }
+    try {
+      res = JSON.parse(text);
+    } catch (e) {
+      throw new Error('Server did not return valid data - check the Web App URL.');
+    }
     if (res && res.error) throw new Error(res.error);
     return res;
   });
@@ -320,15 +382,11 @@ const RETRYABLE_ACTIONS = ['ping', 'getBranches', 'getRacks', 'lookupItem', 'sea
 
 function buildTabs() {
   const bar = document.getElementById('tabBar');
-  const allTabs = [
-    { key: DASHBOARD_KEY, label: '📊 Dashboard' },
-    { key: STOCK_OUT_TAB_KEY, label: '📉 Total Stock Out' }
-  ].concat(TABLES);
-
+  const allTabs = [{ key: DASHBOARD_KEY, label: '📊 Dashboard' }].concat(TABLES);
   bar.innerHTML = allTabs.map(t =>
-    '<div class="tab' + (t.key === currentTableKey ? ' active' : '') + '" data-key="' + t.key + '">' + t.label + '</div>'
+    '<div class="tab' + (t.key === currentTableKey ? ' active' : '') + '" data-key="' + t.key + '">' +
+    t.label + (t.key === TOTAL_STOCK_OUT_KEY ? ' <span class="tab-badge">NEW</span>' : '') + '</div>'
   ).join('');
-
   bar.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => {
       currentTableKey = tab.dataset.key;
@@ -336,8 +394,8 @@ function buildTabs() {
       buildTabs();
       if (currentTableKey === DASHBOARD_KEY) {
         showDashboardView();
-      } else if (currentTableKey === STOCK_OUT_TAB_KEY) {
-        showStockOutReportView();
+      } else if (currentTableKey === TOTAL_STOCK_OUT_KEY) {
+        showTotalStockOutView();
       } else {
         showTableView();
         loadCurrentTable();
@@ -365,25 +423,6 @@ function setupTableActionButton() {
   document.getElementById('bulkAssignBtn').style.display = (currentTableKey === 'Item_Master') ? 'inline-block' : 'none';
 }
 
-function handleBulkAssignClick() {
-  const defaultLoc = prompt('Assign SKUs to items missing one. Enter default Rack/Zone Code:');
-  if (defaultLoc === null) return;
-
-  const btn = document.getElementById('bulkAssignBtn');
-  btn.disabled = true;
-  btn.textContent = 'Working…';
-  callApi('bulkAssignSkus', { defaultLocationCode: defaultLoc.trim() }).then(res => {
-    btn.disabled = false;
-    btn.textContent = '🧩 Bulk Assign SKUs';
-    alert('Assigned SKUs to ' + res.assigned + ' item(s).');
-    loadCurrentTable();
-  }).catch(err => {
-    btn.disabled = false;
-    btn.textContent = '🧩 Bulk Assign SKUs';
-    alert('❌ ' + err.message);
-  });
-}
-
 function handleTableActionClick() {
   const config = TABLE_ACTION_CONFIG[currentTableKey];
   if (!config) return;
@@ -395,6 +434,7 @@ function handleTableActionClick() {
     document.getElementById('tableView').style.display = 'none';
     document.getElementById('searchBox').style.display = 'none';
     document.getElementById('extraFilterSelect').style.display = 'none';
+    document.getElementById('logDateFilterWrap').style.display = 'none';
     form.style.display = 'block';
     btn.textContent = '📋 Back to List';
     if (config.onShow) window[config.onShow]();
@@ -413,8 +453,7 @@ function hideAllViews() {
   document.getElementById('addItemView').style.display = 'none';
   document.getElementById('addBranchView').style.display = 'none';
   document.getElementById('dashboardView').style.display = 'none';
-  document.getElementById('stockOutReportView').style.display = 'none';
-  document.getElementById('logDateFilterWrap').style.display = 'none';
+  document.getElementById('totalStockOutView').style.display = 'none';
 }
 
 function showTableView() {
@@ -423,11 +462,11 @@ function showTableView() {
   document.getElementById('tableView').style.display = 'block';
   document.getElementById('searchBox').style.display = '';
   document.getElementById('stockHealthLegend').style.display = (currentTableKey === 'Stock_Ledger') ? 'flex' : 'none';
-
-  if (['Inward_Entry', 'Outward_Entry', 'Branch_Outward_Entry'].includes(currentTableKey)) {
-    document.getElementById('logDateFilterWrap').style.display = 'flex';
-  }
-
+  
+  // Show date pickers on Inward & Outward Entry tabs
+  const isLogTab = (currentTableKey === 'Inward_Entry' || currentTableKey === 'Outward_Entry');
+  document.getElementById('logDateFilterWrap').style.display = isLogTab ? 'inline-flex' : 'none';
+  
   setupTableActionButton();
 }
 
@@ -437,18 +476,283 @@ function showDashboardView() {
   loadLocationStock();
 }
 
-function showStockOutReportView() {
+function showTotalStockOutView() {
   hideAllViews();
-  document.getElementById('stockOutReportView').style.display = 'block';
-  loadCategoriesIntoSelect();
+  document.getElementById('totalStockOutView').style.display = 'block';
+  loadTotalStockOutData();
 }
 
+// ----------------- DATE UTILITIES -----------------
+function parseEntryDate(dateStr) {
+  if (!dateStr) return null;
+  if (dateStr instanceof Date) return isNaN(dateStr.getTime()) ? null : dateStr;
+  const str = String(dateStr).trim();
+  if (!str) return null;
+  
+  const d = new Date(str);
+  if (!isNaN(d.getTime()) && d.getFullYear() > 1990) return d;
+
+  const months = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
+  const dmyMatch = str.match(/^(\d{1,2})[-/ ]([a-zA-Z]{3,9}|\d{1,2})[-/ ](\d{4})/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const mStr = dmyMatch[2].toLowerCase().slice(0, 3);
+    const month = months[mStr] !== undefined ? months[mStr] : (parseInt(mStr, 10) - 1);
+    const year = parseInt(dmyMatch[3], 10);
+    const parsed = new Date(year, month, day);
+    if (!isNaN(parsed.getTime())) return parsed;
+  }
+  return null;
+}
+
+function calculateDaysDifference(startStr, endStr) {
+  if (!startStr || !endStr) return 1;
+  const s = parseEntryDate(startStr);
+  const e = parseEntryDate(endStr);
+  if (!s || !e) return 1;
+  const sNorm = new Date(s.getFullYear(), s.getMonth(), s.getDate()).getTime();
+  const eNorm = new Date(e.getFullYear(), e.getMonth(), e.getDate()).getTime();
+  if (eNorm < sNorm) return 1;
+  const diffDays = Math.round((eNorm - sNorm) / (1000 * 60 * 60 * 24)) + 1; // inclusive
+  return Math.max(1, diffDays);
+}
+
+function isDateWithinRange(dateVal, startStr, endStr) {
+  if (!startStr && !endStr) return true;
+  const d = parseEntryDate(dateVal);
+  if (!d) return true;
+  const t = d.getTime();
+  if (startStr) {
+    const s = parseEntryDate(startStr);
+    if (s && t < new Date(s.getFullYear(), s.getMonth(), s.getDate(), 0, 0, 0).getTime()) return false;
+  }
+  if (endStr) {
+    const e = parseEntryDate(endStr);
+    if (e && t > new Date(e.getFullYear(), e.getMonth(), e.getDate(), 23, 59, 59).getTime()) return false;
+  }
+  return true;
+}
+
+function formatCellValue(v) {
+  if (v === null || v === undefined || v === '') return '';
+  if (typeof v === 'string' && v.indexOf('<') !== -1) return v;
+  const n = Number(v);
+  if (isNaN(n)) return v;
+  if (Number.isInteger(n)) return n;
+  return n.toFixed(2);
+}
+
+// ----------------- TOTAL STOCK OUT TAB IMPLEMENTATION -----------------
+function setTsoDates(preset) {
+  const today = new Date();
+  const ymd = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  
+  if (preset === 'june15') {
+    document.getElementById('tsoStartDate').value = '2026-06-01';
+    document.getElementById('tsoEndDate').value = '2026-06-15';
+  } else if (preset === 'thisMonth') {
+    document.getElementById('tsoStartDate').value = ymd(new Date(today.getFullYear(), today.getMonth(), 1));
+    document.getElementById('tsoEndDate').value = ymd(today);
+  } else if (preset === '7days') {
+    const past = new Date(today); past.setDate(today.getDate() - 6);
+    document.getElementById('tsoStartDate').value = ymd(past);
+    document.getElementById('tsoEndDate').value = ymd(today);
+  } else if (preset === 'all') {
+    document.getElementById('tsoStartDate').value = '';
+    document.getElementById('tsoEndDate').value = '';
+  }
+  renderTotalStockOut();
+}
+
+function loadTotalStockOutData() {
+  document.getElementById('tsoTableBody').innerHTML = '<tr><td colspan="10" class="empty-msg">Loading data...</td></tr>';
+  
+  if (!document.getElementById('tsoStartDate').value && !document.getElementById('tsoEndDate').value) {
+    document.getElementById('tsoStartDate').value = '2026-06-01';
+    document.getElementById('tsoEndDate').value = '2026-06-15';
+  }
+
+  Promise.all([
+    callApi('getSheetData', { sheetName: 'Item_Master' }),
+    callApi('getSheetData', { sheetName: 'Outward_Entry' })
+  ]).then(([itemRes, outRes]) => {
+    const itemHeaders = itemRes.headers || [];
+    tsoItemMasterRows = itemRes.rows || [];
+    tsoOutwardRows = outRes.rows || [];
+
+    // Populate Category dropdown
+    const catIdx = itemHeaders.findIndex(h => String(h).toLowerCase().indexOf('category') !== -1);
+    const cats = new Set(['Packing Material', 'Sweets', 'Cake']);
+    if (catIdx !== -1) {
+      tsoItemMasterRows.forEach(r => { if (r[catIdx]) cats.add(String(r[catIdx]).trim()); });
+    }
+    const catSel = document.getElementById('tsoCategorySelect');
+    const curCat = catSel.value;
+    catSel.innerHTML = '<option value="">All Categories</option>' +
+      Array.from(cats).sort().map(c => '<option value="' + c + '">' + c + '</option>').join('');
+    catSel.value = curCat;
+
+    renderTotalStockOut();
+  }).catch(err => {
+    document.getElementById('tsoTableBody').innerHTML = '<tr><td colspan="10" class="empty-msg">Error: ' + err.message + '</td></tr>';
+  });
+}
+
+function renderTotalStockOut() {
+  const startDate = document.getElementById('tsoStartDate').value;
+  const endDate = document.getElementById('tsoEndDate').value;
+  const selectedCat = document.getElementById('tsoCategorySelect').value.toLowerCase();
+  const searchQ = document.getElementById('tsoSearchInput').value.trim().toLowerCase();
+  
+  const daysDiff = calculateDaysDifference(startDate, endDate);
+  document.getElementById('tsoDaysBadge').textContent = daysDiff;
+
+  // Process Item Master headers
+  // Standard positions: 0:SKU, 1:Name, 2:Category, 4:Location, 5:Unit, 9:QtyPerKg
+  tsoCalculatedItems = tsoItemMasterRows.map(row => {
+    const sku = String(row[0] || '').trim();
+    const name = String(row[1] || '').trim();
+    const cat = String(row[2] || 'Packing Material').trim();
+    const loc = String(row[4] || '—').trim();
+    const unit = String(row[5] || 'Pcs').trim();
+    // Qty per kg from master (col 9 or default 1)
+    const qtyPerKg = Number(row[9]) > 0 ? Number(row[9]) : 1;
+
+    // Filter Outward_Entry for this SKU within the date range
+    // Outward row: 0:Timestamp, 1:EntryID, 2:SKU, 3:Name, 4:Location, 5:Qty, 6:Branch, 7:EnteredBy
+    const matchingLogs = tsoOutwardRows.filter(outRow => {
+      const outSku = String(outRow[2] || '').trim().toUpperCase();
+      const outName = String(outRow[3] || '').trim().toUpperCase();
+      if (outSku !== sku.toUpperCase() && outName !== name.toUpperCase()) return false;
+      return isDateWithinRange(outRow[0], startDate, endDate);
+    });
+
+    const totalStockOut = matchingLogs.reduce((sum, r) => sum + Number(r[5] || 0), 0);
+    const avgQty = totalStockOut / daysDiff;
+    const avgConsumption = (totalStockOut * qtyPerKg) / daysDiff;
+
+    return {
+      sku: sku,
+      name: name,
+      category: cat,
+      location: loc,
+      unit: unit,
+      totalStockOut: totalStockOut,
+      qtyPerKg: qtyPerKg,
+      avgQty: avgQty,
+      avgConsumption: avgConsumption,
+      logsCount: matchingLogs.length,
+      logs: matchingLogs
+    };
+  });
+
+  // Filter by Category and Search Query
+  const filtered = tsoCalculatedItems.filter(item => {
+    if (selectedCat && item.category.toLowerCase() !== selectedCat) return false;
+    if (searchQ) {
+      const match = item.name.toLowerCase().includes(searchQ) ||
+                    item.sku.toLowerCase().includes(searchQ) ||
+                    item.category.toLowerCase().includes(searchQ);
+      if (!match) return false;
+    }
+    return true;
+  });
+
+  // Update Stats
+  const sumTotalOut = filtered.reduce((s, i) => s + i.totalStockOut, 0);
+  const sumAvgDaily = filtered.reduce((s, i) => s + i.avgQty, 0);
+  const sumAvgCons = filtered.reduce((s, i) => s + i.avgConsumption, 0);
+  const activeCount = filtered.filter(i => i.totalStockOut > 0).length;
+
+  document.getElementById('tsoStatsRow').innerHTML =
+    '<div class="stat"><div class="num">' + formatCellValue(sumTotalOut) + '</div><div class="lbl">📤 Total Stock Out (Units)</div></div>' +
+    '<div class="stat"><div class="num">' + formatCellValue(sumAvgDaily) + '</div><div class="lbl">⚡ Avg Qty / Day (÷ ' + daysDiff + 'd)</div></div>' +
+    '<div class="stat"><div class="num">' + formatCellValue(sumAvgCons) + '</div><div class="lbl">⚖️ Avg Consumption / Day</div></div>' +
+    '<div class="stat"><div class="num">' + daysDiff + ' Days</div><div class="lbl">📅 ' + (startDate||'Start') + ' to ' + (endDate||'End') + '</div></div>';
+
+  // Render Table
+  const tbody = document.getElementById('tsoTableBody');
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="10" class="empty-msg">No items found for selected filters.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map((it, idx) => {
+    const stockOutDisplay = it.totalStockOut > 0
+      ? '<span class="num-clickable" onclick="openDrillDownModal(' + idx + ')" title="Click to view date-wise entries">' +
+          formatCellValue(it.totalStockOut) + ' <small style="font-size:10px;">(' + it.logsCount + ' logs)</small></span>'
+      : '<span style="color:#aaa;">0</span>';
+
+    return '<tr>' +
+      '<td style="font-family:monospace;font-weight:700;">' + it.sku + '</td>' +
+      '<td style="font-weight:600;">' + it.name + '</td>' +
+      '<td><span style="background:#efe1d3;padding:2px 6px;border-radius:4px;font-size:11px;">' + it.category + '</span></td>' +
+      '<td style="font-family:monospace;">' + it.location + '</td>' +
+      '<td>' + it.unit + '</td>' +
+      '<td style="text-align:right;">' + stockOutDisplay + '</td>' +
+      '<td style="text-align:right;color:var(--gold);font-weight:600;">' + formatCellValue(it.qtyPerKg) + '</td>' +
+      '<td style="text-align:right;font-weight:700;color:#1f5c34;">' + formatCellValue(it.avgQty) + '</td>' +
+      '<td style="text-align:right;font-weight:700;color:#7a4a12;">' + formatCellValue(it.avgConsumption) + '</td>' +
+      '<td style="text-align:center;"><button class="btn-secondary" style="padding:4px 8px;font-size:11px;" onclick="openDrillDownModal(' + idx + ')">🔍 Details</button></td>' +
+    '</tr>';
+  }).join('') +
+  '<tr style="background:#f1e6d8;font-weight:700;color:var(--maroon);border-top:2px solid var(--line);">' +
+    '<td colspan="5" style="text-align:right;">Total Sum:</td>' +
+    '<td style="text-align:right;">' + formatCellValue(sumTotalOut) + '</td>' +
+    '<td></td>' +
+    '<td style="text-align:right;">' + formatCellValue(sumAvgDaily) + '</td>' +
+    '<td style="text-align:right;">' + formatCellValue(sumAvgCons) + '</td>' +
+    '<td></td>' +
+  '</tr>';
+}
+
+function openDrillDownModal(index) {
+  const item = tsoCalculatedItems[index];
+  if (!item) return;
+
+  document.getElementById('modalTitle').textContent = '📦 ' + item.name + ' (' + item.sku + ')';
+  document.getElementById('modalSubtitle').textContent = 'Stock-Out Logs between ' +
+    (document.getElementById('tsoStartDate').value || 'Start') + ' and ' + (document.getElementById('tsoEndDate').value || 'End');
+
+  const modalBody = document.getElementById('modalTableBody');
+  if (!item.logs.length) {
+    modalBody.innerHTML = '<tr><td colspan="6" class="empty-msg">No outward dispatches recorded in this date range.</td></tr>';
+  } else {
+    modalBody.innerHTML = item.logs.map((l, i) =>
+      '<tr>' +
+        '<td style="color:#888;">' + (i+1) + '</td>' +
+        '<td style="font-weight:600;">' + l[0] + '</td>' +
+        '<td style="font-family:monospace;color:#666;">' + l[1] + '</td>' +
+        '<td style="text-align:right;font-weight:700;color:var(--maroon);">' + formatCellValue(l[5]) + ' ' + item.unit + '</td>' +
+        '<td><span style="background:#efe1d3;padding:2px 6px;border-radius:4px;font-weight:600;">🏬 ' + (l[6]||'Branch') + '</span></td>' +
+        '<td>' + (l[7]||'MIS User') + '</td>' +
+      '</tr>'
+    ).join('');
+  }
+
+  document.getElementById('modalTotalSummary').textContent =
+    'Total Dispatched: ' + formatCellValue(item.totalStockOut) + ' ' + item.unit + ' | Per-Day Avg: ' + formatCellValue(item.avgQty) + ' ' + item.unit + '/day';
+  document.getElementById('drillDownModal').style.display = 'flex';
+}
+
+function closeDrillDownModal() {
+  document.getElementById('drillDownModal').style.display = 'none';
+}
+
+// ----------------- STANDARD TABLE LOADER -----------------
 const EXTRA_FILTER_CONFIG = {
   'Stock_Ledger': { headerMatch: 'location', label: 'Filter by Rack/Location' },
-  'Branch_Ledger': { headerMatch: 'branch', label: 'Filter by Branch' }
+  'Branch_Ledger': { headerMatch: 'branch', label: 'Filter by Branch' },
+  'Outward_Entry': { headerMatch: 'branch', label: 'Filter by Branch' }
 };
 
 let currentStockHealthMap = {};
+
+function clearLogDates() {
+  document.getElementById('logStartDate').value = '';
+  document.getElementById('logEndDate').value = '';
+  applyFilter();
+}
 
 function loadCurrentTable() {
   document.getElementById('dataTable').innerHTML = '<thead><tr><th>Loading…</th></tr></thead><tbody></tbody>';
@@ -467,7 +771,7 @@ function loadCurrentTable() {
     currentStockHealthMap = {};
   }).then(() => {
     setupExtraFilter();
-    renderTable(currentRows);
+    applyFilter();
   }).catch(err => {
     document.getElementById('dataTable').innerHTML =
       '<thead><tr><th>Error</th></tr></thead><tbody><tr><td>' + err.message + '</td></tr></tbody>';
@@ -492,13 +796,33 @@ function setupExtraFilter() {
   wrap.style.display = 'block';
 }
 
-function formatCellValue(v) {
-  if (v === null || v === undefined || v === '') return '';
-  if (typeof v === 'string' && v.indexOf('<') !== -1) return v;
-  const n = Number(v);
-  if (isNaN(n)) return v;
-  if (Number.isInteger(n)) return n;
-  return n.toFixed(2);
+function applyFilter() {
+  const q = document.getElementById('searchBox').value.trim().toLowerCase();
+  const filterSel = document.getElementById('extraFilterSelect');
+  const filterVal = filterSel.style.display !== 'none' ? filterSel.value : '';
+  const colIdx = filterSel.dataset.colIdx !== undefined ? Number(filterSel.dataset.colIdx) : -1;
+
+  // Date filters for Inward & Outward tabs
+  const logStart = document.getElementById('logStartDate').value;
+  const logEnd = document.getElementById('logEndDate').value;
+  const isLogTab = (currentTableKey === 'Inward_Entry' || currentTableKey === 'Outward_Entry');
+
+  let filtered = currentRows;
+
+  if (isLogTab && (logStart || logEnd)) {
+    // Timestamp is in column 0
+    filtered = filtered.filter(r => isDateWithinRange(r[0], logStart, logEnd));
+  }
+
+  if (filterVal && colIdx !== -1) {
+    filtered = filtered.filter(r => String(r[colIdx]) === filterVal);
+  }
+  if (q) {
+    filtered = filtered.filter(r => r.some(c => String(c || '').toLowerCase().indexOf(q) !== -1));
+  }
+
+  renderTable(filtered);
+  document.getElementById('countBadge').textContent = filtered.length + ' of ' + currentRows.length + ' rows';
 }
 
 function renderTable(rows) {
@@ -515,7 +839,7 @@ function renderTable(rows) {
 
   let tbody;
   if (!rows.length) {
-    tbody = '<tbody><tr><td colspan="' + Math.max(currentHeaders.length + (hasAction ? 1 : 0), 1) + '" class="empty-msg">No records yet.</td></tr></tbody>';
+    tbody = '<tbody><tr><td colspan="' + Math.max(currentHeaders.length + (hasAction ? 1 : 0), 1) + '" class="empty-msg">No records match filter.</td></tr></tbody>';
   } else {
     tbody = '<tbody>' + rows.map(r => {
       const cells = r.map((c, i) => {
@@ -541,72 +865,45 @@ function renderTable(rows) {
     }).join('') + '</tbody>';
   }
   document.getElementById('dataTable').innerHTML = thead + tbody;
-  document.getElementById('countBadge').textContent = rows.length + ' row' + (rows.length === 1 ? '' : 's');
-}
-
-function applyFilter() {
-  const isLogTab = ['Inward_Entry', 'Outward_Entry', 'Branch_Outward_Entry'].includes(currentTableKey);
-  const q = document.getElementById('searchBox').value.trim().toLowerCase();
-  const filterSel = document.getElementById('extraFilterSelect');
-  const filterVal = filterSel.style.display !== 'none' ? filterSel.value : '';
-  const colIdx = filterSel.dataset.colIdx !== undefined ? Number(filterSel.dataset.colIdx) : -1;
-
-  const startStr = document.getElementById('logStartDate').value;
-  const endStr = document.getElementById('logEndDate').value;
-  const startDate = startStr ? new Date(startStr) : null;
-  const endDate = endStr ? new Date(endStr) : null;
-
-  const dateIdx = isLogTab ? currentHeaders.findIndex(h => String(h).toLowerCase().includes('date')) : -1;
-
-  let filtered = currentRows;
-  if (filterVal && colIdx !== -1) {
-    filtered = filtered.filter(r => String(r[colIdx]) === filterVal);
-  }
-  if (q) {
-    filtered = filtered.filter(r => r.some(c => String(c || '').toLowerCase().indexOf(q) !== -1));
-  }
-  if (isLogTab && dateIdx !== -1 && (startDate || endDate)) {
-    filtered = filtered.filter(r => {
-      const rowDate = new Date(r[dateIdx]);
-      if (isNaN(rowDate.getTime())) return true;
-      if (startDate && rowDate < startDate) return false;
-      if (endDate && rowDate > endDate) return false;
-      return true;
-    });
-  }
-
-  renderTable(filtered);
-  document.getElementById('countBadge').textContent = filtered.length + ' of ' + currentRows.length + ' rows';
 }
 
 function deleteItemRow(sku) {
-  if (!confirm('Delete item "' + sku + '" permanently?')) return;
+  if (!confirm('Delete item "' + sku + '" permanently? This cannot be undone.')) return;
   callApi('deleteItem', { sku: sku }).then(res => {
-    if (res.success) loadCurrentTable();
-    else alert('❌ ' + res.message);
+    if (res.success) { loadCurrentTable(); } else { alert('❌ ' + res.message); }
   }).catch(err => alert('❌ ' + err.message));
 }
 
-window.onload = function() {
-  buildTabs();
-  document.getElementById('addStorageType').addEventListener('change', refreshLocationOptions);
-  document.getElementById('addBarcodeMode').addEventListener('change', toggleBarcodeModeUI);
+function handleBulkAssignClick() {
+  const defaultLoc = prompt(
+    'Assign SKUs to every item with a name but no SKU Code yet.\n' +
+    'Enter a default Rack/Zone code (e.g. RACK-002-A or NR-STORE01) or leave blank to skip unassigned locations.'
+  );
+  if (defaultLoc === null) return;
+  const btn = document.getElementById('bulkAssignBtn');
+  btn.disabled = true;
+  btn.textContent = 'Working…';
+  callApi('bulkAssignSkus', { defaultLocationCode: defaultLoc.trim() }).then(res => {
+    btn.disabled = false;
+    btn.textContent = '🧩 Bulk Assign SKUs';
+    if (res.error) { alert('❌ ' + res.error); return; }
+    alert('✅ Assigned SKUs to ' + res.assigned + ' item(s).');
+    loadCurrentTable();
+  }).catch(err => {
+    btn.disabled = false;
+    btn.textContent = '🧩 Bulk Assign SKUs';
+    alert('❌ ' + err.message);
+  });
+}
 
-  if (!getEffectiveApiUrl()) {
-    document.getElementById('urlSetupCard').style.display = 'block';
-  } else {
-    showDashboardView();
-  }
-};
-
+// ---------------- ADD ITEM FORM ----------------
 let allRacks = [];
-
 function loadRacksForAddItem() {
   callApi('getRacks').then(list => {
     allRacks = list;
     refreshLocationOptions();
   }).catch(err => {
-    document.getElementById('addLocation').innerHTML = '<option value="">⚠️ Could not load racks</option>';
+    document.getElementById('addLocation').innerHTML = '<option value="">⚠️ Could not load racks: ' + err.message + '</option>';
   });
 }
 
@@ -647,7 +944,7 @@ function submitAddItem() {
     unit: document.getElementById('addUnit').value.trim() || 'Pcs',
     reorder: document.getElementById('addReorder').value || 0,
     rate: document.getElementById('addRate').value || 0,
-    qtyPerKg: document.getElementById('addQtyPerKg').value || 0,
+    qtyPerKg: document.getElementById('addQtyPerKg').value || 1,
     barcodeMode: document.getElementById('addBarcodeMode').value,
     existingBarcode: document.getElementById('addExistingBarcode').value.trim()
   };
@@ -660,7 +957,7 @@ function submitAddItem() {
   }
 
   if (!payload.itemName) { showAddMsg('err', '⚠️ Item name is required.'); return; }
-  if (!payload.locationCode) { showAddMsg('err', '⚠️ Choose or type location code.'); return; }
+  if (!payload.locationCode) { showAddMsg('err', '⚠️ Please choose or type a rack / zone code.'); return; }
 
   const btn = document.getElementById('addSubmitBtn');
   btn.disabled = true;
@@ -684,26 +981,22 @@ function submitAddItem() {
   });
 }
 
+// ---------------- MANAGE BRANCHES ----------------
 function addBranchFromAdmin() {
   const nameInput = document.getElementById('newBranchName');
   const name = nameInput.value.trim();
   const msgEl = document.getElementById('branchMsg');
-  function showBranchMsg(cls, text) {
-    msgEl.className = 'msg ' + cls;
-    msgEl.textContent = text;
-    msgEl.style.display = 'block';
-  }
-  if (!name) { showBranchMsg('err', '⚠️ Enter branch name.'); return; }
+  if (!name) { msgEl.className = 'msg err'; msgEl.textContent = '⚠️ Enter a branch name.'; msgEl.style.display = 'block'; return; }
 
   callApi('addBranch', { branchName: name }).then(res => {
     if (res.success) {
-      showBranchMsg('ok', '✅ ' + res.message);
+      msgEl.className = 'msg ok'; msgEl.textContent = '✅ ' + res.message; msgEl.style.display = 'block';
       nameInput.value = '';
       setTimeout(() => { if (formOpenForTab) handleTableActionClick(); }, 700);
     } else {
-      showBranchMsg('err', '❌ ' + res.message);
+      msgEl.className = 'msg err'; msgEl.textContent = '❌ ' + res.message; msgEl.style.display = 'block';
     }
-  }).catch(err => showBranchMsg('err', '❌ ' + err.message));
+  }).catch(err => { msgEl.className = 'msg err'; msgEl.textContent = '❌ ' + err.message; msgEl.style.display = 'block'; });
 }
 
 function deleteBranchFromAdmin(name) {
@@ -714,6 +1007,7 @@ function deleteBranchFromAdmin(name) {
   }).catch(err => alert('❌ ' + err.message));
 }
 
+// ---------------- DASHBOARD (Godown vs Branch stock) ----------------
 const GODOWN_OPTION_VALUE = '__GODOWN__';
 let locationStockData = null;
 
@@ -733,8 +1027,7 @@ function loadLocationStock(preserveSelection) {
     renderSelectedLocation();
   }).catch(err => {
     sel.innerHTML = '<option value="">⚠️ Error</option>';
-    document.getElementById('locationStatsRow').innerHTML =
-      '<div class="stat"><div class="num">❌</div><div class="lbl">' + err.message + '</div></div>';
+    document.getElementById('locationStatsRow').innerHTML = '<div class="stat"><div class="num">❌</div><div class="lbl">' + err.message + '</div></div>';
   });
 }
 
@@ -742,8 +1035,10 @@ function renderSelectedLocation() {
   if (!locationStockData) return;
   const sel = document.getElementById('locationSelect');
   const isGodown = sel.value === GODOWN_OPTION_VALUE;
+  const stockOutCard = document.getElementById('logStockOutCard');
 
   if (isGodown) {
+    stockOutCard.style.display = 'none';
     const godown = locationStockData.godown || { totalUnits: 0, items: [] };
     document.getElementById('locationStatsRow').innerHTML =
       '<div class="stat"><div class="num">' + formatCellValue(godown.totalUnits) + '</div><div class="lbl">🏭 Savali Godown (units in stock)</div></div>';
@@ -753,6 +1048,7 @@ function renderSelectedLocation() {
         godown.items.map(it => [it.sku, it.name, it.location, it.stock, it.reorder]),
         godown.items.map(it => it.band));
   } else {
+    stockOutCard.style.display = 'block';
     const branch = (locationStockData.branches || []).find(b => b.name === sel.value) ||
       { name: sel.value, totalUnits: 0, totalReceived: 0, totalStockOut: 0, items: [] };
     document.getElementById('locationStatsRow').innerHTML =
@@ -760,7 +1056,7 @@ function renderSelectedLocation() {
       '<div class="stat"><div class="num">' + formatCellValue(branch.totalStockOut) + '</div><div class="lbl">➖ Stock-Out (units)</div></div>' +
       '<div class="stat"><div class="num">' + formatCellValue(branch.totalUnits) + '</div><div class="lbl">🏬 ' + branch.name + ' Net Stock</div></div>';
     document.getElementById('locationDetailWrap').innerHTML =
-      '<div class="section-title">🏬 ' + branch.name + ' — Item-wise Stock</div>' +
+      '<div class="section-title">🏬 ' + branch.name + ' — Item-wise Stock (Received − Stock-Out)</div>' +
       buildLocationTable(['SKU', 'Item', 'Received', 'Stock-Out', 'Net Stock'],
         branch.items.map(it => [it.sku, it.name, it.received, it.stockOut, it.net]));
   }
@@ -773,26 +1069,22 @@ function submitBranchStockOut() {
   const qty = document.getElementById('stockOutQty').value;
   const remarks = document.getElementById('stockOutRemarks').value.trim();
   const msgEl = document.getElementById('stockOutMsg');
-  function showMsg(cls, text) {
-    msgEl.className = 'msg ' + cls;
-    msgEl.textContent = text;
-    msgEl.style.display = 'block';
-  }
-  if (!branch) { showMsg('err', '⚠️ Select a branch first.'); return; }
-  if (!sku) { showMsg('err', '⚠️ Enter SKU code.'); return; }
-  if (!qty || Number(qty) <= 0) { showMsg('err', '⚠️ Enter valid quantity.'); return; }
+  
+  if (!branch) { msgEl.className = 'msg err'; msgEl.textContent = '⚠️ Select a branch outlet.'; msgEl.style.display = 'block'; return; }
+  if (!sku) { msgEl.className = 'msg err'; msgEl.textContent = '⚠️ Enter SKU code.'; msgEl.style.display = 'block'; return; }
+  if (!qty || Number(qty) <= 0) { msgEl.className = 'msg err'; msgEl.textContent = '⚠️ Enter valid quantity.'; msgEl.style.display = 'block'; return; }
 
   callApi('logBranchStockOut', { branch: branch, sku: sku, qty: qty, remarks: remarks }).then(res => {
     if (res.success) {
-      showMsg('ok', '✅ ' + res.message);
+      msgEl.className = 'msg ok'; msgEl.textContent = '✅ ' + res.message; msgEl.style.display = 'block';
       document.getElementById('stockOutSku').value = '';
       document.getElementById('stockOutQty').value = '';
       document.getElementById('stockOutRemarks').value = '';
       loadLocationStock(true);
     } else {
-      showMsg('err', '❌ ' + res.message);
+      msgEl.className = 'msg err'; msgEl.textContent = '❌ ' + res.message; msgEl.style.display = 'block';
     }
-  }).catch(err => showMsg('err', '❌ ' + err.message));
+  }).catch(err => { msgEl.className = 'msg err'; msgEl.textContent = '❌ ' + err.message; msgEl.style.display = 'block'; });
 }
 
 function buildLocationTable(headers, rows, rowBands) {
@@ -806,143 +1098,17 @@ function buildLocationTable(headers, rows, rowBands) {
   return '<div class="location-table-wrap"><table>' + thead + tbody + '</table></div>';
 }
 
-function loadCategoriesIntoSelect() {
-  callApi('getSheetData', { sheetName: 'Item_Master' }).then(res => {
-    const headers = res.headers || [];
-    const rows = res.rows || [];
-    
-    const catIdx = headers.findIndex(h => String(h).toLowerCase().includes('category'));
-    const nameIdx = headers.findIndex(h => String(h).toLowerCase().includes('name'));
-    const skuIdx = headers.findIndex(h => String(h).toLowerCase().includes('sku'));
-    const qtyKgIdx = headers.findIndex(h => String(h).toLowerCase().includes('kg'));
+window.onload = function() {
+  buildTabs();
+  document.getElementById('addStorageType').addEventListener('change', refreshLocationOptions);
+  document.getElementById('addBarcodeMode').addEventListener('change', toggleBarcodeModeUI);
 
-    masterItemsMap = {};
-    const categories = new Set();
-
-    rows.forEach(r => {
-      const sku = String(r[skuIdx] || '').trim().toUpperCase();
-      const cat = String(r[catIdx] || '').trim();
-      const name = String(r[nameIdx] || '').trim();
-      const qtyPerKg = parseFloat(r[qtyKgIdx]) || 1;
-
-      if (cat) categories.add(cat);
-      if (sku) {
-        masterItemsMap[sku] = { name: name, category: cat, qtyPerKg: qtyPerKg };
-      }
-    });
-
-    const catSelect = document.getElementById('stockOutCategorySelect');
-    catSelect.innerHTML = '<option value="">-- Select Category --</option>' +
-      Array.from(categories).sort().map(c => '<option value="' + c + '">' + c + '</option>').join('');
-  });
-}
-
-function generateStockOutReport() {
-  const category = document.getElementById('stockOutCategorySelect').value;
-  const startStr = document.getElementById('stockOutStartDate').value;
-  const endStr = document.getElementById('stockOutEndDate').value;
-
-  if (!category) { alert('Please select a Category.'); return; }
-  if (!startStr || !endStr) { alert('Please pick both Start Date and End Date.'); return; }
-
-  const startDate = new Date(startStr);
-  const endDate = new Date(endStr);
-  if (startDate > endDate) { alert('Start date must be before or equal to End Date.'); return; }
-
-  const dayDiff = Math.max(1, Math.round((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1);
-  const tbody = document.querySelector('#stockOutReportTable tbody');
-  tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">Fetching Outward Logs…</td></tr>';
-
-  callApi('getSheetData', { sheetName: 'Outward_Entry' }).then(res => {
-    const headers = res.headers || [];
-    const rows = res.rows || [];
-
-    const dateIdx = headers.findIndex(h => String(h).toLowerCase().includes('date'));
-    const skuIdx = headers.findIndex(h => String(h).toLowerCase().includes('sku'));
-    const qtyIdx = headers.findIndex(h => String(h).toLowerCase().includes('qty'));
-    const userIdx = headers.findIndex(h => String(h).toLowerCase().includes('user') || String(h).toLowerCase().includes('person'));
-    const branchIdx = headers.findIndex(h => String(h).toLowerCase().includes('branch') || String(h).toLowerCase().includes('to'));
-
-    const aggregated = {};
-
-    rows.forEach(r => {
-      const rowDate = new Date(r[dateIdx]);
-      if (isNaN(rowDate.getTime())) return;
-
-      if (rowDate >= startDate && rowDate <= endDate) {
-        const sku = String(r[skuIdx] || '').trim().toUpperCase();
-        const itemInfo = masterItemsMap[sku];
-
-        if (itemInfo && itemInfo.category === category) {
-          const qty = parseFloat(r[qtyIdx]) || 0;
-          const user = r[userIdx] || 'N/A';
-          const branch = r[branchIdx] || 'N/A';
-          const dateStr = r[dateIdx];
-
-          if (!aggregated[sku]) {
-            aggregated[sku] = {
-              name: itemInfo.name,
-              qtyPerKg: itemInfo.qtyPerKg,
-              totalStockOut: 0,
-              logs: []
-            };
-          }
-
-          aggregated[sku].totalStockOut += qty;
-          aggregated[sku].logs.push({ date: dateStr, user: user, branch: branch, qty: qty });
-        }
-      }
-    });
-
-    const skus = Object.keys(aggregated);
-    if (skus.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">No stock out records found for selected category and date range.</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = skus.map(sku => {
-      const item = aggregated[sku];
-      const avgQty = item.totalStockOut / dayDiff;
-      const avgConsumption = (item.totalStockOut * item.qtyPerKg) / dayDiff;
-
-      window['logs_' + sku] = item.logs;
-
-      return '<tr>' +
-        '<td>' + item.name + ' (' + sku + ')</td>' +
-        '<td><span class="clickable-qty" onclick="showStockOutDetails(\'' + sku + '\', \'' + item.name.replace(/'/g, "\\'") + '\')">' + formatCellValue(item.totalStockOut) + '</span></td>' +
-        '<td>' + formatCellValue(item.qtyPerKg) + '</td>' +
-        '<td>' + formatCellValue(avgQty) + '</td>' +
-        '<td>' + formatCellValue(avgConsumption) + '</td>' +
-        '</tr>';
-    }).join('');
-  }).catch(err => {
-    tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">Error: ' + err.message + '</td></tr>';
-  });
-}
-
-function showStockOutDetails(sku, itemName) {
-  const logs = window['logs_' + sku] || [];
-  document.getElementById('modalTitle').textContent = 'Date-wise Stock Out: ' + itemName;
-
-  const tbody = document.getElementById('modalTableBody');
-  if (logs.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="4" class="empty-msg">No breakdown details available.</td></tr>';
+  if (!getEffectiveApiUrl()) {
+    document.getElementById('urlSetupCard').style.display = 'block';
   } else {
-    tbody.innerHTML = logs.map(l =>
-      '<tr>' +
-      '<td>' + l.date + '</td>' +
-      '<td>' + l.user + '</td>' +
-      '<td>' + l.branch + '</td>' +
-      '<td>' + formatCellValue(l.qty) + '</td>' +
-      '</tr>'
-    ).join('');
+    showTotalStockOutView();
   }
-  document.getElementById('detailModal').style.display = 'flex';
-}
-
-function closeModal() {
-  document.getElementById('detailModal').style.display = 'none';
-}
+};
 </script>
 </body>
 </html>
