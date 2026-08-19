@@ -19,6 +19,7 @@
   label{font-size:12px;font-weight:600;color:#6b5c50;display:block;margin-bottom:5px;}
   input[type=text]{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;margin-bottom:10px;background:#fff;}
   input[type=number]{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;margin-bottom:10px;background:#fff;}
+  input[type=date]{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:15px;margin-bottom:10px;background:#fff;}
   select{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;margin-bottom:10px;background:#fff;}
   .msg{font-size:13px;padding:10px 12px;border-radius:8px;margin-bottom:10px;display:none;}
   .msg.ok{background:#e7f6ea;color:var(--ok);display:block;}
@@ -33,7 +34,8 @@
   .tab.active{background:var(--card);font-weight:700;color:var(--maroon);}
 
   .toolbar{max-width:1100px;margin:0 auto;padding:0 14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
-  .toolbar input{flex:1;min-width:180px;margin-bottom:0;}
+  .toolbar input[type=text]{flex:1;min-width:180px;margin-bottom:0;}
+  .toolbar input[type=date]{flex:0 0 auto;width:160px;margin-bottom:0;}
   .count-badge{font-size:12px;color:#777;white-space:nowrap;}
 
   .table-wrap{max-width:1100px;margin:10px auto 24px;padding:0 14px;overflow-x:auto;}
@@ -61,6 +63,12 @@
   .stat .lbl{font-size:11px;color:#777;margin-top:2px;}
   .section-title{font-size:13px;font-weight:700;color:var(--maroon-dark);margin:16px auto 8px;max-width:1100px;padding:0 14px;}
   .location-table-wrap{max-width:1100px;margin:0 auto 10px;padding:0 14px;overflow-x:auto;}
+
+  /* Drilldown modal overlay (Total Stock Out -> click a number) */
+  .overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(30,15,15,.55);z-index:200;display:none;align-items:flex-start;justify-content:center;padding:40px 14px;overflow-y:auto;}
+  .overlay-card{background:#fff;border-radius:12px;padding:16px;max-width:720px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,.25);}
+  .overlay-card table{font-size:12px;}
+  .stockout-link{background:none;border:none;color:var(--maroon);font-weight:700;text-decoration:underline;cursor:pointer;font-size:12.5px;padding:0;}
 </style>
 </head>
 <body>
@@ -87,6 +95,10 @@
 
 <div class="toolbar" id="toolbarView">
   <input type="text" id="searchBox" placeholder="🔍 Search this table…" oninput="applyFilter()">
+  <input type="date" id="dateFilterStart" style="display:none;" onchange="loadCurrentTable()" title="Start Date">
+  <span id="dateFilterSep" style="display:none;font-size:12px;color:#777;">to</span>
+  <input type="date" id="dateFilterEnd" style="display:none;" onchange="loadCurrentTable()" title="End Date">
+  <button class="btn-secondary" id="dateFilterClearBtn" style="display:none;" onclick="clearDateFilter()">✕ Clear Dates</button>
   <select id="extraFilterSelect" style="display:none;flex:0 0 auto;min-width:160px;" onchange="applyFilter()"><option value="">All</option></select>
   <button class="btn-primary" id="tableActionBtn" style="display:none;" onclick="handleTableActionClick()"></button>
   <button class="btn-secondary" id="bulkAssignBtn" style="display:none;" onclick="handleBulkAssignClick()">🧩 Bulk Assign SKUs</button>
@@ -127,6 +139,38 @@
   </div>
 
   <div id="locationDetailWrap"></div>
+</div>
+
+<!-- ============================= TOTAL STOCK OUT REPORT TAB ============================= -->
+<div id="stockOutView" style="display:none;">
+  <div class="card" style="max-width:1100px;margin:14px auto;">
+    <label>📦 Category</label>
+    <select id="stockOutCategory"><option value="All">Loading…</option></select>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:150px;">
+        <label>Start Date</label>
+        <input type="date" id="stockOutStartDate">
+      </div>
+      <div style="flex:1;min-width:150px;">
+        <label>End Date</label>
+        <input type="date" id="stockOutEndDate">
+      </div>
+    </div>
+    <button class="btn-primary" onclick="loadStockOutSummary()" style="width:100%;">🔍 Show Report</button>
+  </div>
+  <div class="table-wrap" id="stockOutTableWrap"></div>
+</div>
+
+<!-- Drilldown popup: date-wise stock-out for one item, within the same date range -->
+<div class="overlay" id="drilldownOverlay" onclick="closeDrilldownOnOverlay(event)">
+  <div class="overlay-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+      <h3 id="drilldownTitle" style="margin:0;font-size:14px;color:var(--maroon-dark);"></h3>
+      <button class="btn-secondary" onclick="closeDrilldown()">✕ Close</button>
+    </div>
+    <div id="drilldownTableWrap" style="margin-top:10px;overflow-x:auto;"></div>
+  </div>
 </div>
 
 <div class="card" id="addItemView" style="display:none;max-width:1100px;margin:10px auto 24px;">
@@ -190,6 +234,11 @@ const TABLES = [
   { key: 'Racks',         label: '🗄️ Racks' }
 ];
 const DASHBOARD_KEY = 'Dashboard'; // special tab - godown vs branch-wise stock overview
+const TOTAL_STOCKOUT_KEY = 'TotalStockOut'; // special tab - category + date-range stock-out report
+
+// Tables that get a Start Date / End Date filter in the toolbar (both have Timestamp in col A,
+// and the backend's getSheetData already supports startDate/endDate for these two).
+const DATE_FILTER_TABLES = ['Inward_Entry', 'Outward_Entry'];
 
 // ============================= PASTE YOUR WEB APP URL BELOW ======================================
 // After deploying WebApp.gs in Apps Script (Deploy > New deployment > Web app), copy the URL
@@ -260,11 +309,15 @@ function callApi(action, data, attempt) {
   });
 }
 const RETRYABLE_ACTIONS = ['ping', 'getBranches', 'getRacks', 'lookupItem', 'searchItems',
-  'getSheetData', 'getStockHealth', 'getLocationStock', 'getEntriesWithPhotos', 'getAvailableTables', 'getDashboard'];
+  'getSheetData', 'getStockHealth', 'getLocationStock', 'getEntriesWithPhotos', 'getAvailableTables',
+  'getDashboard', 'getCategories', 'getStockOutSummary', 'getStockOutDrilldown'];
 
 function buildTabs() {
   const bar = document.getElementById('tabBar');
-  const allTabs = [{ key: DASHBOARD_KEY, label: '📊 Dashboard' }].concat(TABLES);
+  const allTabs = [
+    { key: DASHBOARD_KEY, label: '📊 Dashboard' },
+    { key: TOTAL_STOCKOUT_KEY, label: '📈 Total Stock Out' }
+  ].concat(TABLES);
   bar.innerHTML = allTabs.map(t =>
     '<div class="tab' + (t.key === currentTableKey ? ' active' : '') + '" data-key="' + t.key + '">' + t.label + '</div>'
   ).join('');
@@ -275,6 +328,8 @@ function buildTabs() {
       buildTabs();
       if (currentTableKey === DASHBOARD_KEY) {
         showDashboardView();
+      } else if (currentTableKey === TOTAL_STOCKOUT_KEY) {
+        showStockOutView();
       } else {
         showTableView();
         loadCurrentTable();
@@ -364,6 +419,7 @@ function hideAllViews() {
   document.getElementById('addItemView').style.display = 'none';
   document.getElementById('addBranchView').style.display = 'none';
   document.getElementById('dashboardView').style.display = 'none';
+  document.getElementById('stockOutView').style.display = 'none';
 }
 
 function showTableView() {
@@ -372,6 +428,18 @@ function showTableView() {
   document.getElementById('tableView').style.display = 'block';
   document.getElementById('searchBox').style.display = '';
   document.getElementById('stockHealthLegend').style.display = (currentTableKey === 'Stock_Ledger') ? 'flex' : 'none';
+
+  // Show the Start/End Date filter only for Inward_Entry / Outward_Entry.
+  const showDateFilter = DATE_FILTER_TABLES.indexOf(currentTableKey) !== -1;
+  document.getElementById('dateFilterStart').style.display = showDateFilter ? 'inline-block' : 'none';
+  document.getElementById('dateFilterEnd').style.display = showDateFilter ? 'inline-block' : 'none';
+  document.getElementById('dateFilterSep').style.display = showDateFilter ? 'inline' : 'none';
+  document.getElementById('dateFilterClearBtn').style.display = showDateFilter ? 'inline-block' : 'none';
+  if (!showDateFilter) {
+    document.getElementById('dateFilterStart').value = '';
+    document.getElementById('dateFilterEnd').value = '';
+  }
+
   setupTableActionButton();
 }
 
@@ -379,6 +447,12 @@ function showDashboardView() {
   hideAllViews();
   document.getElementById('dashboardView').style.display = 'block';
   loadLocationStock();
+}
+
+function clearDateFilter() {
+  document.getElementById('dateFilterStart').value = '';
+  document.getElementById('dateFilterEnd').value = '';
+  loadCurrentTable();
 }
 
 // Which column (by header name, case-insensitive) the extra filter dropdown should group by,
@@ -395,10 +469,16 @@ function loadCurrentTable() {
   document.getElementById('dataTable').innerHTML = '<thead><tr><th>Loading…</th></tr></thead><tbody></tbody>';
   document.getElementById('countBadge').textContent = '';
 
+  const params = { sheetName: currentTableKey };
+  if (DATE_FILTER_TABLES.indexOf(currentTableKey) !== -1) {
+    params.startDate = document.getElementById('dateFilterStart').value || '';
+    params.endDate = document.getElementById('dateFilterEnd').value || '';
+  }
+
   // Sequential, not parallel: firing getSheetData and getStockHealth at the exact same time
   // could both trigger a Stock_Ledger rebuild concurrently, which risks intermittent failures.
   // One request finishing before the next starts is safer, even though very slightly slower.
-  callApi('getSheetData', { sheetName: currentTableKey }).then(res => {
+  callApi('getSheetData', params).then(res => {
     currentHeaders = res.headers || [];
     currentRows = res.rows || [];
 
@@ -771,6 +851,99 @@ function buildLocationTable(headers, rows, rowBands) {
       }).join('') + '</tbody>'
     : '<tbody><tr><td colspan="' + headers.length + '" class="empty-msg">No stock recorded yet.</td></tr></tbody>';
   return '<div class="location-table-wrap"><table>' + thead + tbody + '</table></div>';
+}
+
+// ============================= TOTAL STOCK OUT REPORT (category + date range) ===================
+let stockOutCategoriesLoaded = false;
+let currentStockOutRange = { start: '', end: '' }; // remembered so the drilldown popup uses the same range
+
+function showStockOutView() {
+  hideAllViews();
+  document.getElementById('stockOutView').style.display = 'block';
+  if (!stockOutCategoriesLoaded) {
+    loadStockOutCategories();
+  }
+}
+
+function loadStockOutCategories() {
+  const sel = document.getElementById('stockOutCategory');
+  callApi('getCategories').then(cats => {
+    stockOutCategoriesLoaded = true;
+    sel.innerHTML = '<option value="All">All Categories</option>' +
+      (cats || []).map(c => '<option value="' + c + '">' + c + '</option>').join('');
+  }).catch(err => {
+    sel.innerHTML = '<option value="All">All Categories</option>';
+    document.getElementById('stockOutTableWrap').innerHTML = '<div class="empty-msg">⚠️ Could not load categories: ' + err.message + '</div>';
+  });
+}
+
+function loadStockOutSummary() {
+  const category = document.getElementById('stockOutCategory').value || 'All';
+  const startDate = document.getElementById('stockOutStartDate').value;
+  const endDate = document.getElementById('stockOutEndDate').value;
+  currentStockOutRange = { start: startDate, end: endDate };
+
+  document.getElementById('stockOutTableWrap').innerHTML = '<div class="empty-msg">Loading…</div>';
+  callApi('getStockOutSummary', { category: category, startDate: startDate, endDate: endDate }).then(res => {
+    renderStockOutTable(res.items || [], res.dayDiff || 1);
+  }).catch(err => {
+    document.getElementById('stockOutTableWrap').innerHTML = '<div class="empty-msg">⚠️ ' + err.message + '</div>';
+  });
+}
+
+function renderStockOutTable(items, dayDiff) {
+  const wrap = document.getElementById('stockOutTableWrap');
+  if (!items.length) {
+    wrap.innerHTML = '<div class="empty-msg">No stock-out records found for this filter. Pick a category / date range and click "Show Report".</div>';
+    return;
+  }
+  const rows = items.map(it =>
+    '<tr>' +
+      '<td>' + it.sku + '</td>' +
+      '<td>' + it.name + '</td>' +
+      '<td><button class="stockout-link" onclick="showStockOutDrilldown(\'' +
+        String(it.sku).replace(/'/g, "\\'") + '\',\'' + String(it.name).replace(/'/g, "\\'") + '\')">' +
+        formatCellValue(it.totalStockOut) + '</button></td>' +
+      '<td>' + formatCellValue(it.qtyPerKg) + '</td>' +
+      '<td>' + formatCellValue(it.avgQty) + '</td>' +
+      '<td>' + formatCellValue(it.avgConsumption) + '</td>' +
+    '</tr>'
+  ).join('');
+  wrap.innerHTML =
+    '<div class="count-badge" style="padding:0 0 6px;">' + items.length + ' item(s) — date range span: ' + dayDiff + ' day(s)</div>' +
+    '<table><thead><tr>' +
+      '<th>SKU</th><th>Item Name</th><th>Total Stock Out</th><th>Qty per Kg (Master)</th>' +
+      '<th>Avg Qty (per day)</th><th>Avg Consumption</th>' +
+    '</tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
+// Click on a "Total Stock Out" number -> popup showing date-wise entries (qty, branch, entered by)
+// for that item, within the SAME date range that was used for the summary above.
+function showStockOutDrilldown(sku, name) {
+  document.getElementById('drilldownTitle').textContent = '📦 ' + name + ' (' + sku + ') — Date-wise Stock Out';
+  document.getElementById('drilldownTableWrap').innerHTML = '<div class="empty-msg">Loading…</div>';
+  document.getElementById('drilldownOverlay').style.display = 'flex';
+
+  callApi('getStockOutDrilldown', { sku: sku, startDate: currentStockOutRange.start, endDate: currentStockOutRange.end }).then(rows => {
+    if (!rows || !rows.length) {
+      document.getElementById('drilldownTableWrap').innerHTML = '<div class="empty-msg">No entries in this date range.</div>';
+      return;
+    }
+    const trs = rows.map(r =>
+      '<tr><td>' + r.date + '</td><td>' + formatCellValue(r.qty) + '</td><td>' + (r.branch || '—') + '</td><td>' + (r.enteredBy || '—') + '</td></tr>'
+    ).join('');
+    document.getElementById('drilldownTableWrap').innerHTML =
+      '<table><thead><tr><th>Date/Time</th><th>Qty</th><th>Branch</th><th>Entered By</th></tr></thead><tbody>' + trs + '</tbody></table>';
+  }).catch(err => {
+    document.getElementById('drilldownTableWrap').innerHTML = '<div class="empty-msg">⚠️ ' + err.message + '</div>';
+  });
+}
+
+function closeDrilldown() {
+  document.getElementById('drilldownOverlay').style.display = 'none';
+}
+function closeDrilldownOnOverlay(e) {
+  if (e.target && e.target.id === 'drilldownOverlay') closeDrilldown();
 }
 </script>
 </body>
