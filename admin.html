@@ -57,6 +57,10 @@
   tr.row-green{background:#e2f4e6;}
   tr.row-green td{color:#1f5c34;}
 
+  /* Rack-group header row inside the Total Stock Report table - a visual separator between
+     one Rack/Location's items and the next, since the report is now grouped rack-wise. */
+  tr.rack-group-row td{background:#efe1d3;color:var(--maroon-dark);font-weight:700;font-size:11.5px;letter-spacing:.2px;padding:6px 10px;}
+
   .stats{display:flex;gap:10px;flex-wrap:wrap;max-width:1100px;margin:10px auto;padding:0 14px;}
   .stat{flex:1;min-width:140px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;}
   .stat .num{font-size:22px;font-weight:700;color:var(--maroon);}
@@ -64,7 +68,7 @@
   .section-title{font-size:13px;font-weight:700;color:var(--maroon-dark);margin:16px auto 8px;max-width:1100px;padding:0 14px;}
   .location-table-wrap{max-width:1100px;margin:0 auto 10px;padding:0 14px;overflow-x:auto;}
 
-  /* Drilldown modal overlay (Total Stock Out -> click a number) */
+  /* Drilldown modal overlay (Total Stock Report -> click a number) */
   .overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(30,15,15,.55);z-index:200;display:none;align-items:flex-start;justify-content:center;padding:40px 14px;overflow-y:auto;}
   .overlay-card{background:#fff;border-radius:12px;padding:16px;max-width:720px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,.25);}
   .overlay-card table{font-size:12px;}
@@ -141,11 +145,19 @@
   <div id="locationDetailWrap"></div>
 </div>
 
-<!-- ============================= TOTAL STOCK OUT REPORT TAB ============================= -->
+<!-- ============================= TOTAL STOCK REPORT TAB ============================= -->
 <div id="stockOutView" style="display:none;">
   <div class="card" style="max-width:1100px;margin:14px auto;">
-    <label>📦 Category</label>
-    <select id="stockOutCategory"><option value="All">Loading…</option></select>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:150px;">
+        <label>📦 Category</label>
+        <select id="stockOutCategory"><option value="All">Loading…</option></select>
+      </div>
+      <div style="flex:1;min-width:150px;">
+        <label>🗄️ Rack / Location</label>
+        <select id="stockOutRack"><option value="All">Loading…</option></select>
+      </div>
+    </div>
 
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
       <div style="flex:1;min-width:150px;">
@@ -234,7 +246,7 @@ const TABLES = [
   { key: 'Racks',         label: '🗄️ Racks' }
 ];
 const DASHBOARD_KEY = 'Dashboard'; // special tab - godown vs branch-wise stock overview
-const TOTAL_STOCKOUT_KEY = 'TotalStockOut'; // special tab - category + date-range stock-out report
+const TOTAL_STOCKOUT_KEY = 'TotalStockOut'; // special tab - category + rack + date-range stock report
 
 // Tables that get a Start Date / End Date filter in the toolbar (both have Timestamp in col A,
 // and the backend's getSheetData already supports startDate/endDate for these two).
@@ -310,13 +322,13 @@ function callApi(action, data, attempt) {
 }
 const RETRYABLE_ACTIONS = ['ping', 'getBranches', 'getRacks', 'lookupItem', 'searchItems',
   'getSheetData', 'getStockHealth', 'getLocationStock', 'getEntriesWithPhotos', 'getAvailableTables',
-  'getDashboard', 'getCategories', 'getStockOutSummary', 'getStockOutDrilldown'];
+  'getDashboard', 'getCategories', 'getStockOutRacks', 'getStockOutSummary', 'getStockOutDrilldown'];
 
 function buildTabs() {
   const bar = document.getElementById('tabBar');
   const allTabs = [
     { key: DASHBOARD_KEY, label: '📊 Dashboard' },
-    { key: TOTAL_STOCKOUT_KEY, label: '📈 Total Stock Out' }
+    { key: TOTAL_STOCKOUT_KEY, label: '📈 Total Stock Report' }
   ].concat(TABLES);
   bar.innerHTML = allTabs.map(t =>
     '<div class="tab' + (t.key === currentTableKey ? ' active' : '') + '" data-key="' + t.key + '">' + t.label + '</div>'
@@ -853,8 +865,9 @@ function buildLocationTable(headers, rows, rowBands) {
   return '<div class="location-table-wrap"><table>' + thead + tbody + '</table></div>';
 }
 
-// ============================= TOTAL STOCK OUT REPORT (category + date range) ===================
+// ============================= TOTAL STOCK REPORT (category + rack + date range) ================
 let stockOutCategoriesLoaded = false;
+let stockOutRacksLoaded = false;
 let currentStockOutRange = { start: '', end: '' }; // remembered so the drilldown popup uses the same range
 
 function showStockOutView() {
@@ -862,6 +875,9 @@ function showStockOutView() {
   document.getElementById('stockOutView').style.display = 'block';
   if (!stockOutCategoriesLoaded) {
     loadStockOutCategories();
+  }
+  if (!stockOutRacksLoaded) {
+    loadStockOutRacks();
   }
 }
 
@@ -877,44 +893,72 @@ function loadStockOutCategories() {
   });
 }
 
+// Loads the distinct Rack/Location list (from Item_Master) for the rack-wise filter dropdown -
+// same idea as loadStockOutCategories(), just for racks/zones instead of categories.
+function loadStockOutRacks() {
+  const sel = document.getElementById('stockOutRack');
+  callApi('getStockOutRacks').then(racks => {
+    stockOutRacksLoaded = true;
+    sel.innerHTML = '<option value="All">All Racks / Locations</option>' +
+      (racks || []).map(r => '<option value="' + r + '">' + r + '</option>').join('');
+  }).catch(err => {
+    sel.innerHTML = '<option value="All">All Racks / Locations</option>';
+    document.getElementById('stockOutTableWrap').innerHTML = '<div class="empty-msg">⚠️ Could not load racks: ' + err.message + '</div>';
+  });
+}
+
 function loadStockOutSummary() {
   const category = document.getElementById('stockOutCategory').value || 'All';
+  const rack = document.getElementById('stockOutRack').value || 'All';
   const startDate = document.getElementById('stockOutStartDate').value;
   const endDate = document.getElementById('stockOutEndDate').value;
   currentStockOutRange = { start: startDate, end: endDate };
 
   document.getElementById('stockOutTableWrap').innerHTML = '<div class="empty-msg">Loading…</div>';
-  callApi('getStockOutSummary', { category: category, startDate: startDate, endDate: endDate }).then(res => {
+  callApi('getStockOutSummary', { category: category, rack: rack, startDate: startDate, endDate: endDate }).then(res => {
     renderStockOutTable(res.items || [], res.dayDiff || 1);
   }).catch(err => {
     document.getElementById('stockOutTableWrap').innerHTML = '<div class="empty-msg">⚠️ ' + err.message + '</div>';
   });
 }
 
+// Renders the report grouped rack-wise: a bold group header row for each distinct Rack/Location
+// (e.g. "🗄️ RACK-001-A"), followed by that rack's items - items already arrive from the backend
+// pre-sorted rack-wise (Location, then SKU), so this just inserts a header row whenever the
+// Location changes from the row before it.
 function renderStockOutTable(items, dayDiff) {
   const wrap = document.getElementById('stockOutTableWrap');
   if (!items.length) {
-    wrap.innerHTML = '<div class="empty-msg">No stock-out records found for this filter. Pick a category / date range and click "Show Report".</div>';
+    wrap.innerHTML = '<div class="empty-msg">No stock-out records found for this filter. Pick a category / rack / date range and click "Show Report".</div>';
     return;
   }
-  const rows = items.map(it =>
-    '<tr>' +
-      '<td>' + it.sku + '</td>' +
-      '<td>' + it.name + '</td>' +
-      '<td><button class="stockout-link" onclick="showStockOutDrilldown(\'' +
-        String(it.sku).replace(/'/g, "\\'") + '\',\'' + String(it.name).replace(/'/g, "\\'") + '\')">' +
-        formatCellValue(it.totalStockOut) + '</button></td>' +
-      '<td>' + formatCellValue(it.qtyPerKg) + '</td>' +
-      '<td>' + formatCellValue(it.avgQty) + '</td>' +
-      '<td>' + formatCellValue(it.avgConsumption) + '</td>' +
-    '</tr>'
-  ).join('');
+
+  let rowsHtml = '';
+  let lastLocation = null;
+  items.forEach(it => {
+    const loc = it.location || '(No Rack/Location)';
+    if (loc !== lastLocation) {
+      rowsHtml += '<tr class="rack-group-row"><td colspan="5">🗄️ ' + loc + '</td></tr>';
+      lastLocation = loc;
+    }
+    rowsHtml +=
+      '<tr>' +
+        '<td>' + it.sku + '</td>' +
+        '<td>' + it.name + '</td>' +
+        '<td><button class="stockout-link" onclick="showStockOutDrilldown(\'' +
+          String(it.sku).replace(/'/g, "\\'") + '\',\'' + String(it.name).replace(/'/g, "\\'") + '\')">' +
+          formatCellValue(it.totalStockOut) + '</button></td>' +
+        '<td>' + formatCellValue(it.avgQty) + '</td>' +
+        '<td>' + formatCellValue(it.avgConsumption) + '</td>' +
+      '</tr>';
+  });
+
   wrap.innerHTML =
     '<div class="count-badge" style="padding:0 0 6px;">' + items.length + ' item(s) — date range span: ' + dayDiff + ' day(s)</div>' +
     '<table><thead><tr>' +
-      '<th>SKU</th><th>Item Name</th><th>Total Stock Out</th><th>Qty per Kg (Master)</th>' +
+      '<th>SKU</th><th>Item Name</th><th>Total Stock Out</th>' +
       '<th>Avg Qty (per day)</th><th>Avg Consumption</th>' +
-    '</tr></thead><tbody>' + rows + '</tbody></table>';
+    '</tr></thead><tbody>' + rowsHtml + '</tbody></table>';
 }
 
 // Click on a "Total Stock Out" number -> popup showing date-wise entries (qty, branch, entered by)
