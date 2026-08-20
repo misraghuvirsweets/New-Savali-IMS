@@ -17,12 +17,14 @@
   .brand-logo{height:68px;width:68px;object-fit:contain;border-radius:12px;background:#fff;padding:4px;}
   .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
   label{font-size:12px;font-weight:600;color:#6b5c50;display:block;margin-bottom:5px;}
-  input[type=text], input[type=number], input[type=date], select{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;margin-bottom:10px;background:#fff;}
-  input[type=date]{font-size:15px;}
+  input[type=text]{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;margin-bottom:10px;background:#fff;}
+  input[type=number]{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;margin-bottom:10px;background:#fff;}
+  input[type=date]{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:15px;margin-bottom:10px;background:#fff;}
+  select{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;font-size:16px;margin-bottom:10px;background:#fff;}
   .msg{font-size:13px;padding:10px 12px;border-radius:8px;margin-bottom:10px;display:none;}
   .msg.ok{background:#e7f6ea;color:var(--ok);display:block;}
   .msg.err{background:#fdecea;color:var(--warn);display:block;}
-  input:focus, select:focus{outline:none;border-color:var(--gold);}
+  input:focus{outline:none;border-color:var(--gold);}
   button{padding:10px 14px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;}
   .btn-primary{background:var(--maroon);color:#fff;}
   .btn-secondary{background:#efe6db;color:var(--maroon-dark);}
@@ -44,10 +46,16 @@
   .lowstock{color:var(--warn);font-weight:700;}
   .empty-msg{padding:20px;text-align:center;color:#999;font-size:13px;}
 
-  tr.row-red{background:#fbe1df;} tr.row-red td{color:#7a1f19;font-weight:600;}
-  tr.row-orange{background:#fce6cf;} tr.row-orange td{color:#7a4a12;}
-  tr.row-lightbrown{background:#f1e3cf;} tr.row-lightbrown td{color:#5c4726;}
-  tr.row-green{background:#e2f4e6;} tr.row-green td{color:#1f5c34;}
+  /* Stock health color coding (Current Stock vs Reorder Level) - same bands as the Supervisor
+     dashboard's Low Stock Alert view. */
+  tr.row-red{background:#fbe1df;}
+  tr.row-red td{color:#7a1f19;font-weight:600;}
+  tr.row-orange{background:#fce6cf;}
+  tr.row-orange td{color:#7a4a12;}
+  tr.row-lightbrown{background:#f1e3cf;}
+  tr.row-lightbrown td{color:#5c4726;}
+  tr.row-green{background:#e2f4e6;}
+  tr.row-green td{color:#1f5c34;}
 
   .stats{display:flex;gap:10px;flex-wrap:wrap;max-width:1100px;margin:10px auto;padding:0 14px;}
   .stat{flex:1;min-width:140px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;}
@@ -56,6 +64,7 @@
   .section-title{font-size:13px;font-weight:700;color:var(--maroon-dark);margin:16px auto 8px;max-width:1100px;padding:0 14px;}
   .location-table-wrap{max-width:1100px;margin:0 auto 10px;padding:0 14px;overflow-x:auto;}
 
+  /* Drilldown modal overlay (Total Stock Out -> click a number) */
   .overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(30,15,15,.55);z-index:200;display:none;align-items:flex-start;justify-content:center;padding:40px 14px;overflow-y:auto;}
   .overlay-card{background:#fff;border-radius:12px;padding:16px;max-width:720px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,.25);}
   .overlay-card table{font-size:12px;}
@@ -76,7 +85,8 @@
   <input type="text" id="urlSetupInput" placeholder="https://script.google.com/macros/s/XXXXX/exec">
   <button class="btn-primary" onclick="saveUrlFallback()">💾 Save &amp; Continue</button>
   <p style="font-size:11px;color:#888;margin-top:8px;">
-    This is saved only in this browser/device. To make it permanent, edit the API_URL line in the code.
+    This is saved only in this browser/device. To make it permanent for everyone, edit the
+    API_URL line near the top of this file's code instead.
   </p>
   <p id="debugUrlLine" style="font-size:11px;color:var(--warn);margin-top:6px;font-family:monospace;word-break:break-all;"></p>
 </div>
@@ -123,7 +133,7 @@
       <input type="text" id="stockOutSku" placeholder="SKU Code (e.g. RACK-001-A-001)" style="flex:2;min-width:160px;">
       <input type="number" id="stockOutQty" placeholder="Qty" style="flex:1;min-width:80px;">
     </div>
-    <input type="text" id="stockOutRemarks" placeholder="Reason / remarks (optional)">
+    <input type="text" id="stockOutRemarks" placeholder="Reason / remarks (optional) - e.g. Sold to customer">
     <div class="msg" id="stockOutMsg"></div>
     <button class="btn-primary" onclick="submitBranchStockOut()" style="width:100%;">✅ Log Stock-Out</button>
   </div>
@@ -131,19 +141,11 @@
   <div id="locationDetailWrap"></div>
 </div>
 
-<!-- ============================= TOTAL STOCK REPORT TAB ============================= -->
+<!-- ============================= TOTAL STOCK OUT REPORT TAB ============================= -->
 <div id="stockOutView" style="display:none;">
   <div class="card" style="max-width:1100px;margin:14px auto;">
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      <div style="flex:1;min-width:150px;">
-        <label>📦 Category / Department</label>
-        <select id="stockOutCategory"><option value="All">All Categories / Departments</option></select>
-      </div>
-      <div style="flex:1;min-width:150px;">
-        <label>🗄️ Rack / Location</label>
-        <select id="stockOutRack"><option value="All">All Racks / Locations</option></select>
-      </div>
-    </div>
+    <label>📦 Category</label>
+    <select id="stockOutCategory"><option value="All">Loading…</option></select>
 
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
       <div style="flex:1;min-width:150px;">
@@ -160,6 +162,7 @@
   <div class="table-wrap" id="stockOutTableWrap"></div>
 </div>
 
+<!-- Drilldown popup: date-wise stock-out for one item, within the same date range -->
 <div class="overlay" id="drilldownOverlay" onclick="closeDrilldownOnOverlay(event)">
   <div class="overlay-card">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
@@ -174,32 +177,38 @@
   <label>Item Name</label>
   <input type="text" id="addName" placeholder="e.g. Kaju Katli Box - 500g">
   <label>Category</label>
-  <input type="text" id="addCategory" placeholder="e.g. Bakery, Packaging Material">
+  <input type="text" id="addCategory" placeholder="e.g. Packing Box, Ribbon, Sticker">
+
   <label>Storage Type</label>
   <select id="addStorageType">
     <option value="racked">Racked (stored on a rack)</option>
     <option value="nonracked">Non-Racked (loose storage zone)</option>
   </select>
+
   <label id="addLocationLabel">Rack Code</label>
   <select id="addLocation" onchange="handleLocationSelectChange()"><option value="">Loading…</option></select>
-  <input type="text" id="addLocationManual" placeholder="Type rack/zone code" style="display:none;">
+  <input type="text" id="addLocationManual" placeholder="Type the rack/zone code, e.g. RACK-003-A" style="display:none;">
+
   <label>Unit</label>
-  <input type="text" id="addUnit" value="Pcs">
+  <input type="text" id="addUnit" placeholder="e.g. Pcs, Box, Roll" value="Pcs">
   <label>Reorder Level</label>
-  <input type="number" id="addReorder" value="0">
+  <input type="number" id="addReorder" placeholder="e.g. 50" value="0">
   <label>Rate (₹ per unit)</label>
-  <input type="number" id="addRate" step="0.01">
+  <input type="number" id="addRate" placeholder="e.g. 250" step="0.01">
   <label>Qty per Kg</label>
-  <input type="number" id="addQtyPerKg" step="0.01">
+  <input type="number" id="addQtyPerKg" placeholder="e.g. 4" step="0.01">
+
   <label>Barcode</label>
   <select id="addBarcodeMode">
-    <option value="generate">Generate new QR sticker</option>
-    <option value="existing">Use existing vendor barcode</option>
+    <option value="generate">Generate a new QR sticker (we print &amp; stick it)</option>
+    <option value="existing">Use existing vendor barcode (already on the box)</option>
   </select>
+
   <div id="addExistingBarcodeBlock" style="display:none;">
     <label>Existing barcode value</label>
-    <input type="text" id="addExistingBarcode">
+    <input type="text" id="addExistingBarcode" placeholder="Type or scan the existing barcode">
   </div>
+
   <div class="msg" id="addMsg"></div>
   <button class="btn-primary" id="addSubmitBtn" onclick="submitAddItem()" style="width:100%;">✅ Create Item</button>
 </div>
@@ -224,13 +233,23 @@ const TABLES = [
   { key: 'Branches',      label: '🏬 Branches' },
   { key: 'Racks',         label: '🗄️ Racks' }
 ];
-const DASHBOARD_KEY = 'Dashboard';
-const TOTAL_STOCKOUT_KEY = 'TotalStockReport'; 
+const DASHBOARD_KEY = 'Dashboard'; // special tab - godown vs branch-wise stock overview
+const TOTAL_STOCKOUT_KEY = 'TotalStockOut'; // special tab - category + date-range stock-out report
 
+// Tables that get a Start Date / End Date filter in the toolbar (both have Timestamp in col A,
+// and the backend's getSheetData already supports startDate/endDate for these two).
 const DATE_FILTER_TABLES = ['Inward_Entry', 'Outward_Entry'];
-const API_URL = "https://script.google.com/macros/s/AKfycbzRyb3a1UBD2HfiA3_OYPEVghv3Bu4yMkPMfqncCv6ScWFsVh77lxwp7Z2_WQiVaGT_/exec";
-const URL_PLACEHOLDER = 'PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE';
 
+// ============================= PASTE YOUR WEB APP URL BELOW ======================================
+// After deploying WebApp.gs in Apps Script (Deploy > New deployment > Web app), copy the URL
+// it gives you and paste it between the quotes here. This is the recommended permanent setup -
+// everyone who opens this hosted file gets it automatically, nothing to type on each device.
+const API_URL = "https://script.google.com/macros/s/AKfycbzRyb3a1UBD2HfiA3_OYPEVghv3Bu4yMkPMfqncCv6ScWFsVh77lxwp7Z2_WQiVaGT_/exec";
+// Example: const API_URL = "https://script.google.com/macros/s/AKfycb.../exec";
+
+// If the line above was never edited, fall back to a URL saved earlier in this browser (via the
+// on-page box that appears below), so the app still works instead of just showing an error.
+const URL_PLACEHOLDER = 'PASTE_YOUR_DEPLOYED_WEB_APP_URL_HERE';
 function getEffectiveApiUrl() {
   if (API_URL.indexOf(URL_PLACEHOLDER) === -1 && API_URL.trim() !== '') return API_URL.trim();
   return (localStorage.getItem('ims_api_url_fallback') || '').trim();
@@ -238,9 +257,10 @@ function getEffectiveApiUrl() {
 
 function saveUrlFallback() {
   const url = document.getElementById('urlSetupInput').value.trim();
-  if (!url) { alert('Please paste Web App URL.'); return; }
+  if (!url) { alert('Please paste your Web App URL.'); return; }
   localStorage.setItem('ims_api_url_fallback', url);
   document.getElementById('urlSetupCard').style.display = 'none';
+  document.getElementById('testMsg').style.display = 'none';
   loadCurrentTable();
 }
 
@@ -248,11 +268,15 @@ let currentTableKey = DASHBOARD_KEY;
 let currentHeaders = [];
 let currentRows = [];
 
+// Sends the actual HTTP request once. rawCallApi is wrapped by callApi() below, which adds
+// automatic retry - Apps Script Web Apps can fail the very first request after a fresh
+// deployment (or after being idle a while) while the runtime "cold starts", then work fine on
+// the next try. Retrying automatically means the user never has to manually reload the page.
 function rawCallApi(action, data) {
   const url = getEffectiveApiUrl();
   if (!url) {
     document.getElementById('urlSetupCard').style.display = 'block';
-    return Promise.reject(new Error('Web App URL not set.'));
+    return Promise.reject(new Error('Web App URL not set yet - paste it in the box above, or edit the API_URL constant in the code.'));
   }
   return fetch(url, {
     method: 'POST',
@@ -260,8 +284,11 @@ function rawCallApi(action, data) {
     body: JSON.stringify(Object.assign({ action: action }, data || {}))
   }).then(r => r.text()).then(text => {
     let res;
-    try { res = JSON.parse(text); } 
-    catch (e) { throw new Error('Invalid JSON response.'); }
+    try {
+      res = JSON.parse(text);
+    } catch (e) {
+      throw new Error('Server did not return valid data - check the Web App URL and that it has been redeployed (Deploy > Manage deployments > New version).');
+    }
     if (res && res.error) throw new Error(res.error);
     return res;
   });
@@ -270,6 +297,11 @@ function rawCallApi(action, data) {
 function callApi(action, data, attempt) {
   attempt = attempt || 1;
   return rawCallApi(action, data).catch(err => {
+    // Read-only actions are safe to auto-retry (a common cause of the first request failing is
+    // Apps Script "cold starting" right after a fresh deployment). WRITE actions (adding/
+    // deleting items or branches, bulk assign, logging stock-out) are deliberately NEVER
+    // auto-retried - if the first attempt actually succeeded server-side but the response just
+    // failed to arrive, blindly retrying could create a duplicate.
     if (attempt < 2 && RETRYABLE_ACTIONS.indexOf(action) !== -1) {
       return new Promise(resolve => setTimeout(resolve, 900)).then(() => callApi(action, data, attempt + 1));
     }
@@ -278,13 +310,13 @@ function callApi(action, data, attempt) {
 }
 const RETRYABLE_ACTIONS = ['ping', 'getBranches', 'getRacks', 'lookupItem', 'searchItems',
   'getSheetData', 'getStockHealth', 'getLocationStock', 'getEntriesWithPhotos', 'getAvailableTables',
-  'getDashboard', 'getCategories', 'getReportFilters', 'getStockOutSummary', 'getStockOutDrilldown'];
+  'getDashboard', 'getCategories', 'getStockOutSummary', 'getStockOutDrilldown'];
 
 function buildTabs() {
   const bar = document.getElementById('tabBar');
   const allTabs = [
     { key: DASHBOARD_KEY, label: '📊 Dashboard' },
-    { key: TOTAL_STOCKOUT_KEY, label: '📈 Total Stock Report' }
+    { key: TOTAL_STOCKOUT_KEY, label: '📈 Total Stock Out' }
   ].concat(TABLES);
   bar.innerHTML = allTabs.map(t =>
     '<div class="tab' + (t.key === currentTableKey ? ' active' : '') + '" data-key="' + t.key + '">' + t.label + '</div>'
@@ -306,6 +338,8 @@ function buildTabs() {
   });
 }
 
+// Which tabs get an extra action button in the toolbar (Add Item / Add Branch), and what that
+// button does - instead of separate tabs, the add-form now toggles inline on the same tab.
 const TABLE_ACTION_CONFIG = {
   'Item_Master': { label: '➕ Add Item', formId: 'addItemView', onShow: 'loadRacksForAddItem' },
   'Branches':    { label: '➕ Add Branch', formId: 'addBranchView' }
@@ -322,19 +356,38 @@ function setupTableActionButton() {
     btn.style.display = 'inline-block';
     btn.textContent = config.label;
   }
+
   document.getElementById('bulkAssignBtn').style.display = (currentTableKey === 'Item_Master') ? 'inline-block' : 'none';
 }
 
 function handleBulkAssignClick() {
-  const defaultLoc = prompt('Assign SKUs to items missing codes. Enter default Rack Code if unassigned:');
-  if (defaultLoc === null) return;
+  const defaultLoc = prompt(
+    'Assign SKUs to every item that has a name but no SKU Code yet.\n\n' +
+    'Items that already have a Location Code filled in will use that. For items with NO ' +
+    'Location Code, enter a default Rack/Zone code to use (e.g. RACK-002-A or NR-STORE01) - ' +
+    'or leave this blank to skip those for now.'
+  );
+  if (defaultLoc === null) return; // cancelled
+
   const btn = document.getElementById('bulkAssignBtn');
   btn.disabled = true;
+  btn.textContent = 'Working…';
   callApi('bulkAssignSkus', { defaultLocationCode: defaultLoc.trim() }).then(res => {
     btn.disabled = false;
-    alert('Assigned: ' + res.assigned);
+    btn.textContent = '🧩 Bulk Assign SKUs';
+    if (res.error) { alert('❌ ' + res.error); return; }
+    let msg = '✅ Assigned SKUs to ' + res.assigned + ' item(s).';
+    if (res.skipped) {
+      msg += '\n\n⚠️ Skipped ' + res.skipped + ' item(s) with no Location Code and no default given:\n' +
+        res.skippedNames.slice(0, 15).join(', ') + (res.skippedNames.length > 15 ? ', ...' : '');
+    }
+    alert(msg);
     loadCurrentTable();
-  }).catch(err => { btn.disabled = false; alert(err.message); });
+  }).catch(err => {
+    btn.disabled = false;
+    btn.textContent = '🧩 Bulk Assign SKUs';
+    alert('❌ ' + err.message);
+  });
 }
 
 function handleTableActionClick() {
@@ -346,12 +399,15 @@ function handleTableActionClick() {
 
   if (formOpenForTab) {
     document.getElementById('tableView').style.display = 'none';
+    document.getElementById('searchBox').style.display = 'none';
+    document.getElementById('extraFilterSelect').style.display = 'none';
     form.style.display = 'block';
     btn.textContent = '📋 Back to List';
     if (config.onShow) window[config.onShow]();
   } else {
     form.style.display = 'none';
     document.getElementById('tableView').style.display = 'block';
+    document.getElementById('searchBox').style.display = '';
     btn.textContent = config.label;
     loadCurrentTable();
   }
@@ -373,11 +429,17 @@ function showTableView() {
   document.getElementById('searchBox').style.display = '';
   document.getElementById('stockHealthLegend').style.display = (currentTableKey === 'Stock_Ledger') ? 'flex' : 'none';
 
+  // Show the Start/End Date filter only for Inward_Entry / Outward_Entry.
   const showDateFilter = DATE_FILTER_TABLES.indexOf(currentTableKey) !== -1;
   document.getElementById('dateFilterStart').style.display = showDateFilter ? 'inline-block' : 'none';
   document.getElementById('dateFilterEnd').style.display = showDateFilter ? 'inline-block' : 'none';
   document.getElementById('dateFilterSep').style.display = showDateFilter ? 'inline' : 'none';
   document.getElementById('dateFilterClearBtn').style.display = showDateFilter ? 'inline-block' : 'none';
+  if (!showDateFilter) {
+    document.getElementById('dateFilterStart').value = '';
+    document.getElementById('dateFilterEnd').value = '';
+  }
+
   setupTableActionButton();
 }
 
@@ -393,37 +455,80 @@ function clearDateFilter() {
   loadCurrentTable();
 }
 
-let currentStockHealthMap = {};
+// Which column (by header name, case-insensitive) the extra filter dropdown should group by,
+// per table - only these two tables get the dropdown; others just get the search box.
+const EXTRA_FILTER_CONFIG = {
+  'Stock_Ledger': { headerMatch: 'location', label: 'Filter by Rack/Location' },
+  'Branch_Ledger': { headerMatch: 'branch', label: 'Filter by Branch' }
+};
+
+let currentStockHealthMap = {}; // SKU -> band, sourced from getStockHealth (Item_Master) - kept
+                                 // in sync with the Supervisor dashboard's coloring logic
 
 function loadCurrentTable() {
   document.getElementById('dataTable').innerHTML = '<thead><tr><th>Loading…</th></tr></thead><tbody></tbody>';
+  document.getElementById('countBadge').textContent = '';
+
   const params = { sheetName: currentTableKey };
   if (DATE_FILTER_TABLES.indexOf(currentTableKey) !== -1) {
     params.startDate = document.getElementById('dateFilterStart').value || '';
     params.endDate = document.getElementById('dateFilterEnd').value || '';
   }
 
+  // Sequential, not parallel: firing getSheetData and getStockHealth at the exact same time
+  // could both trigger a Stock_Ledger rebuild concurrently, which risks intermittent failures.
+  // One request finishing before the next starts is safer, even though very slightly slower.
   callApi('getSheetData', params).then(res => {
     currentHeaders = res.headers || [];
     currentRows = res.rows || [];
+
     if (currentTableKey === 'Stock_Ledger') {
+      // Also fetch the authoritative color bands - computed server-side from Item_Master's
+      // Reorder Level (the exact same source the Supervisor dashboard's Low Stock Alert uses),
+      // rather than trusting Stock_Ledger's own Reorder Level column, which can drift out of
+      // sync with Item_Master.
       return callApi('getStockHealth').then(health => {
         currentStockHealthMap = {};
         (health || []).forEach(it => { currentStockHealthMap[String(it.sku).trim().toUpperCase()] = it.band; });
       });
     }
+    currentStockHealthMap = {};
   }).then(() => {
+    setupExtraFilter();
     renderTable(currentRows);
   }).catch(err => {
-    document.getElementById('dataTable').innerHTML = '<thead><tr><th>Error</th></tr></thead><tbody><tr><td>' + err.message + '</td></tr></tbody>';
+    document.getElementById('dataTable').innerHTML =
+      '<thead><tr><th>Error</th></tr></thead><tbody><tr><td>' + err.message + '</td></tr></tbody>';
   });
 }
 
+function setupExtraFilter() {
+  const wrap = document.getElementById('extraFilterSelect');
+  const config = EXTRA_FILTER_CONFIG[currentTableKey];
+  if (!config) {
+    wrap.style.display = 'none';
+    wrap.innerHTML = '<option value="">All</option>';
+    return;
+  }
+  const colIdx = currentHeaders.findIndex(h => String(h).toLowerCase().indexOf(config.headerMatch) !== -1);
+  if (colIdx === -1) { wrap.style.display = 'none'; return; }
+
+  const values = Array.from(new Set(currentRows.map(r => r[colIdx]).filter(v => v))).sort();
+  wrap.innerHTML = '<option value="">' + config.label + ' (All)</option>' +
+    values.map(v => '<option value="' + v + '">' + v + '</option>').join('');
+  wrap.dataset.colIdx = colIdx;
+  wrap.style.display = 'block';
+}
+
+// Caps any number to 2 decimal places for display (e.g. 1.50033434245 -> "1.50") - whole
+// numbers and non-numeric text pass through untouched. This is a display-only safeguard on top
+// of the actual formulas being rounded at the source - catches any value that still ends up
+// with excess decimals for any reason.
 function formatCellValue(v) {
   if (v === null || v === undefined || v === '') return '';
-  if (typeof v === 'string' && v.indexOf('<') !== -1) return v;
+  if (typeof v === 'string' && v.indexOf('<') !== -1) return v; // HTML (QR/photo thumbnails etc.) - leave alone
   const n = Number(v);
-  if (isNaN(n)) return v;
+  if (isNaN(n)) return v; // not a number - leave as-is
   if (Number.isInteger(n)) return n;
   return n.toFixed(2);
 }
@@ -435,70 +540,239 @@ function renderTable(rows) {
   const skuIdx = isItemMaster ? currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('sku') !== -1) : -1;
   const branchNameIdx = isBranches ? currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('name') !== -1) : -1;
   const hasAction = (isItemMaster && skuIdx !== -1) || (isBranches && branchNameIdx !== -1);
+
+  // For Stock_Ledger: find the SKU column so each row can be matched against
+  // currentStockHealthMap (the authoritative, Item_Master-sourced band) for coloring.
   const ledgerSkuIdx = isStockLedger ? currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('sku') !== -1) : -1;
 
-  const thead = '<thead><tr>' + currentHeaders.map(h => '<th>' + h + '</th>').join('') + (hasAction ? '<th>Action</th>' : '') + '</tr></thead>';
+  const thead = '<thead><tr>' + currentHeaders.map(h => '<th>' + h + '</th>').join('') +
+    (hasAction ? '<th>Action</th>' : '') + '</tr></thead>';
+
   let tbody;
   if (!rows.length) {
     tbody = '<tbody><tr><td colspan="' + Math.max(currentHeaders.length + (hasAction ? 1 : 0), 1) + '" class="empty-msg">No records yet.</td></tr></tbody>';
   } else {
     tbody = '<tbody>' + rows.map(r => {
-      const cells = r.map((c, i) => '<td>' + formatCellValue(c) + '</td>').join('');
+      const cells = r.map((c, i) => {
+        const isStatusCol = currentHeaders[i] === 'Status' && String(c).indexOf('LOW') !== -1;
+        return '<td' + (isStatusCol ? ' class="lowstock"' : '') + '>' + formatCellValue(c) + '</td>';
+      }).join('');
       let actionCell = '';
       if (isItemMaster && skuIdx !== -1) {
-        actionCell = '<td><button style="color:var(--warn);background:none;border:none;cursor:pointer;" onclick="deleteItemRow(\'' + String(r[skuIdx]).replace(/'/g, "\\'") + '\')">🗑️ Delete</button></td>';
+        actionCell = '<td><button style="background:none;border:none;color:var(--warn);font-weight:700;cursor:pointer;" onclick="deleteItemRow(\'' +
+          String(r[skuIdx]).replace(/'/g, "\\'") + '\')">🗑️ Delete</button></td>';
       } else if (isBranches && branchNameIdx !== -1) {
-        actionCell = '<td><button style="color:var(--warn);background:none;border:none;cursor:pointer;" onclick="deleteBranchFromAdmin(\'' + String(r[branchNameIdx]).replace(/'/g, "\\'") + '\')">🗑️ Delete</button></td>';
+        actionCell = '<td><button style="background:none;border:none;color:var(--warn);font-weight:700;cursor:pointer;" onclick="deleteBranchFromAdmin(\'' +
+          String(r[branchNameIdx]).replace(/'/g, "\\'") + '\')">🗑️ Delete</button></td>';
       }
+
       let rowClass = '';
       if (isStockLedger && ledgerSkuIdx !== -1) {
         const band = currentStockHealthMap[String(r[ledgerSkuIdx]).trim().toUpperCase()];
         if (band) rowClass = ' class="row-' + band + '"';
       }
+
       return '<tr' + rowClass + '>' + cells + actionCell + '</tr>';
     }).join('') + '</tbody>';
   }
   document.getElementById('dataTable').innerHTML = thead + tbody;
+  document.getElementById('countBadge').textContent = rows.length + ' row' + (rows.length === 1 ? '' : 's');
 }
 
 function applyFilter() {
   const q = document.getElementById('searchBox').value.trim().toLowerCase();
+  const filterSel = document.getElementById('extraFilterSelect');
+  const filterVal = filterSel.style.display !== 'none' ? filterSel.value : '';
+  const colIdx = filterSel.dataset.colIdx !== undefined ? Number(filterSel.dataset.colIdx) : -1;
+
   let filtered = currentRows;
+  if (filterVal && colIdx !== -1) {
+    filtered = filtered.filter(r => String(r[colIdx]) === filterVal);
+  }
   if (q) {
     filtered = filtered.filter(r => r.some(c => String(c || '').toLowerCase().indexOf(q) !== -1));
   }
+
   renderTable(filtered);
+  document.getElementById('countBadge').textContent = filtered.length + ' of ' + currentRows.length + ' rows';
 }
 
 function deleteItemRow(sku) {
-  if (!confirm('Delete item "' + sku + '"?')) return;
-  callApi('deleteItem', { sku: sku }).then(res => { loadCurrentTable(); });
+  if (!confirm('Delete item "' + sku + '" permanently? This cannot be undone.')) return;
+  callApi('deleteItem', { sku: sku }).then(res => {
+    if (res.success) {
+      loadCurrentTable();
+    } else {
+      alert('❌ ' + res.message);
+    }
+  }).catch(err => alert('❌ ' + err.message));
 }
 
 window.onload = function() {
   buildTabs();
+  document.getElementById('addStorageType').addEventListener('change', refreshLocationOptions);
+  document.getElementById('addBarcodeMode').addEventListener('change', toggleBarcodeModeUI);
+
   if (!getEffectiveApiUrl()) {
     document.getElementById('urlSetupCard').style.display = 'block';
+    document.getElementById('debugUrlLine').textContent =
+      'This page\'s code currently has: API_URL = "' + API_URL + '"';
   } else {
     showDashboardView();
   }
 };
 
-let locationStockData = null;
+// ---------------- ADD ITEM FORM ----------------
+let allRacks = [];
+
+function loadRacksForAddItem() {
+  callApi('getRacks').then(list => {
+    allRacks = list;
+    refreshLocationOptions();
+  }).catch(err => {
+    document.getElementById('addLocation').innerHTML = '<option value="">⚠️ Could not load racks: ' + err.message + '</option>';
+  });
+}
+
+function refreshLocationOptions() {
+  const isRacked = document.getElementById('addStorageType').value === 'racked';
+  document.getElementById('addLocationLabel').textContent = isRacked ? 'Rack Code' : 'Non-Rack Zone Code';
+  const filtered = allRacks.filter(r => isRacked ? r.toUpperCase().startsWith('RACK-') : !r.toUpperCase().startsWith('RACK-'));
+  const sel = document.getElementById('addLocation');
+  const existingOptions = filtered.length
+    ? filtered.map(r => '<option value="' + r + '">' + r + '</option>').join('')
+    : '';
+  sel.innerHTML = existingOptions + '<option value="__MANUAL__">✏️ Type manually…</option>';
+  document.getElementById('addLocationManual').style.display = 'none';
+  document.getElementById('addLocationManual').value = '';
+}
+
+// Shows a free-text field instead of the dropdown when "Type manually" is picked - lets you
+// register an item against a rack/zone that isn't in the Racks sheet yet, without having to
+// go add it there first.
+function handleLocationSelectChange() {
+  const manual = document.getElementById('addLocation').value === '__MANUAL__';
+  document.getElementById('addLocationManual').style.display = manual ? 'block' : 'none';
+}
+
+function toggleBarcodeModeUI() {
+  const existing = document.getElementById('addBarcodeMode').value === 'existing';
+  document.getElementById('addExistingBarcodeBlock').style.display = existing ? 'block' : 'none';
+}
+
+function submitAddItem() {
+  const locationSelectValue = document.getElementById('addLocation').value;
+  const locationCode = locationSelectValue === '__MANUAL__'
+    ? document.getElementById('addLocationManual').value.trim()
+    : locationSelectValue;
+
+  const payload = {
+    itemName: document.getElementById('addName').value.trim(),
+    category: document.getElementById('addCategory').value.trim(),
+    isRacked: document.getElementById('addStorageType').value === 'racked',
+    locationCode: locationCode,
+    unit: document.getElementById('addUnit').value.trim() || 'Pcs',
+    reorder: document.getElementById('addReorder').value || 0,
+    rate: document.getElementById('addRate').value || 0,
+    qtyPerKg: document.getElementById('addQtyPerKg').value || 0,
+    barcodeMode: document.getElementById('addBarcodeMode').value,
+    existingBarcode: document.getElementById('addExistingBarcode').value.trim()
+  };
+
+  const msgEl = document.getElementById('addMsg');
+  function showAddMsg(cls, text) {
+    msgEl.className = 'msg ' + cls;
+    msgEl.textContent = text;
+    msgEl.style.display = 'block';
+  }
+
+  if (!payload.itemName) { showAddMsg('err', '⚠️ Item name is required.'); return; }
+  if (!payload.locationCode) { showAddMsg('err', '⚠️ Please choose or type a rack / zone code.'); return; }
+  if (payload.barcodeMode === 'existing' && !payload.existingBarcode) {
+    showAddMsg('err', '⚠️ Scan or type the existing barcode.'); return;
+  }
+
+  const btn = document.getElementById('addSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Creating…';
+  callApi('addItem', { payload: payload }).then(res => {
+    btn.disabled = false;
+    btn.textContent = '✅ Create Item';
+    if (res.success) {
+      showAddMsg('ok', '✅ ' + res.message);
+      document.getElementById('addName').value = '';
+      document.getElementById('addCategory').value = '';
+      document.getElementById('addExistingBarcode').value = '';
+      document.getElementById('addReorder').value = 0;
+      document.getElementById('addRate').value = '';
+      document.getElementById('addQtyPerKg').value = '';
+      document.getElementById('addLocationManual').value = '';
+      setTimeout(() => { if (formOpenForTab) handleTableActionClick(); }, 900); // pop back to the list showing the new item
+    } else {
+      showAddMsg('err', '❌ ' + res.message);
+    }
+  }).catch(err => {
+    btn.disabled = false;
+    btn.textContent = '✅ Create Item';
+    showAddMsg('err', '❌ ' + err.message);
+  });
+}
+
+// ---------------- MANAGE BRANCHES (merged into the Branches tab) ----------------
+function addBranchFromAdmin() {
+  const nameInput = document.getElementById('newBranchName');
+  const name = nameInput.value.trim();
+  const msgEl = document.getElementById('branchMsg');
+  function showBranchMsg(cls, text) {
+    msgEl.className = 'msg ' + cls;
+    msgEl.textContent = text;
+    msgEl.style.display = 'block';
+  }
+  if (!name) { showBranchMsg('err', '⚠️ Enter a branch name.'); return; }
+
+  callApi('addBranch', { branchName: name }).then(res => {
+    if (res.success) {
+      showBranchMsg('ok', '✅ ' + res.message);
+      nameInput.value = '';
+      setTimeout(() => { if (formOpenForTab) handleTableActionClick(); }, 700); // pop back to the list showing the new branch
+    } else {
+      showBranchMsg('err', '❌ ' + res.message);
+    }
+  }).catch(err => showBranchMsg('err', '❌ ' + err.message));
+}
+
+function deleteBranchFromAdmin(name) {
+  if (!confirm('Delete branch "' + name + '" permanently? This cannot be undone.')) return;
+  callApi('deleteBranch', { branchName: name }).then(res => {
+    if (!res.success) alert('❌ ' + res.message);
+    loadCurrentTable();
+  }).catch(err => alert('❌ ' + err.message));
+}
+
+// ---------------- DASHBOARD (Godown vs Branch-wise stock, dropdown-driven) ----------------
 const GODOWN_OPTION_VALUE = '__GODOWN__';
+let locationStockData = null;
 
 function loadLocationStock(preserveSelection) {
   const sel = document.getElementById('locationSelect');
   const keepValue = preserveSelection ? sel.value : null;
   sel.innerHTML = '<option value="">Loading…</option>';
+  document.getElementById('locationStatsRow').innerHTML = '';
+  document.getElementById('locationDetailWrap').innerHTML = '';
 
   callApi('getLocationStock').then(data => {
     locationStockData = data;
     const branches = data.branches || [];
     sel.innerHTML = '<option value="' + GODOWN_OPTION_VALUE + '">🏭 Savali Godown</option>' +
       branches.map(b => '<option value="' + b.name + '">🏬 ' + b.name + '</option>').join('');
+    // Keep whatever was selected before a refresh (e.g. right after logging a stock-out) instead
+    // of always jumping back to Godown - but a fresh page load still defaults to Godown.
     sel.value = (keepValue && Array.from(sel.options).some(o => o.value === keepValue)) ? keepValue : GODOWN_OPTION_VALUE;
     renderSelectedLocation();
+  }).catch(err => {
+    sel.innerHTML = '<option value="">⚠️ Error</option>';
+    document.getElementById('locationStatsRow').innerHTML =
+      '<div class="stat"><div class="num">❌</div><div class="lbl">' + err.message + '</div></div>';
   });
 }
 
@@ -511,62 +785,106 @@ function renderSelectedLocation() {
   if (isGodown) {
     stockOutCard.style.display = 'none';
     const godown = locationStockData.godown || { totalUnits: 0, items: [] };
-    document.getElementById('locationStatsRow').innerHTML = '<div class="stat"><div class="num">' + formatCellValue(godown.totalUnits) + '</div><div class="lbl">Godown Units</div></div>';
-    document.getElementById('locationDetailWrap').innerHTML = buildLocationTable(['SKU', 'Item', 'Rack/Location', 'Current Stock', 'Reorder Level'], godown.items.map(it => [it.sku, it.name, it.location, it.stock, it.reorder]), godown.items.map(it => it.band));
+    document.getElementById('locationStatsRow').innerHTML =
+      '<div class="stat"><div class="num">' + formatCellValue(godown.totalUnits) + '</div><div class="lbl">🏭 Savali Godown (units in stock)</div></div>';
+    document.getElementById('locationDetailWrap').innerHTML =
+      '<div class="section-title">🏭 Savali Godown — Item-wise Current Stock (Stock In − Stock Out to all branches)</div>' +
+      '<div class="legend" style="max-width:1100px;margin:0 auto 8px;padding:0 14px;gap:12px;flex-wrap:wrap;font-size:11px;color:#555;">' +
+        '<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;border-radius:3px;display:inline-block;background:#c0392b;"></span> Red — at/below reorder</span>' +
+        '<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;border-radius:3px;display:inline-block;background:#d97b1f;"></span> Orange — 100–130%</span>' +
+        '<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;border-radius:3px;display:inline-block;background:#8a6a3f;"></span> Light Brown — 130–150%</span>' +
+        '<span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:11px;height:11px;border-radius:3px;display:inline-block;background:#2f8f4e;"></span> Green — above 150%</span>' +
+      '</div>' +
+      buildLocationTable(['SKU', 'Item', 'Rack/Location', 'Current Stock', 'Reorder Level'],
+        godown.items.map(it => [it.sku, it.name, it.location, it.stock, it.reorder]),
+        godown.items.map(it => it.band));
   } else {
     stockOutCard.style.display = 'block';
-    const branch = (locationStockData.branches || []).find(b => b.name === sel.value) || { name: sel.value, totalUnits: 0, items: [] };
-    document.getElementById('locationStatsRow').innerHTML = '<div class="stat"><div class="num">' + formatCellValue(branch.totalUnits) + '</div><div class="lbl">Net Branch Stock</div></div>';
-    document.getElementById('locationDetailWrap').innerHTML = buildLocationTable(['SKU', 'Item', 'Received', 'Stock-Out', 'Net Stock'], branch.items.map(it => [it.sku, it.name, it.received, it.stockOut, it.net]));
+    const branch = (locationStockData.branches || []).find(b => b.name === sel.value) ||
+      { name: sel.value, totalUnits: 0, totalReceived: 0, totalStockOut: 0, items: [] };
+    document.getElementById('locationStatsRow').innerHTML =
+      '<div class="stat"><div class="num">' + formatCellValue(branch.totalReceived) + '</div><div class="lbl">📥 Received (units)</div></div>' +
+      '<div class="stat"><div class="num">' + formatCellValue(branch.totalStockOut) + '</div><div class="lbl">➖ Stock-Out (units)</div></div>' +
+      '<div class="stat"><div class="num">' + formatCellValue(branch.totalUnits) + '</div><div class="lbl">🏬 ' + branch.name + ' Net Stock</div></div>';
+    document.getElementById('locationDetailWrap').innerHTML =
+      '<div class="section-title">🏬 ' + branch.name + ' — Item-wise Stock (Received from Godown − Branch\'s Own Stock-Out)</div>' +
+      buildLocationTable(['SKU', 'Item', 'Received', 'Stock-Out', 'Net Stock'],
+        branch.items.map(it => [it.sku, it.name, it.received, it.stockOut, it.net]));
   }
+}
+
+function submitBranchStockOut() {
+  const sel = document.getElementById('locationSelect');
+  const branch = sel.value !== GODOWN_OPTION_VALUE ? sel.value : '';
+  const sku = document.getElementById('stockOutSku').value.trim();
+  const qty = document.getElementById('stockOutQty').value;
+  const remarks = document.getElementById('stockOutRemarks').value.trim();
+  const msgEl = document.getElementById('stockOutMsg');
+  function showMsg(cls, text) {
+    msgEl.className = 'msg ' + cls;
+    msgEl.textContent = text;
+    msgEl.style.display = 'block';
+  }
+  if (!branch) { showMsg('err', '⚠️ Select a branch first (not Savali Godown).'); return; }
+  if (!sku) { showMsg('err', '⚠️ Enter the SKU code.'); return; }
+  if (!qty || Number(qty) <= 0) { showMsg('err', '⚠️ Enter a valid quantity.'); return; }
+
+  callApi('logBranchStockOut', { branch: branch, sku: sku, qty: qty, remarks: remarks }).then(res => {
+    if (res.success) {
+      showMsg('ok', '✅ ' + res.message);
+      document.getElementById('stockOutSku').value = '';
+      document.getElementById('stockOutQty').value = '';
+      document.getElementById('stockOutRemarks').value = '';
+      loadLocationStock(true); // refresh figures, keeping the same branch selected
+    } else {
+      showMsg('err', '❌ ' + res.message);
+    }
+  }).catch(err => showMsg('err', '❌ ' + err.message));
 }
 
 function buildLocationTable(headers, rows, rowBands) {
   const thead = '<thead><tr>' + headers.map(h => '<th>' + h + '</th>').join('') + '</tr></thead>';
-  const tbody = rows.length ? '<tbody>' + rows.map((r, i) => {
-    const rowClass = rowBands && rowBands[i] ? ' class="row-' + rowBands[i] + '"' : '';
-    return '<tr' + rowClass + '>' + r.map(v => '<td>' + formatCellValue(v) + '</td>').join('') + '</tr>';
-  }).join('') + '</tbody>' : '<tbody><tr><td colspan="' + headers.length + '" class="empty-msg">No stock records.</td></tr></tbody>';
+  const tbody = rows.length
+    ? '<tbody>' + rows.map((r, i) => {
+        const rowClass = rowBands && rowBands[i] ? ' class="row-' + rowBands[i] + '"' : '';
+        return '<tr' + rowClass + '>' + r.map(v => '<td>' + formatCellValue(v) + '</td>').join('') + '</tr>';
+      }).join('') + '</tbody>'
+    : '<tbody><tr><td colspan="' + headers.length + '" class="empty-msg">No stock recorded yet.</td></tr></tbody>';
   return '<div class="location-table-wrap"><table>' + thead + tbody + '</table></div>';
 }
 
-// ============================= TOTAL STOCK REPORT VIEW ===================
-let reportFiltersLoaded = false;
-let currentStockOutRange = { start: '', end: '' };
+// ============================= TOTAL STOCK OUT REPORT (category + date range) ===================
+let stockOutCategoriesLoaded = false;
+let currentStockOutRange = { start: '', end: '' }; // remembered so the drilldown popup uses the same range
 
 function showStockOutView() {
   hideAllViews();
   document.getElementById('stockOutView').style.display = 'block';
-  loadStockOutReportFilters();
+  if (!stockOutCategoriesLoaded) {
+    loadStockOutCategories();
+  }
 }
 
-function loadStockOutReportFilters() {
-  const catSel = document.getElementById('stockOutCategory');
-  const rackSel = document.getElementById('stockOutRack');
-
-  callApi('getReportFilters').then(filters => {
-    reportFiltersLoaded = true;
-    
-    var catOptions = (filters.categories || []).map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
-    catSel.innerHTML = '<option value="All">All Categories / Departments</option>' + catOptions;
-    
-    var rackOptions = (filters.racks || []).map(function(r) { return '<option value="' + r + '">' + r + '</option>'; }).join('');
-    rackSel.innerHTML = '<option value="All">All Racks / Locations</option>' + rackOptions;
-  }).catch(function(err) {
-    catSel.innerHTML = '<option value="All">All Categories / Departments</option>';
-    rackSel.innerHTML = '<option value="All">All Racks / Locations</option>';
+function loadStockOutCategories() {
+  const sel = document.getElementById('stockOutCategory');
+  callApi('getCategories').then(cats => {
+    stockOutCategoriesLoaded = true;
+    sel.innerHTML = '<option value="All">All Categories</option>' +
+      (cats || []).map(c => '<option value="' + c + '">' + c + '</option>').join('');
+  }).catch(err => {
+    sel.innerHTML = '<option value="All">All Categories</option>';
+    document.getElementById('stockOutTableWrap').innerHTML = '<div class="empty-msg">⚠️ Could not load categories: ' + err.message + '</div>';
   });
 }
 
 function loadStockOutSummary() {
   const category = document.getElementById('stockOutCategory').value || 'All';
-  const rack = document.getElementById('stockOutRack').value || 'All';
   const startDate = document.getElementById('stockOutStartDate').value;
   const endDate = document.getElementById('stockOutEndDate').value;
   currentStockOutRange = { start: startDate, end: endDate };
 
-  document.getElementById('stockOutTableWrap').innerHTML = '<div class="empty-msg">Loading report data…</div>';
-  callApi('getStockOutSummary', { category: category, rack: rack, startDate: startDate, endDate: endDate }).then(res => {
+  document.getElementById('stockOutTableWrap').innerHTML = '<div class="empty-msg">Loading…</div>';
+  callApi('getStockOutSummary', { category: category, startDate: startDate, endDate: endDate }).then(res => {
     renderStockOutTable(res.items || [], res.dayDiff || 1);
   }).catch(err => {
     document.getElementById('stockOutTableWrap').innerHTML = '<div class="empty-msg">⚠️ ' + err.message + '</div>';
@@ -576,36 +894,39 @@ function loadStockOutSummary() {
 function renderStockOutTable(items, dayDiff) {
   const wrap = document.getElementById('stockOutTableWrap');
   if (!items.length) {
-    wrap.innerHTML = '<div class="empty-msg">No records found matching selected Category/Rack/Date filters.</div>';
+    wrap.innerHTML = '<div class="empty-msg">No stock-out records found for this filter. Pick a category / date range and click "Show Report".</div>';
     return;
   }
   const rows = items.map(it =>
     '<tr>' +
-      '<td>' + (it.location || '—') + '</td>' +
-      '<td>' + (it.sku || '—') + '</td>' +
-      '<td>' + (it.name || '—') + '</td>' +
-      '<td>' + (it.category || '—') + '</td>' +
-      '<td><button class="stockout-link" onclick="showStockOutDrilldown(\'' + String(it.sku || '').replace(/'/g, "\\'") + '\',\'' + String(it.name || '').replace(/'/g, "\\'") + '\')">' + formatCellValue(it.totalStockOut) + '</button></td>' +
+      '<td>' + it.sku + '</td>' +
+      '<td>' + it.name + '</td>' +
+      '<td><button class="stockout-link" onclick="showStockOutDrilldown(\'' +
+        String(it.sku).replace(/'/g, "\\'") + '\',\'' + String(it.name).replace(/'/g, "\\'") + '\')">' +
+        formatCellValue(it.totalStockOut) + '</button></td>' +
       '<td>' + formatCellValue(it.qtyPerKg) + '</td>' +
       '<td>' + formatCellValue(it.avgQty) + '</td>' +
       '<td>' + formatCellValue(it.avgConsumption) + '</td>' +
     '</tr>'
   ).join('');
   wrap.innerHTML =
-    '<div class="count-badge" style="padding:0 0 6px;">' + items.length + ' item(s) — Sorted by Rack Code (Duration: ' + dayDiff + ' day(s))</div>' +
+    '<div class="count-badge" style="padding:0 0 6px;">' + items.length + ' item(s) — date range span: ' + dayDiff + ' day(s)</div>' +
     '<table><thead><tr>' +
-      '<th>Rack Code</th><th>SKU</th><th>Item Name</th><th>Category / Department</th><th>Total Stock Out</th><th>Qty / Kg</th><th>Avg Qty / Day</th><th>Avg Consumption</th>' +
+      '<th>SKU</th><th>Item Name</th><th>Total Stock Out</th><th>Qty per Kg (Master)</th>' +
+      '<th>Avg Qty (per day)</th><th>Avg Consumption</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table>';
 }
 
+// Click on a "Total Stock Out" number -> popup showing date-wise entries (qty, branch, entered by)
+// for that item, within the SAME date range that was used for the summary above.
 function showStockOutDrilldown(sku, name) {
-  document.getElementById('drilldownTitle').textContent = '📦 ' + name + ' (' + sku + ') Log Drilldown';
+  document.getElementById('drilldownTitle').textContent = '📦 ' + name + ' (' + sku + ') — Date-wise Stock Out';
   document.getElementById('drilldownTableWrap').innerHTML = '<div class="empty-msg">Loading…</div>';
   document.getElementById('drilldownOverlay').style.display = 'flex';
 
   callApi('getStockOutDrilldown', { sku: sku, startDate: currentStockOutRange.start, endDate: currentStockOutRange.end }).then(rows => {
     if (!rows || !rows.length) {
-      document.getElementById('drilldownTableWrap').innerHTML = '<div class="empty-msg">No entries in range.</div>';
+      document.getElementById('drilldownTableWrap').innerHTML = '<div class="empty-msg">No entries in this date range.</div>';
       return;
     }
     const trs = rows.map(r =>
@@ -613,11 +934,17 @@ function showStockOutDrilldown(sku, name) {
     ).join('');
     document.getElementById('drilldownTableWrap').innerHTML =
       '<table><thead><tr><th>Date/Time</th><th>Qty</th><th>Branch</th><th>Entered By</th></tr></thead><tbody>' + trs + '</tbody></table>';
+  }).catch(err => {
+    document.getElementById('drilldownTableWrap').innerHTML = '<div class="empty-msg">⚠️ ' + err.message + '</div>';
   });
 }
 
-function closeDrilldown() { document.getElementById('drilldownOverlay').style.display = 'none'; }
-function closeDrilldownOnOverlay(e) { if (e.target && e.target.id === 'drilldownOverlay') closeDrilldown(); }
+function closeDrilldown() {
+  document.getElementById('drilldownOverlay').style.display = 'none';
+}
+function closeDrilldownOnOverlay(e) {
+  if (e.target && e.target.id === 'drilldownOverlay') closeDrilldown();
+}
 </script>
 </body>
 </html>
