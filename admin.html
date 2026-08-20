@@ -136,12 +136,12 @@
   <div class="card" style="max-width:1100px;margin:14px auto;">
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
       <div style="flex:1;min-width:150px;">
-        <label>📦 Category Filter</label>
-        <select id="stockOutCategory"><option value="All">Loading…</option></select>
+        <label>📦 Category / Department</label>
+        <select id="stockOutCategory"><option value="All">All Categories</option></select>
       </div>
       <div style="flex:1;min-width:150px;">
-        <label>🗄️ Rack / Location Filter</label>
-        <select id="stockOutRack"><option value="All">Loading…</option></select>
+        <label>🗄️ Rack / Location</label>
+        <select id="stockOutRack"><option value="All">All Racks</option></select>
       </div>
     </div>
 
@@ -174,7 +174,7 @@
   <label>Item Name</label>
   <input type="text" id="addName" placeholder="e.g. Kaju Katli Box - 500g">
   <label>Category</label>
-  <input type="text" id="addCategory" placeholder="e.g. Packing Box, Ribbon">
+  <input type="text" id="addCategory" placeholder="e.g. Bakery, Packaging Material">
   <label>Storage Type</label>
   <select id="addStorageType">
     <option value="racked">Racked (stored on a rack)</option>
@@ -537,9 +537,7 @@ let currentStockOutRange = { start: '', end: '' };
 function showStockOutView() {
   hideAllViews();
   document.getElementById('stockOutView').style.display = 'block';
-  if (!reportFiltersLoaded) {
-    loadStockOutReportFilters();
-  }
+  loadStockOutReportFilters();
 }
 
 function loadStockOutReportFilters() {
@@ -548,13 +546,17 @@ function loadStockOutReportFilters() {
 
   callApi('getReportFilters').then(filters => {
     reportFiltersLoaded = true;
-    catSel.innerHTML = '<option value="All">All Categories</option>' +
-      (filters.categories || []).map(c => '<option value="' + c + '">' + c + '</option>').join('');
-    rackSel.innerHTML = '<option value="All">All Racks / Locations</option>' +
-      (filters.racks || []).map(r => '<option value="' + r + '">' + r + '</option>').join('');
+    
+    // Dynamically render unique Categories / Departments
+    const catOptions = (filters.categories || []).map(c => '<option value="' + c + '">' + c + '</option>').join('');
+    catSel.innerHTML = '<option value="All">All Categories / Departments</option>' + catOptions;
+    
+    // Dynamically render unique Racks / Locations
+    const rackOptions = (filters.racks || []).map(r => '<option value="' + r + '">' + r + '</option>').join('');
+    rackSel.innerHTML = '<option value="All">All Racks / Locations</option>' + rackOptions;
   }).catch(err => {
-    catSel.innerHTML = '<option value="All">All Categories</option>';
-    rackSel.innerHTML = '<option value="All">All Racks</option>';
+    catSel.innerHTML = '<option value="All">All Categories / Departments</option>';
+    rackSel.innerHTML = '<option value="All">All Racks / Locations</option>';
   });
 }
 
@@ -594,7 +596,7 @@ function renderStockOutTable(items, dayDiff) {
   wrap.innerHTML =
     '<div class="count-badge" style="padding:0 0 6px;">' + items.length + ' item(s) — Sorted by Rack Code (Duration: ' + dayDiff + ' day(s))</div>' +
     '<table><thead><tr>' +
-      '<th>Rack Code</th><th>SKU</th><th>Item Name</th><th>Category</th><th>Total Stock Out</th><th>Qty / Kg</th><th>Avg Qty / Day</th><th>Avg Consumption</th>' +
+      '<th>Rack Code</th><th>SKU</th><th>Item Name</th><th>Category / Department</th><th>Total Stock Out</th><th>Qty / Kg</th><th>Avg Qty / Day</th><th>Avg Consumption</th>' +
     '</tr></thead><tbody>' + rows + '</tbody></table>';
 }
 
