@@ -137,11 +137,11 @@
     <div style="display:flex;gap:10px;flex-wrap:wrap;">
       <div style="flex:1;min-width:150px;">
         <label>📦 Category / Department</label>
-        <select id="stockOutCategory"><option value="All">All Categories</option></select>
+        <select id="stockOutCategory"><option value="All">All Categories / Departments</option></select>
       </div>
       <div style="flex:1;min-width:150px;">
         <label>🗄️ Rack / Location</label>
-        <select id="stockOutRack"><option value="All">All Racks</option></select>
+        <select id="stockOutRack"><option value="All">All Racks / Locations</option></select>
       </div>
     </div>
 
@@ -547,14 +547,12 @@ function loadStockOutReportFilters() {
   callApi('getReportFilters').then(filters => {
     reportFiltersLoaded = true;
     
-    // Dynamically render unique Categories / Departments
-    const catOptions = (filters.categories || []).map(c => '<option value="' + c + '">' + c + '</option>').join('');
+    var catOptions = (filters.categories || []).map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join('');
     catSel.innerHTML = '<option value="All">All Categories / Departments</option>' + catOptions;
     
-    // Dynamically render unique Racks / Locations
-    const rackOptions = (filters.racks || []).map(r => '<option value="' + r + '">' + r + '</option>').join('');
+    var rackOptions = (filters.racks || []).map(function(r) { return '<option value="' + r + '">' + r + '</option>'; }).join('');
     rackSel.innerHTML = '<option value="All">All Racks / Locations</option>' + rackOptions;
-  }).catch(err => {
+  }).catch(function(err) {
     catSel.innerHTML = '<option value="All">All Categories / Departments</option>';
     rackSel.innerHTML = '<option value="All">All Racks / Locations</option>';
   });
@@ -584,10 +582,10 @@ function renderStockOutTable(items, dayDiff) {
   const rows = items.map(it =>
     '<tr>' +
       '<td>' + (it.location || '—') + '</td>' +
-      '<td>' + it.sku + '</td>' +
-      '<td>' + it.name + '</td>' +
+      '<td>' + (it.sku || '—') + '</td>' +
+      '<td>' + (it.name || '—') + '</td>' +
       '<td>' + (it.category || '—') + '</td>' +
-      '<td><button class="stockout-link" onclick="showStockOutDrilldown(\'' + String(it.sku).replace(/'/g, "\\'") + '\',\'' + String(it.name).replace(/'/g, "\\'") + '\')">' + formatCellValue(it.totalStockOut) + '</button></td>' +
+      '<td><button class="stockout-link" onclick="showStockOutDrilldown(\'' + String(it.sku || '').replace(/'/g, "\\'") + '\',\'' + String(it.name || '').replace(/'/g, "\\'") + '\')">' + formatCellValue(it.totalStockOut) + '</button></td>' +
       '<td>' + formatCellValue(it.qtyPerKg) + '</td>' +
       '<td>' + formatCellValue(it.avgQty) + '</td>' +
       '<td>' + formatCellValue(it.avgConsumption) + '</td>' +
