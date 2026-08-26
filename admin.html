@@ -197,20 +197,25 @@
 </div>
 
 <div class="card" id="addItemView" style="display:none;max-width:1100px;margin:10px auto 24px;">
+  <label id="addItemFormTitle" style="font-size:14px;color:var(--maroon-dark);margin-bottom:10px;">➕ Add New Item</label>
+  <div id="editItemInfoLine" style="display:none;font-size:12px;color:#6b5c50;background:#f1e6d8;padding:8px 10px;border-radius:8px;margin-bottom:10px;"></div>
+
   <label>Item Name</label>
   <input type="text" id="addName" placeholder="e.g. Kaju Katli Box - 500g">
   <label>Category</label>
   <input type="text" id="addCategory" placeholder="e.g. Packing Box, Ribbon, Sticker">
 
-  <label>Storage Type</label>
-  <select id="addStorageType">
-    <option value="racked">Racked (stored on a rack)</option>
-    <option value="nonracked">Non-Racked (loose storage zone)</option>
-  </select>
+  <div id="addItemStorageBlock">
+    <label>Storage Type</label>
+    <select id="addStorageType">
+      <option value="racked">Racked (stored on a rack)</option>
+      <option value="nonracked">Non-Racked (loose storage zone)</option>
+    </select>
 
-  <label id="addLocationLabel">Rack Code</label>
-  <select id="addLocation" onchange="handleLocationSelectChange()"><option value="">Loading…</option></select>
-  <input type="text" id="addLocationManual" placeholder="Type the rack/zone code, e.g. RACK-003-A" style="display:none;">
+    <label id="addLocationLabel">Rack Code</label>
+    <select id="addLocation" onchange="handleLocationSelectChange()"><option value="">Loading…</option></select>
+    <input type="text" id="addLocationManual" placeholder="Type the rack/zone code, e.g. RACK-003-A" style="display:none;">
+  </div>
 
   <label>Unit</label>
   <input type="text" id="addUnit" placeholder="e.g. Pcs, Box, Roll" value="Pcs">
@@ -221,19 +226,24 @@
   <label>Qty per Kg</label>
   <input type="number" id="addQtyPerKg" placeholder="e.g. 4" step="0.01">
 
-  <label>Barcode</label>
-  <select id="addBarcodeMode">
-    <option value="generate">Generate a new QR sticker (we print &amp; stick it)</option>
-    <option value="existing">Use existing vendor barcode (already on the box)</option>
-  </select>
+  <div id="addItemBarcodeBlock">
+    <label>Barcode</label>
+    <select id="addBarcodeMode">
+      <option value="generate">Generate a new QR sticker (we print &amp; stick it)</option>
+      <option value="existing">Use existing vendor barcode (already on the box)</option>
+    </select>
 
-  <div id="addExistingBarcodeBlock" style="display:none;">
-    <label>Existing barcode value</label>
-    <input type="text" id="addExistingBarcode" placeholder="Type or scan the existing barcode">
+    <div id="addExistingBarcodeBlock" style="display:none;">
+      <label>Existing barcode value</label>
+      <input type="text" id="addExistingBarcode" placeholder="Type or scan the existing barcode">
+    </div>
   </div>
 
   <div class="msg" id="addMsg"></div>
-  <button class="btn-primary" id="addSubmitBtn" onclick="submitAddItem()" style="width:100%;">✅ Create Item</button>
+  <div style="display:flex;gap:10px;">
+    <button class="btn-primary" id="addSubmitBtn" onclick="submitAddItem()" style="flex:1;">✅ Create Item</button>
+    <button class="btn-secondary" id="cancelEditItemBtn" onclick="cancelEditItem()" style="display:none;flex:0 0 auto;">✕ Cancel Edit</button>
+  </div>
 </div>
 
 <div class="card" id="addBranchView" style="display:none;max-width:1100px;margin:10px auto 24px;">
@@ -243,6 +253,29 @@
     <button class="btn-primary" onclick="addBranchFromAdmin()" style="flex:0 0 auto;">➕ Add Branch</button>
   </div>
   <div class="msg" id="branchMsg"></div>
+</div>
+
+<div class="card" id="addRackView" style="display:none;max-width:1100px;margin:10px auto 24px;">
+  <label id="addRackFormTitle" style="font-size:14px;color:var(--maroon-dark);margin-bottom:10px;">➕ Add New Rack</label>
+
+  <label>Rack Number</label>
+  <input type="text" id="addRackNumber" placeholder="e.g. 1 or 001" oninput="updateRackSuggestions()">
+  <div id="rackSuggestions" style="font-size:11.5px;color:#6b5c50;background:#f1e6d8;padding:8px 10px;border-radius:8px;margin:-4px 0 10px;display:none;"></div>
+
+  <label>Row/Level</label>
+  <input type="text" id="addRackRow" placeholder="e.g. A" oninput="updateRackSuggestions()">
+  <label>Description (optional)</label>
+  <input type="text" id="addRackDesc" placeholder="e.g. Ground row - large boxes">
+
+  <div style="font-size:12px;color:#888;margin:-4px 0 10px;">
+    Rack Code that will be created/updated: <strong id="rackCodePreview">RACK-…</strong>
+  </div>
+
+  <div class="msg" id="addRackMsg"></div>
+  <div style="display:flex;gap:10px;">
+    <button class="btn-primary" id="addRackSubmitBtn" onclick="submitAddRack()" style="flex:1;">✅ Create Rack</button>
+    <button class="btn-secondary" id="cancelEditRackBtn" onclick="cancelEditRack()" style="display:none;flex:0 0 auto;">✕ Cancel Edit</button>
+  </div>
 </div>
 
 <script>
@@ -374,7 +407,8 @@ function buildTabs() {
 // button does - instead of separate tabs, the add-form now toggles inline on the same tab.
 const TABLE_ACTION_CONFIG = {
   'Item_Master': { label: '➕ Add Item', formId: 'addItemView', onShow: 'loadRacksForAddItem' },
-  'Branches':    { label: '➕ Add Branch', formId: 'addBranchView' }
+  'Branches':    { label: '➕ Add Branch', formId: 'addBranchView' },
+  'Racks':       { label: '➕ Add Rack', formId: 'addRackView', onShow: 'loadRacksForAddRackForm' }
 };
 let formOpenForTab = false;
 
@@ -441,6 +475,10 @@ function handleTableActionClick() {
     document.getElementById('tableView').style.display = 'block';
     document.getElementById('searchBox').style.display = '';
     btn.textContent = config.label;
+    // Leaving the form (whether it was in Add or Edit mode) always resets back to a clean
+    // "Add" state, so re-opening it later never accidentally still points at a previous edit.
+    if (currentTableKey === 'Item_Master') resetItemFormToAddMode();
+    if (currentTableKey === 'Racks') resetRackFormToAddMode();
     loadCurrentTable();
   }
 }
@@ -450,6 +488,7 @@ function hideAllViews() {
   document.getElementById('tableView').style.display = 'none';
   document.getElementById('addItemView').style.display = 'none';
   document.getElementById('addBranchView').style.display = 'none';
+  document.getElementById('addRackView').style.display = 'none';
   document.getElementById('dashboardView').style.display = 'none';
   document.getElementById('stockOutView').style.display = 'none';
   document.getElementById('entryView').style.display = 'none';
@@ -594,10 +633,12 @@ function formatCellValue(v) {
 function renderTable(rows) {
   const isItemMaster = currentTableKey === 'Item_Master';
   const isBranches = currentTableKey === 'Branches';
+  const isRacks = currentTableKey === 'Racks';
   const isStockLedger = currentTableKey === 'Stock_Ledger';
   const skuIdx = isItemMaster ? currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('sku') !== -1) : -1;
   const branchNameIdx = isBranches ? currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('name') !== -1) : -1;
-  const hasAction = (isItemMaster && skuIdx !== -1) || (isBranches && branchNameIdx !== -1);
+  const rackCodeIdx = isRacks ? currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('rack code') !== -1) : -1;
+  const hasAction = (isItemMaster && skuIdx !== -1) || (isBranches && branchNameIdx !== -1) || (isRacks && rackCodeIdx !== -1);
 
   // For Stock_Ledger: find the SKU column so each row can be matched against
   // currentStockHealthMap (the authoritative, Item_Master-sourced band) for coloring.
@@ -617,11 +658,16 @@ function renderTable(rows) {
       }).join('');
       let actionCell = '';
       if (isItemMaster && skuIdx !== -1) {
-        actionCell = '<td><button style="background:none;border:none;color:var(--warn);font-weight:700;cursor:pointer;" onclick="deleteItemRow(\'' +
-          String(r[skuIdx]).replace(/'/g, "\\'") + '\')">🗑️ Delete</button></td>';
+        const skuVal = String(r[skuIdx]).replace(/'/g, "\\'");
+        actionCell = '<td style="white-space:nowrap;">' +
+          '<button style="background:none;border:none;color:var(--maroon);font-weight:700;cursor:pointer;margin-right:8px;" onclick="editItemRow(\'' + skuVal + '\')">✏️ Edit</button>' +
+          '<button style="background:none;border:none;color:var(--warn);font-weight:700;cursor:pointer;" onclick="deleteItemRow(\'' + skuVal + '\')">🗑️ Delete</button></td>';
       } else if (isBranches && branchNameIdx !== -1) {
         actionCell = '<td><button style="background:none;border:none;color:var(--warn);font-weight:700;cursor:pointer;" onclick="deleteBranchFromAdmin(\'' +
           String(r[branchNameIdx]).replace(/'/g, "\\'") + '\')">🗑️ Delete</button></td>';
+      } else if (isRacks && rackCodeIdx !== -1) {
+        actionCell = '<td><button style="background:none;border:none;color:var(--maroon);font-weight:700;cursor:pointer;" onclick="editRackRow(\'' +
+          String(r[rackCodeIdx]).replace(/'/g, "\\'") + '\')">✏️ Edit</button></td>';
       }
 
       let rowClass = '';
@@ -680,8 +726,11 @@ window.onload = function() {
   }
 };
 
-// ---------------- ADD ITEM FORM ----------------
+// ---------------- ADD / EDIT ITEM FORM ----------------
 let allRacks = [];
+// When set, the form is in EDIT mode for this SKU (Storage Type/Location/Barcode are locked -
+// see editItemRow() for why) - null means the form is in normal "Add New Item" mode.
+let editingItemSku = null;
 
 function loadRacksForAddItem() {
   callApi('getRacks').then(list => {
@@ -718,14 +767,120 @@ function toggleBarcodeModeUI() {
   document.getElementById('addExistingBarcodeBlock').style.display = existing ? 'block' : 'none';
 }
 
+// Opens the Item form pre-filled with an existing item's details, in EDIT mode. Storage Type,
+// Rack/Location, and Barcode are intentionally hidden/locked during edit - see webUpdateItem()
+// in code.gs for why (changing those would break already-printed stickers and historical
+// traceability). To move an item to a different rack, rename the RACK itself instead (Racks tab).
+function editItemRow(sku) {
+  const skuIdx = currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('sku') !== -1);
+  const nameIdx = currentHeaders.findIndex(h => String(h).toLowerCase() === 'item name');
+  const catIdx = currentHeaders.findIndex(h => String(h).toLowerCase() === 'category');
+  const locIdx = currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('location') !== -1);
+  const unitIdx = currentHeaders.findIndex(h => String(h).toLowerCase() === 'unit');
+  const reorderIdx = currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('reorder') !== -1);
+  const rateIdx = currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('rate') !== -1);
+  const qtyPerKgIdx = currentHeaders.findIndex(h => String(h).toLowerCase().indexOf('qty per kg') !== -1 || String(h).toLowerCase().indexOf('qty/kg') !== -1);
+
+  const row = currentRows.find(r => skuIdx !== -1 && String(r[skuIdx]).trim().toUpperCase() === String(sku).trim().toUpperCase());
+  if (!row) { alert('❌ Could not find that item in the currently loaded table. Try refreshing.'); return; }
+
+  editingItemSku = sku;
+
+  document.getElementById('addItemFormTitle').textContent = '✏️ Edit Item: ' + sku;
+  document.getElementById('editItemInfoLine').style.display = 'block';
+  document.getElementById('editItemInfoLine').textContent =
+    'SKU: ' + sku + (locIdx !== -1 ? '   |   Rack/Location: ' + row[locIdx] : '') +
+    '   —   to move this item to a different rack, rename the rack itself from the Racks tab instead.';
+
+  document.getElementById('addName').value = nameIdx !== -1 ? row[nameIdx] : '';
+  document.getElementById('addCategory').value = catIdx !== -1 ? row[catIdx] : '';
+  document.getElementById('addUnit').value = unitIdx !== -1 ? row[unitIdx] : 'Pcs';
+  document.getElementById('addReorder').value = reorderIdx !== -1 ? row[reorderIdx] : 0;
+  document.getElementById('addRate').value = rateIdx !== -1 ? row[rateIdx] : '';
+  document.getElementById('addQtyPerKg').value = qtyPerKgIdx !== -1 ? row[qtyPerKgIdx] : '';
+
+  document.getElementById('addItemStorageBlock').style.display = 'none';
+  document.getElementById('addItemBarcodeBlock').style.display = 'none';
+  document.getElementById('addSubmitBtn').textContent = '✅ Update Item';
+  document.getElementById('cancelEditItemBtn').style.display = 'inline-block';
+  document.getElementById('addMsg').style.display = 'none';
+
+  // Open the form the same way the "➕ Add Item" toolbar button would, if it isn't open already.
+  if (!formOpenForTab) handleTableActionClick();
+}
+
+function cancelEditItem() {
+  resetItemFormToAddMode();
+  if (formOpenForTab) handleTableActionClick(); // closes the form, back to the list
+}
+
+function resetItemFormToAddMode() {
+  editingItemSku = null;
+  document.getElementById('addItemFormTitle').textContent = '➕ Add New Item';
+  document.getElementById('editItemInfoLine').style.display = 'none';
+  document.getElementById('addItemStorageBlock').style.display = 'block';
+  document.getElementById('addItemBarcodeBlock').style.display = 'block';
+  document.getElementById('addSubmitBtn').textContent = '✅ Create Item';
+  document.getElementById('cancelEditItemBtn').style.display = 'none';
+  document.getElementById('addName').value = '';
+  document.getElementById('addCategory').value = '';
+  document.getElementById('addExistingBarcode').value = '';
+  document.getElementById('addReorder').value = 0;
+  document.getElementById('addRate').value = '';
+  document.getElementById('addQtyPerKg').value = '';
+  document.getElementById('addLocationManual').value = '';
+  document.getElementById('addMsg').style.display = 'none';
+}
+
 function submitAddItem() {
+  const msgEl = document.getElementById('addMsg');
+  function showAddMsg(cls, text) {
+    msgEl.className = 'msg ' + cls;
+    msgEl.textContent = text;
+    msgEl.style.display = 'block';
+  }
+
+  const itemName = document.getElementById('addName').value.trim();
+  if (!itemName) { showAddMsg('err', '⚠️ Item name is required.'); return; }
+
+  // ---- EDIT MODE: only descriptive fields, SKU/Storage/Location/Barcode stay fixed ----
+  if (editingItemSku) {
+    const payload = {
+      itemName: itemName,
+      category: document.getElementById('addCategory').value.trim(),
+      unit: document.getElementById('addUnit').value.trim() || 'Pcs',
+      reorder: document.getElementById('addReorder').value || 0,
+      rate: document.getElementById('addRate').value || 0,
+      qtyPerKg: document.getElementById('addQtyPerKg').value || 0
+    };
+    const btn = document.getElementById('addSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Updating…';
+    callApi('updateItem', { sku: editingItemSku, payload: payload }).then(res => {
+      btn.disabled = false;
+      btn.textContent = '✅ Update Item';
+      if (res.success) {
+        showAddMsg('ok', '✅ ' + res.message);
+        setTimeout(() => { resetItemFormToAddMode(); if (formOpenForTab) handleTableActionClick(); }, 900);
+      } else {
+        showAddMsg('err', '❌ ' + res.message);
+      }
+    }).catch(err => {
+      btn.disabled = false;
+      btn.textContent = '✅ Update Item';
+      showAddMsg('err', '❌ ' + err.message);
+    });
+    return;
+  }
+
+  // ---- ADD MODE ----
   const locationSelectValue = document.getElementById('addLocation').value;
   const locationCode = locationSelectValue === '__MANUAL__'
     ? document.getElementById('addLocationManual').value.trim()
     : locationSelectValue;
 
   const payload = {
-    itemName: document.getElementById('addName').value.trim(),
+    itemName: itemName,
     category: document.getElementById('addCategory').value.trim(),
     isRacked: document.getElementById('addStorageType').value === 'racked',
     locationCode: locationCode,
@@ -737,14 +892,6 @@ function submitAddItem() {
     existingBarcode: document.getElementById('addExistingBarcode').value.trim()
   };
 
-  const msgEl = document.getElementById('addMsg');
-  function showAddMsg(cls, text) {
-    msgEl.className = 'msg ' + cls;
-    msgEl.textContent = text;
-    msgEl.style.display = 'block';
-  }
-
-  if (!payload.itemName) { showAddMsg('err', '⚠️ Item name is required.'); return; }
   if (!payload.locationCode) { showAddMsg('err', '⚠️ Please choose or type a rack / zone code.'); return; }
   if (payload.barcodeMode === 'existing' && !payload.existingBarcode) {
     showAddMsg('err', '⚠️ Scan or type the existing barcode.'); return;
@@ -773,6 +920,127 @@ function submitAddItem() {
     btn.disabled = false;
     btn.textContent = '✅ Create Item';
     showAddMsg('err', '❌ ' + err.message);
+  });
+}
+
+// ---------------- ADD / EDIT RACK FORM ----------------
+let allRackRows = []; // full Racks sheet data (code, no., row/level, description) - for suggestions/edit
+// When set, the form is in EDIT mode for this original Rack Code - null means "Add New Rack".
+let editingRackCode = null;
+
+function loadRacksForAddRackForm() {
+  callApi('getSheetData', { sheetName: 'Racks' }).then(res => {
+    allRackRows = res.rows || [];
+    updateRackSuggestions();
+  }).catch(() => { allRackRows = []; });
+}
+
+// Live preview of the Rack Code that Add/Edit will produce, and - the actual "suggestion"
+// feature - a list of racks that ALREADY exist under the same Rack Number (e.g. typing "1"
+// shows "RACK-001-A, RACK-001-B already exist under Rack 001"), so admins can see at a glance
+// which Row/Level letters are free before picking one, instead of guessing and hitting a
+// duplicate error.
+function updateRackSuggestions() {
+  const rackNoRaw = document.getElementById('addRackNumber').value.trim();
+  const rowLevelRaw = document.getElementById('addRackRow').value.trim();
+  const previewEl = document.getElementById('rackCodePreview');
+  const suggEl = document.getElementById('rackSuggestions');
+
+  if (!rackNoRaw) {
+    previewEl.textContent = 'RACK-…';
+    suggEl.style.display = 'none';
+    return;
+  }
+
+  const paddedNo = rackNoRaw.replace(/\D/g, '').padStart(3, '0');
+  previewEl.textContent = 'RACK-' + paddedNo + '-' + (rowLevelRaw ? rowLevelRaw.toUpperCase() : '…');
+
+  const matches = allRackRows
+    .map(r => String(r[0] || ''))
+    .filter(code => code.toUpperCase().indexOf('RACK-' + paddedNo + '-') === 0)
+    .filter(code => !editingRackCode || code.toUpperCase() !== editingRackCode.toUpperCase());
+
+  if (matches.length) {
+    suggEl.style.display = 'block';
+    suggEl.innerHTML = '📋 Already exists under Rack ' + paddedNo + ': <strong>' + matches.join(', ') + '</strong> — pick a different Row/Level to avoid a clash.';
+  } else {
+    suggEl.style.display = 'block';
+    suggEl.innerHTML = '✅ No existing rack under Rack ' + paddedNo + ' yet.';
+  }
+}
+
+// Opens the Rack form pre-filled with an existing rack's details, in EDIT mode.
+function editRackRow(rackCode) {
+  const row = allRackRows.find(r => String(r[0] || '').trim().toUpperCase() === String(rackCode).trim().toUpperCase())
+    || currentRows.find(r => String(r[0] || '').trim().toUpperCase() === String(rackCode).trim().toUpperCase());
+  if (!row) { alert('❌ Could not find that rack in the currently loaded table. Try refreshing.'); return; }
+
+  editingRackCode = rackCode;
+  document.getElementById('addRackFormTitle').textContent = '✏️ Edit Rack: ' + rackCode;
+  document.getElementById('addRackNumber').value = row[1] || '';
+  document.getElementById('addRackRow').value = row[2] || '';
+  document.getElementById('addRackDesc').value = row[3] || '';
+  document.getElementById('addRackSubmitBtn').textContent = '✅ Update Rack';
+  document.getElementById('cancelEditRackBtn').style.display = 'inline-block';
+  document.getElementById('addRackMsg').style.display = 'none';
+  updateRackSuggestions();
+
+  if (!formOpenForTab) handleTableActionClick();
+}
+
+function cancelEditRack() {
+  resetRackFormToAddMode();
+  if (formOpenForTab) handleTableActionClick();
+}
+
+function resetRackFormToAddMode() {
+  editingRackCode = null;
+  document.getElementById('addRackFormTitle').textContent = '➕ Add New Rack';
+  document.getElementById('addRackNumber').value = '';
+  document.getElementById('addRackRow').value = '';
+  document.getElementById('addRackDesc').value = '';
+  document.getElementById('addRackSubmitBtn').textContent = '✅ Create Rack';
+  document.getElementById('cancelEditRackBtn').style.display = 'none';
+  document.getElementById('addRackMsg').style.display = 'none';
+  document.getElementById('rackCodePreview').textContent = 'RACK-…';
+  document.getElementById('rackSuggestions').style.display = 'none';
+}
+
+function submitAddRack() {
+  const rackNo = document.getElementById('addRackNumber').value.trim();
+  const rowLevel = document.getElementById('addRackRow').value.trim();
+  const description = document.getElementById('addRackDesc').value.trim();
+  const msgEl = document.getElementById('addRackMsg');
+  function showMsg(cls, text) {
+    msgEl.className = 'msg ' + cls;
+    msgEl.textContent = text;
+    msgEl.style.display = 'block';
+  }
+  if (!rackNo) { showMsg('err', '⚠️ Enter a Rack Number.'); return; }
+  if (!rowLevel) { showMsg('err', '⚠️ Enter a Row/Level.'); return; }
+
+  const btn = document.getElementById('addRackSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = editingRackCode ? 'Updating…' : 'Creating…';
+
+  const action = editingRackCode ? 'updateRack' : 'addRack';
+  const params = editingRackCode
+    ? { oldRackCode: editingRackCode, rackNo: rackNo, rowLevel: rowLevel, description: description }
+    : { rackNo: rackNo, rowLevel: rowLevel, description: description };
+
+  callApi(action, params).then(res => {
+    btn.disabled = false;
+    btn.textContent = editingRackCode ? '✅ Update Rack' : '✅ Create Rack';
+    if (res.success) {
+      showMsg('ok', '✅ ' + res.message);
+      setTimeout(() => { resetRackFormToAddMode(); if (formOpenForTab) handleTableActionClick(); }, 900);
+    } else {
+      showMsg('err', '❌ ' + res.message);
+    }
+  }).catch(err => {
+    btn.disabled = false;
+    btn.textContent = editingRackCode ? '✅ Update Rack' : '✅ Create Rack';
+    showMsg('err', '❌ ' + err.message);
   });
 }
 
