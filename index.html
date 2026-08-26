@@ -778,7 +778,7 @@ function handlePhotoCapture(mode, input) {
 
   const reader = new FileReader();
   reader.onload = function(e) {
-    resizeImage(e.target.result, 700, 0.6, function(resizedDataUrl) {
+    resizeImage(e.target.result, 640, 0.55, function(resizedDataUrl) {
       photoData[mode] = resizedDataUrl;
       const approxKb = Math.round((resizedDataUrl.length * 0.75) / 1024); // base64 -> approx real bytes
       statusEl.innerHTML =
@@ -797,7 +797,9 @@ function handlePhotoCapture(mode, input) {
 // Shrinks the photo client-side before it's sent, so a batch of several entries doesn't turn
 // into a slow, heavy upload (this is what makes Final Submit take a long time on a weak
 // connection - Apps Script has to receive and write every photo's base64 data to Drive).
-// maxWidth 700px / quality 0.6 is noticeably smaller than before while still perfectly good for
+// maxWidth 640px / quality 0.55 keeps the file noticeably smaller than before (uploading photos
+// is the main reason Final Submit can feel slow, especially on weak mobile data) while still
+// perfectly good for
 // a reference/proof photo. If a particular photo (busy/detailed scenes compress less) is STILL
 // large after that first pass, it's compressed a second time at a lower quality automatically,
 // rather than sending a slow multi-MB upload.
@@ -812,7 +814,7 @@ function resizeImage(dataUrl, maxWidth, quality, callback) {
 
     let out = canvas.toDataURL('image/jpeg', quality);
     const approxBytes = out.length * 0.75;
-    if (approxBytes > 350 * 1024) {
+    if (approxBytes > 280 * 1024) {
       out = canvas.toDataURL('image/jpeg', Math.max(0.35, quality - 0.2));
     }
     callback(out);
