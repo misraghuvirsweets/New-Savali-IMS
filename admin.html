@@ -46,6 +46,13 @@
   .lowstock{color:var(--warn);font-weight:700;}
   .empty-msg{padding:20px;text-align:center;color:#999;font-size:13px;}
 
+  /* Lightweight inline spinner - swapped in for every plain "Loading…" text so a fetch in
+     progress always shows visible motion immediately, instead of static text that can make a
+     slow Apps Script round trip feel stuck/broken. */
+  @keyframes ims-spin { to { transform: rotate(360deg); } }
+  .ims-spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--maroon);border-radius:50%;animation:ims-spin .7s linear infinite;vertical-align:middle;margin-right:8px;}
+  .ims-loading-row{padding:20px;text-align:center;color:#888;font-size:13px;}
+
   /* Stock health color coding (Current Stock vs Reorder Level) - same bands as the Supervisor
      dashboard's Low Stock Alert view. */
   tr.row-red{background:#fbe1df;}
@@ -117,6 +124,7 @@
   <select id="extraFilterSelect" style="display:none;flex:0 0 auto;min-width:160px;" onchange="applyFilter()"><option value="">All</option></select>
   <button class="btn-primary" id="tableActionBtn" style="display:none;" onclick="handleTableActionClick()"></button>
   <button class="btn-secondary" id="bulkAssignBtn" style="display:none;" onclick="handleBulkAssignClick()">🧩 Bulk Assign SKUs</button>
+  <button class="btn-secondary" id="fillLocationBtn" style="display:none;" onclick="handleFillLocationClick()">📍 Fill Missing Rack/Location</button>
   <button class="btn-secondary" onclick="loadCurrentTable()">🔄 Refresh</button>
   <span class="count-badge" id="countBadge"></span>
 </div>
@@ -130,15 +138,18 @@
 
 <div class="table-wrap" id="tableView">
   <table id="dataTable">
-    <thead><tr><th>Loading…</th></tr></thead>
+    <thead><tr><th><span class="ims-spinner"></span>Loading…</th></tr></thead>
     <tbody></tbody>
   </table>
 </div>
 
 <div id="dashboardView" style="display:none;">
   <div class="card" style="max-width:1100px;margin:14px auto;">
-    <label>📍 Select Location</label>
-    <select id="locationSelect" onchange="renderSelectedLocation()"><option value="">Loading…</option></select>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+      <label style="margin-bottom:0;">📍 Select Location</label>
+      <button class="btn-secondary" onclick="loadLocationStock(true, true)" style="flex:0 0 auto;">🔄 Refresh</button>
+    </div>
+    <select id="locationSelect" onchange="renderSelectedLocation()" style="margin-top:8px;"><option value="">Loading…</option></select>
   </div>
   <div class="stats" id="locationStatsRow"></div>
 
@@ -371,7 +382,7 @@ function callApi(action, data, attempt) {
   });
 }
 const RETRYABLE_ACTIONS = ['ping', 'getBranches', 'getRacks', 'lookupItem', 'searchItems',
-  'getSheetData', 'getStockHealth', 'getLocationStock', 'getEntriesWithPhotos', 'getAvailableTables',
+  'getSheetData', 'getStockHealth', 'getStockLedgerBundle', 'getLocationStock', 'getEntriesWithPhotos', 'getAvailableTables',
   'getDashboard', 'getCategories', 'getStockOutRacks', 'getStockOutSummary', 'getStockOutDrilldown'];
 
 function buildTabs() {
@@ -424,6 +435,30 @@ function setupTableActionButton() {
   }
 
   document.getElementById('bulkAssignBtn').style.display = (currentTableKey === 'Item_Master') ? 'inline-block' : 'none';
+  document.getElementById('fillLocationBtn').style.display = (currentTableKey === 'Item_Master') ? 'inline-block' : 'none';
+}
+
+// Fills Location Code for any Item_Master row that already has a SKU Code but a BLANK Location
+// Code, by deriving it straight from that row's SKU - e.g. "RACK-A-1" through "RACK-A-5" all
+// get Location Code "RACK-A" (the SKU's own <LocationCode>-<sequence number> pattern). Rows
+// that already have a Location Code are left untouched.
+function handleFillLocationClick() {
+  if (!confirm('Fill Location Code for every item that has a SKU but no Location Code, by deriving it from the SKU itself (e.g. "RACK-A-1" → "RACK-A")?\n\nItems that already have a Location Code are left untouched.')) return;
+
+  const btn = document.getElementById('fillLocationBtn');
+  btn.disabled = true;
+  btn.textContent = 'Working…';
+  callApi('fillMissingLocationCodes').then(res => {
+    btn.disabled = false;
+    btn.textContent = '📍 Fill Missing Rack/Location';
+    if (res.error) { alert('❌ ' + res.error); return; }
+    alert('✅ Filled Location Code for ' + res.filled + ' item(s).');
+    loadCurrentTable();
+  }).catch(err => {
+    btn.disabled = false;
+    btn.textContent = '📍 Fill Missing Rack/Location';
+    alert('❌ ' + err.message);
+  });
 }
 
 function handleBulkAssignClick() {
@@ -562,38 +597,53 @@ const EXTRA_FILTER_CONFIG = {
 let currentStockHealthMap = {}; // SKU -> band, sourced from getStockHealth (Item_Master) - kept
                                  // in sync with the Supervisor dashboard's coloring logic
 
+// Small reusable "spinner + text" snippet used everywhere something is loading, so every wait
+// state in the app shows visible motion immediately rather than static "Loading…" text.
+function loadingHtml(text) {
+  return '<span class="ims-spinner"></span>' + (text || 'Loading…');
+}
+
+// Guards against a slow-loading table getting overwritten mid-flight by a second, faster
+// request for a DIFFERENT tab (e.g. rapid tab-switching) - only the most recent request for the
+// currently-selected tab is allowed to render its result.
+let tableLoadToken = 0;
+
 function loadCurrentTable() {
-  document.getElementById('dataTable').innerHTML = '<thead><tr><th>Loading…</th></tr></thead><tbody></tbody>';
+  const myToken = ++tableLoadToken;
+  const requestedTableKey = currentTableKey;
+  document.getElementById('dataTable').innerHTML = '<thead><tr><th>' + loadingHtml() + '</th></tr></thead><tbody></tbody>';
   document.getElementById('countBadge').textContent = '';
 
-  const params = { sheetName: currentTableKey };
-  if (DATE_FILTER_TABLES.indexOf(currentTableKey) !== -1) {
-    params.startDate = document.getElementById('dateFilterStart').value || '';
-    params.endDate = document.getElementById('dateFilterEnd').value || '';
+  // Stock_Ledger needs both the table rows AND the color-health bands - fetched together in
+  // ONE server round trip (getStockLedgerBundle) instead of two sequential requests, since each
+  // extra Apps Script Web App round trip is real, noticeable latency. Every other table only
+  // ever needed the one getSheetData call anyway.
+  let apiCall;
+  if (requestedTableKey === 'Stock_Ledger') {
+    apiCall = callApi('getStockLedgerBundle').then(res => {
+      currentHeaders = res.headers || [];
+      currentRows = res.rows || [];
+      currentStockHealthMap = res.healthMap || {};
+    });
+  } else {
+    const params = { sheetName: requestedTableKey };
+    if (DATE_FILTER_TABLES.indexOf(requestedTableKey) !== -1) {
+      params.startDate = document.getElementById('dateFilterStart').value || '';
+      params.endDate = document.getElementById('dateFilterEnd').value || '';
+    }
+    apiCall = callApi('getSheetData', params).then(res => {
+      currentHeaders = res.headers || [];
+      currentRows = res.rows || [];
+      currentStockHealthMap = {};
+    });
   }
 
-  // Sequential, not parallel: firing getSheetData and getStockHealth at the exact same time
-  // could both trigger a Stock_Ledger rebuild concurrently, which risks intermittent failures.
-  // One request finishing before the next starts is safer, even though very slightly slower.
-  callApi('getSheetData', params).then(res => {
-    currentHeaders = res.headers || [];
-    currentRows = res.rows || [];
-
-    if (currentTableKey === 'Stock_Ledger') {
-      // Also fetch the authoritative color bands - computed server-side from Item_Master's
-      // Reorder Level (the exact same source the Supervisor dashboard's Low Stock Alert uses),
-      // rather than trusting Stock_Ledger's own Reorder Level column, which can drift out of
-      // sync with Item_Master.
-      return callApi('getStockHealth').then(health => {
-        currentStockHealthMap = {};
-        (health || []).forEach(it => { currentStockHealthMap[String(it.sku).trim().toUpperCase()] = it.band; });
-      });
-    }
-    currentStockHealthMap = {};
-  }).then(() => {
+  apiCall.then(() => {
+    if (myToken !== tableLoadToken || currentTableKey !== requestedTableKey) return; // a newer/other request has since started - drop this stale result
     setupExtraFilter();
     renderTable(currentRows);
   }).catch(err => {
+    if (myToken !== tableLoadToken || currentTableKey !== requestedTableKey) return;
     document.getElementById('dataTable').innerHTML =
       '<thead><tr><th>Error</th></tr></thead><tbody><tr><td>' + err.message + '</td></tr></tbody>';
   });
@@ -728,13 +778,21 @@ window.onload = function() {
 
 // ---------------- ADD / EDIT ITEM FORM ----------------
 let allRacks = [];
+let allRacksFetchedAt = 0;
+const RACKS_CACHE_TTL_MS = 30000; // 30s - opening the Add Item form repeatedly in a session
+                                   // shouldn't re-fetch the rack list every single time.
 // When set, the form is in EDIT mode for this SKU (Storage Type/Location/Barcode are locked -
 // see editItemRow() for why) - null means the form is in normal "Add New Item" mode.
 let editingItemSku = null;
 
 function loadRacksForAddItem() {
+  if (allRacks.length && (Date.now() - allRacksFetchedAt) < RACKS_CACHE_TTL_MS) {
+    refreshLocationOptions();
+    return;
+  }
   callApi('getRacks').then(list => {
     allRacks = list;
+    allRacksFetchedAt = Date.now();
     refreshLocationOptions();
   }).catch(err => {
     document.getElementById('addLocation').innerHTML = '<option value="">⚠️ Could not load racks: ' + err.message + '</option>';
@@ -925,12 +983,18 @@ function submitAddItem() {
 
 // ---------------- ADD / EDIT RACK FORM ----------------
 let allRackRows = []; // full Racks sheet data (code, no., row/level, description) - for suggestions/edit
+let allRackRowsFetchedAt = 0;
 // When set, the form is in EDIT mode for this original Rack Code - null means "Add New Rack".
 let editingRackCode = null;
 
 function loadRacksForAddRackForm() {
+  if (allRackRows.length && (Date.now() - allRackRowsFetchedAt) < RACKS_CACHE_TTL_MS) {
+    updateRackSuggestions();
+    return;
+  }
   callApi('getSheetData', { sheetName: 'Racks' }).then(res => {
     allRackRows = res.rows || [];
+    allRackRowsFetchedAt = Date.now();
     updateRackSuggestions();
   }).catch(() => { allRackRows = []; });
 }
@@ -1033,6 +1097,11 @@ function submitAddRack() {
     btn.textContent = editingRackCode ? '✅ Update Rack' : '✅ Create Rack';
     if (res.success) {
       showMsg('ok', '✅ ' + res.message);
+      // Invalidate the cached rack lists (used by this form's suggestions and by the Add Item
+      // form's Rack dropdown) so the very next time either is opened, it reflects this change
+      // instead of showing stale data for up to RACKS_CACHE_TTL_MS.
+      allRackRowsFetchedAt = 0;
+      allRacksFetchedAt = 0;
       setTimeout(() => { resetRackFormToAddMode(); if (formOpenForTab) handleTableActionClick(); }, 900);
     } else {
       showMsg('err', '❌ ' + res.message);
@@ -1078,22 +1147,45 @@ function deleteBranchFromAdmin(name) {
 // ---------------- DASHBOARD (Godown vs Branch-wise stock, dropdown-driven) ----------------
 const GODOWN_OPTION_VALUE = '__GODOWN__';
 let locationStockData = null;
+let locationStockFetchedAt = 0;
+const LOCATION_STOCK_CACHE_TTL_MS = 20000; // 20s - long enough that flipping tabs feels instant,
+                                            // short enough that stock figures don't go stale.
 
-function loadLocationStock(preserveSelection) {
+function renderLocationSelectOptions(keepValue) {
+  const sel = document.getElementById('locationSelect');
+  const branches = (locationStockData && locationStockData.branches) || [];
+  sel.innerHTML = '<option value="' + GODOWN_OPTION_VALUE + '">🏭 Savali Godown</option>' +
+    branches.map(b => '<option value="' + b.name + '">🏬 ' + b.name + '</option>').join('');
+  // Keep whatever was selected before a refresh (e.g. right after logging a stock-out) instead
+  // of always jumping back to Godown - but a fresh page load still defaults to Godown.
+  sel.value = (keepValue && Array.from(sel.options).some(o => o.value === keepValue)) ? keepValue : GODOWN_OPTION_VALUE;
+}
+
+// preserveSelection: keep whichever branch/godown was already selected (used after logging a
+// stock-out). forceRefresh: skip the cache entirely and hit the server, even if the cached data
+// is still "fresh" (used after logging a stock-out, since the figures just changed).
+function loadLocationStock(preserveSelection, forceRefresh) {
   const sel = document.getElementById('locationSelect');
   const keepValue = preserveSelection ? sel.value : null;
+
+  const cacheIsFresh = locationStockData && (Date.now() - locationStockFetchedAt) < LOCATION_STOCK_CACHE_TTL_MS;
+  if (cacheIsFresh && !forceRefresh) {
+    // Instant render straight from the last fetch - no spinner, no network wait. This is what
+    // makes flipping between the Dashboard tab and other tabs feel immediate instead of
+    // re-fetching (and re-rebuilding Stock_Ledger/Branch_Ledger server-side) every single time.
+    renderLocationSelectOptions(keepValue);
+    renderSelectedLocation();
+    return;
+  }
+
   sel.innerHTML = '<option value="">Loading…</option>';
   document.getElementById('locationStatsRow').innerHTML = '';
-  document.getElementById('locationDetailWrap').innerHTML = '';
+  document.getElementById('locationDetailWrap').innerHTML = '<div class="empty-msg">' + loadingHtml() + '</div>';
 
   callApi('getLocationStock').then(data => {
     locationStockData = data;
-    const branches = data.branches || [];
-    sel.innerHTML = '<option value="' + GODOWN_OPTION_VALUE + '">🏭 Savali Godown</option>' +
-      branches.map(b => '<option value="' + b.name + '">🏬 ' + b.name + '</option>').join('');
-    // Keep whatever was selected before a refresh (e.g. right after logging a stock-out) instead
-    // of always jumping back to Godown - but a fresh page load still defaults to Godown.
-    sel.value = (keepValue && Array.from(sel.options).some(o => o.value === keepValue)) ? keepValue : GODOWN_OPTION_VALUE;
+    locationStockFetchedAt = Date.now();
+    renderLocationSelectOptions(keepValue);
     renderSelectedLocation();
   }).catch(err => {
     sel.innerHTML = '<option value="">⚠️ Error</option>';
@@ -1161,7 +1253,7 @@ function submitBranchStockOut() {
       document.getElementById('stockOutSku').value = '';
       document.getElementById('stockOutQty').value = '';
       document.getElementById('stockOutRemarks').value = '';
-      loadLocationStock(true); // refresh figures, keeping the same branch selected
+      loadLocationStock(true, true); // refresh figures (bypassing the cache), keeping the same branch selected
     } else {
       showMsg('err', '❌ ' + res.message);
     }
@@ -1228,7 +1320,7 @@ function loadStockOutSummary() {
   const endDate = document.getElementById('stockOutEndDate').value;
   currentStockOutRange = { start: startDate, end: endDate };
 
-  document.getElementById('stockOutTableWrap').innerHTML = '<div class="empty-msg">Loading…</div>';
+  document.getElementById('stockOutTableWrap').innerHTML = '<div class="empty-msg">' + loadingHtml() + '</div>';
   callApi('getStockOutSummary', { category: category, rack: rack, startDate: startDate, endDate: endDate }).then(res => {
     renderStockOutTable(res.items || [], res.dayDiff || 1);
   }).catch(err => {
@@ -1279,7 +1371,7 @@ function renderStockOutTable(items, dayDiff) {
 // for that item, within the SAME date range that was used for the summary above.
 function showStockOutDrilldown(sku, name) {
   document.getElementById('drilldownTitle').textContent = '📦 ' + name + ' (' + sku + ') — Date-wise Stock Out';
-  document.getElementById('drilldownTableWrap').innerHTML = '<div class="empty-msg">Loading…</div>';
+  document.getElementById('drilldownTableWrap').innerHTML = '<div class="empty-msg">' + loadingHtml() + '</div>';
   document.getElementById('drilldownOverlay').style.display = 'flex';
 
   callApi('getStockOutDrilldown', { sku: sku, startDate: currentStockOutRange.start, endDate: currentStockOutRange.end }).then(rows => {
