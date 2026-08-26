@@ -341,11 +341,22 @@ const RETRYABLE_ACTIONS = ['ping', 'getBranches', 'getRacks', 'lookupItem', 'sea
   'getSheetData', 'getStockHealth', 'getLocationStock', 'getEntriesWithPhotos', 'getAvailableTables', 'getDashboard'];
 
 function rawCallApi(url, action, data, attempt) {
+  // Without a timeout, a slow/hung request (weak signal, Apps Script waking up from cold,
+  // uploading a photo on bad wifi) just sits there forever with no feedback - the app "feels"
+  // frozen even though it's technically still trying. Aborting after 25s and surfacing a clear
+  // message is far better than an indefinite silent wait.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 25000);
+
   return fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(Object.assign({ action: action }, data || {}))
+    body: JSON.stringify(Object.assign({ action: action }, data || {})),
+    signal: controller.signal
   }).catch(networkErr => {
+    if (networkErr.name === 'AbortError') {
+      throw new Error('⏱️ The server took too long to respond (over 25s). It may just be "waking up" after being idle - please try again.');
+    }
     // fetch() itself failed - wrong/unreachable URL, no internet, or (less commonly) a CORS
     // issue from the Apps Script deployment settings.
     throw new Error('Could not reach the server at all: ' + networkErr.message +
@@ -367,7 +378,7 @@ function rawCallApi(url, action, data, attempt) {
     }
     if (res && res.error) throw new Error(res.error);
     return res;
-  }).catch(err => {
+  }).finally(() => clearTimeout(timeoutId)).catch(err => {
     if (attempt < 2 && RETRYABLE_ACTIONS.indexOf(action) !== -1) {
       return new Promise(resolve => setTimeout(resolve, 900)).then(() => rawCallApi(url, action, data, attempt + 1));
     }
@@ -625,14 +636,27 @@ async function startCameraFor(mode) {
 }
 
 // ---------------- LOOKUP ----------------
+// Tracks the "latest" lookupItem call per mode - same idea as searchRequestId below. This is the
+// fix for "clicked a suggestion, then it said SKU not found": if you pick a suggestion (or scan)
+// while an OLDER lookupItem call for previously-typed text is still in flight, that older
+// response can arrive AFTER the selection and, without this guard, would overwrite the correct
+// item with a false "not found" error. Now every lookupItem response checks whether it's still
+// the most recent request before touching the screen at all.
+let lookupRequestId = { in: 0, out: 0 };
+
 function lookupSku(mode) {
   const sku = document.getElementById(mode + 'Sku').value.trim();
   if (!sku) return;
+  const myLookupId = ++lookupRequestId[mode];
   showMsg(mode, 'ok', '🔍 Looking up "' + sku + '"…'); // instant feedback while the request is in flight
   callApi('lookupItem', { sku: sku }).then(res => {
+    if (myLookupId !== lookupRequestId[mode]) return; // a newer lookup or a selection happened since - ignore this stale response
     showMsg(mode, '', ''); // clear the loading message now that we have a real result
     showItem(mode, res);
-  }).catch(err => showMsg(mode, 'err', '❌ ' + err.message));
+  }).catch(err => {
+    if (myLookupId !== lookupRequestId[mode]) return;
+    showMsg(mode, 'err', '❌ ' + err.message);
+  });
 }
 
 function showMsg(mode, cls, text) {
@@ -650,6 +674,12 @@ let suggestTimer = null;
 // whether it's still the most recent one before doing anything with it.
 let searchRequestId = { in: 0, out: 0 };
 
+// Short-lived in-memory cache of recent searches, per mode. Typing then backspacing/retyping the
+// same few characters (very common while searching by item name) would otherwise re-hit the
+// server every time - this makes repeated/similar queries within a few seconds feel instant.
+const suggestionCache = { in: new Map(), out: new Map() };
+const SUGGESTION_CACHE_TTL_MS = 15000;
+
 function onSkuInput(mode) {
   const query = document.getElementById(mode + 'Sku').value.trim();
   clearTimeout(suggestTimer);
@@ -658,16 +688,26 @@ function onSkuInput(mode) {
     hideSuggestions(mode);
     return;
   }
+
+  const cacheKey = query.toLowerCase();
+  const cached = suggestionCache[mode].get(cacheKey);
+  if (cached && (Date.now() - cached.time) < SUGGESTION_CACHE_TTL_MS) {
+    searchRequestId[mode]++; // no network call happening, but keep the token series consistent
+    renderSuggestions(mode, cached.results);
+    return;
+  }
+
   // Debounce so it doesn't fire an API call on every single keystroke.
   suggestTimer = setTimeout(() => {
     const myRequestId = ++searchRequestId[mode];
     callApi('searchItems', { query: query }).then(results => {
       if (myRequestId !== searchRequestId[mode]) return; // a newer search or a selection happened since - ignore this stale response
+      suggestionCache[mode].set(cacheKey, { results: results || [], time: Date.now() });
       renderSuggestions(mode, results || []);
     }).catch(() => {
       if (myRequestId === searchRequestId[mode]) hideSuggestions(mode);
     });
-  }, 250);
+  }, 200);
 }
 
 function renderSuggestions(mode, results) {
@@ -696,6 +736,7 @@ function hideSuggestions(mode) {
 
 function selectSuggestion(mode, index) {
   searchRequestId[mode]++; // invalidate any pending/in-flight search so its late response can't reopen the dropdown
+  lookupRequestId[mode]++; // invalidate any in-flight lookupItem call so it can't overwrite this selection with a false "not found"
   clearTimeout(suggestTimer);
   const results = window['lastSuggestions_' + mode] || [];
   const it = results[index];
@@ -729,20 +770,37 @@ const photoData = { in: null, out: null };
 function handlePhotoCapture(mode, input) {
   const file = input.files[0];
   if (!file) return;
+
+  const statusEl = document.getElementById(mode + 'PhotoStatus');
+  statusEl.style.display = 'block';
+  statusEl.innerHTML = '<span class="spinner" style="border-top-color:var(--maroon);border-color:var(--line);"></span>' +
+    '<span style="font-size:12px;color:#6b5c50;">Compressing photo…</span>';
+
   const reader = new FileReader();
   reader.onload = function(e) {
-    resizeImage(e.target.result, 800, 0.7, function(resizedDataUrl) {
+    resizeImage(e.target.result, 700, 0.6, function(resizedDataUrl) {
       photoData[mode] = resizedDataUrl;
-      // Photo is captured and stored, but we only show a small confirmation - not a full preview.
-      document.getElementById(mode + 'PhotoStatus').style.display = 'block';
+      const approxKb = Math.round((resizedDataUrl.length * 0.75) / 1024); // base64 -> approx real bytes
+      statusEl.innerHTML =
+        '<span style="font-size:12px;color:var(--ok);font-weight:600;">✅ Photo attached (~' + approxKb + ' KB)</span>' +
+        '<span class="back-link" style="margin-left:10px;font-size:12px;color:var(--warn);" onclick="clearPhoto(\'' + mode + '\')">✕ Remove Photo</span>';
     });
+  };
+  reader.onerror = function() {
+    statusEl.style.display = 'none';
+    showMsg(mode, 'err', '❌ Could not read that photo file. Please try again or pick a different one.');
   };
   reader.readAsDataURL(file);
   input.value = ''; // allow capturing the same file again if needed
 }
 
-// Shrinks the photo client-side (max 800px wide, JPEG ~70% quality) before it's sent, so a
-// batch of several entries doesn't turn into a huge upload.
+// Shrinks the photo client-side before it's sent, so a batch of several entries doesn't turn
+// into a slow, heavy upload (this is what makes Final Submit take a long time on a weak
+// connection - Apps Script has to receive and write every photo's base64 data to Drive).
+// maxWidth 700px / quality 0.6 is noticeably smaller than before while still perfectly good for
+// a reference/proof photo. If a particular photo (busy/detailed scenes compress less) is STILL
+// large after that first pass, it's compressed a second time at a lower quality automatically,
+// rather than sending a slow multi-MB upload.
 function resizeImage(dataUrl, maxWidth, quality, callback) {
   const img = new Image();
   img.onload = function() {
@@ -751,7 +809,18 @@ function resizeImage(dataUrl, maxWidth, quality, callback) {
     const canvas = document.createElement('canvas');
     canvas.width = w; canvas.height = h;
     canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-    callback(canvas.toDataURL('image/jpeg', quality));
+
+    let out = canvas.toDataURL('image/jpeg', quality);
+    const approxBytes = out.length * 0.75;
+    if (approxBytes > 350 * 1024) {
+      out = canvas.toDataURL('image/jpeg', Math.max(0.35, quality - 0.2));
+    }
+    callback(out);
+  };
+  img.onerror = function() {
+    // Fall back to the original data untouched rather than losing the photo entirely if, for
+    // some reason, it can't be decoded/redrawn as an image (corrupt file, unsupported format).
+    callback(dataUrl);
   };
   img.src = dataUrl;
 }
@@ -831,12 +900,20 @@ function finalSubmit(mode) {
   finalBtn.disabled = true;
   finalBtn.innerHTML = '<span class="spinner"></span>Submitting ' + list.length + ' ' + (list.length === 1 ? 'entry' : 'entries') + '…';
 
+  // If it's taking a while (photos uploading on a slow connection are the usual cause), swap in
+  // a reassuring message instead of leaving the same "Submitting…" text up indefinitely, which
+  // can otherwise look like the app has frozen.
+  const slowNoticeTimer = setTimeout(() => {
+    finalBtn.innerHTML = '<span class="spinner"></span>Still working… uploading photo(s) can take longer on a slow connection.';
+  }, 6000);
+
   const action = mode === 'in' ? 'logBatchInward' : 'logBatchOutward';
   const entries = list.map(row => mode === 'in'
     ? { sku: row.sku, qty: row.qty, photo: row.photo }
     : { sku: row.sku, qty: row.qty, branch: row.branch, photo: row.photo });
 
   callApi(action, { entries: entries }).then(results => {
+    clearTimeout(slowNoticeTimer);
     const stillFailed = [];
     let successCount = 0;
     (results || []).forEach((res, i) => {
@@ -859,6 +936,7 @@ function finalSubmit(mode) {
       showMsg(mode, 'ok', '✅ All ' + successCount + ' entries submitted successfully.');
     }
   }).catch(err => {
+    clearTimeout(slowNoticeTimer);
     finalBtn.disabled = false;
     finalBtn.textContent = '✅ Final Submit';
     showMsg(mode, 'err', '❌ ' + err.message);
@@ -867,6 +945,7 @@ function finalSubmit(mode) {
 
 function resetForm(mode) {
   searchRequestId[mode]++; // invalidate any pending search so it can't reopen suggestions after reset
+  lookupRequestId[mode]++; // invalidate any pending lookup so it can't repopulate the item box after reset
   document.getElementById(mode + 'Sku').value = '';
   document.getElementById(mode + 'Qty').value = '';
   clearPhoto(mode);
