@@ -1344,7 +1344,7 @@ function renderStockOutTable(items, dayDiff) {
   items.forEach(it => {
     const loc = it.location || '(No Rack/Location)';
     if (loc !== lastLocation) {
-      rowsHtml += '<tr class="rack-group-row"><td colspan="5">🗄️ ' + loc + '</td></tr>';
+      rowsHtml += '<tr class="rack-group-row"><td colspan="6">🗄️ ' + loc + '</td></tr>';
       lastLocation = loc;
     }
     rowsHtml +=
@@ -1355,6 +1355,7 @@ function renderStockOutTable(items, dayDiff) {
           String(it.sku).replace(/'/g, "\\'") + '\',\'' + String(it.name).replace(/'/g, "\\'") + '\')">' +
           formatCellValue(it.totalStockOut) + '</button></td>' +
         '<td>' + formatCellValue(it.avgQty) + '</td>' +
+        '<td>' + formatCellValue(it.qtyPerKg) + '</td>' +
         '<td>' + formatCellValue(it.avgConsumption) + '</td>' +
       '</tr>';
   });
@@ -1363,7 +1364,7 @@ function renderStockOutTable(items, dayDiff) {
     '<div class="count-badge" style="padding:0 0 6px;">' + items.length + ' item(s) — date range span: ' + dayDiff + ' day(s)</div>' +
     '<table><thead><tr>' +
       '<th>SKU</th><th>Item Name</th><th>Total Stock Out</th>' +
-      '<th>Avg Qty (per day)</th><th>Avg Consumption</th>' +
+      '<th>Avg Qty (per day)</th><th>Qty Per Kg</th><th>Avg Consumption</th>' +
     '</tr></thead><tbody>' + rowsHtml + '</tbody></table>';
 }
 
