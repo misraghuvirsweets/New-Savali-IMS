@@ -196,6 +196,20 @@
   <div class="table-wrap" id="stockOutTableWrap"></div>
 </div>
 
+<!-- ============================= VALUATION REPORT TAB (stock + ₹ value as of a chosen date) ===== -->
+<div id="valuationView" style="display:none;">
+  <div class="card" style="max-width:1100px;margin:14px auto;">
+    <label>📅 Valuation as of Date</label>
+    <input type="date" id="valuationDate">
+    <p style="font-size:12px;color:#888;margin:-4px 0 10px;">
+      Shows each item's Current Stock and ₹ Valuation (Stock × Rate) as it stood at the END of the
+      chosen date - reconstructed from every Inward/Outward entry up to and including that day.
+    </p>
+    <button class="btn-primary" onclick="loadValuationReport()" style="width:100%;">🔍 Show Valuation</button>
+  </div>
+  <div class="table-wrap" id="valuationTableWrap"></div>
+</div>
+
 <!-- Drilldown popup: date-wise stock-out for one item, within the same date range -->
 <div class="overlay" id="drilldownOverlay" onclick="closeDrilldownOnOverlay(event)">
   <div class="overlay-card">
@@ -303,6 +317,7 @@ const TABLES = [
 const DASHBOARD_KEY = 'Dashboard'; // special tab - godown vs branch-wise stock overview
 const ENTRY_KEY = 'Entry'; // special tab - embeds the hosted godown.html scanning page
 const TOTAL_STOCKOUT_KEY = 'TotalStockOut'; // special tab - category + rack + date-range stock report
+const VALUATION_KEY = 'ValuationReport'; // special tab - stock + ₹ valuation as of a chosen date
 
 // Where godown.html (the Inward/Outward scanning page) is hosted - update this if you move it
 // to a different GitHub Pages repo/URL later. Used both for the embedded Entry tab (iframe) and
@@ -383,14 +398,15 @@ function callApi(action, data, attempt) {
 }
 const RETRYABLE_ACTIONS = ['ping', 'getBranches', 'getRacks', 'lookupItem', 'searchItems',
   'getSheetData', 'getStockHealth', 'getStockLedgerBundle', 'getLocationStock', 'getEntriesWithPhotos', 'getAvailableTables',
-  'getDashboard', 'getCategories', 'getStockOutRacks', 'getStockOutSummary', 'getStockOutDrilldown'];
+  'getDashboard', 'getCategories', 'getStockOutRacks', 'getStockOutSummary', 'getStockOutDrilldown', 'getValuationAsOfDate'];
 
 function buildTabs() {
   const bar = document.getElementById('tabBar');
   const allTabs = [
     { key: DASHBOARD_KEY, label: '📊 Dashboard' },
     { key: ENTRY_KEY, label: '📲 Entry' },
-    { key: TOTAL_STOCKOUT_KEY, label: '📈 Total Stock Report' }
+    { key: TOTAL_STOCKOUT_KEY, label: '📈 Total Stock Report' },
+    { key: VALUATION_KEY, label: '💰 Valuation Report' }
   ].concat(TABLES);
   bar.innerHTML = allTabs.map(t =>
     '<div class="tab' + (t.key === currentTableKey ? ' active' : '') + '" data-key="' + t.key + '">' + t.label + '</div>'
@@ -406,6 +422,8 @@ function buildTabs() {
         showEntryView();
       } else if (currentTableKey === TOTAL_STOCKOUT_KEY) {
         showStockOutView();
+      } else if (currentTableKey === VALUATION_KEY) {
+        showValuationView();
       } else {
         showTableView();
         loadCurrentTable();
@@ -527,6 +545,7 @@ function hideAllViews() {
   document.getElementById('dashboardView').style.display = 'none';
   document.getElementById('stockOutView').style.display = 'none';
   document.getElementById('entryView').style.display = 'none';
+  document.getElementById('valuationView').style.display = 'none';
 }
 
 // ---------------- ENTRY TAB (embedded godown.html scanning page) ----------------
@@ -1395,6 +1414,75 @@ function closeDrilldown() {
 }
 function closeDrilldownOnOverlay(e) {
   if (e.target && e.target.id === 'drilldownOverlay') closeDrilldown();
+}
+
+// ============================= VALUATION REPORT (stock + ₹ value as of a chosen date) ===========
+function showValuationView() {
+  hideAllViews();
+  document.getElementById('valuationView').style.display = 'block';
+  // Default the date picker to today the first time this tab is opened, so there's a sensible
+  // starting point instead of an empty field - the admin can still change it to any past date.
+  const dateInput = document.getElementById('valuationDate');
+  if (!dateInput.value) {
+    const today = new Date();
+    dateInput.value = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+  }
+}
+
+function loadValuationReport() {
+  const date = document.getElementById('valuationDate').value;
+  const wrap = document.getElementById('valuationTableWrap');
+  if (!date) {
+    wrap.innerHTML = '<div class="empty-msg">⚠️ Please choose a date first.</div>';
+    return;
+  }
+
+  wrap.innerHTML = '<div class="empty-msg">' + loadingHtml() + '</div>';
+  callApi('getValuationAsOfDate', { date: date }).then(res => {
+    if (res.error) { wrap.innerHTML = '<div class="empty-msg">⚠️ ' + res.error + '</div>'; return; }
+    renderValuationTable(res.items || [], res.totalValuation || 0, res.asOfDate || date);
+  }).catch(err => {
+    wrap.innerHTML = '<div class="empty-msg">⚠️ ' + err.message + '</div>';
+  });
+}
+
+// Renders the valuation table grouped rack-wise (same visual pattern as the Total Stock Report),
+// with a running grand-total valuation shown above the table.
+function renderValuationTable(items, totalValuation, asOfDate) {
+  const wrap = document.getElementById('valuationTableWrap');
+  if (!items.length) {
+    wrap.innerHTML = '<div class="empty-msg">No items had any stock or rate as of ' + asOfDate + '.</div>';
+    return;
+  }
+
+  let rowsHtml = '';
+  let lastLocation = null;
+  items.forEach(it => {
+    const loc = it.location || '(No Rack/Location)';
+    if (loc !== lastLocation) {
+      rowsHtml += '<tr class="rack-group-row"><td colspan="5">🗄️ ' + loc + '</td></tr>';
+      lastLocation = loc;
+    }
+    const stockClass = it.stock < 0 ? ' class="lowstock"' : '';
+    rowsHtml +=
+      '<tr>' +
+        '<td>' + it.sku + '</td>' +
+        '<td>' + it.name + '</td>' +
+        '<td' + stockClass + '>' + formatCellValue(it.stock) + '</td>' +
+        '<td>₹' + formatCellValue(it.rate) + '</td>' +
+        '<td>₹' + formatCellValue(it.valuation) + '</td>' +
+      '</tr>';
+  });
+
+  wrap.innerHTML =
+    '<div class="stats" style="margin:0 0 10px;">' +
+      '<div class="stat"><div class="num">📅 ' + asOfDate + '</div><div class="lbl">Valuation As Of</div></div>' +
+      '<div class="stat"><div class="num">' + items.length + '</div><div class="lbl">Items with stock/value</div></div>' +
+      '<div class="stat"><div class="num">₹' + formatCellValue(totalValuation) + '</div><div class="lbl">Total Valuation</div></div>' +
+    '</div>' +
+    '<table><thead><tr>' +
+      '<th>SKU</th><th>Item Name</th><th>Current Stock</th><th>Rate</th><th>Valuation</th>' +
+    '</tr></thead><tbody>' + rowsHtml + '</tbody></table>';
 }
 </script>
 </body>
