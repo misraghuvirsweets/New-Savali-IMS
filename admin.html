@@ -217,7 +217,7 @@
     <label>📅 Valuation as of Date</label>
     <input type="date" id="valuationDate">
     <p style="font-size:12px;color:#888;margin:-4px 0 10px;">
-      Shows each item's Current Stock and ₹ Valuation (Stock × Rate) as it stood at the END of the
+      Shows each item's Current Stock and ₹ Valuation (Stock × Qty Per Kg × Rate) as it stood at the END of the
       chosen date - reconstructed from every Inward/Outward entry up to and including that day.
     </p>
     <button class="btn-primary" onclick="loadValuationReport()" style="width:100%;">🔍 Show Valuation</button>
@@ -1482,7 +1482,7 @@ function renderValuationTable(items, totalValuation, asOfDate) {
   items.forEach(it => {
     const loc = it.location || '(No Rack/Location)';
     if (loc !== lastLocation) {
-      rowsHtml += '<tr class="rack-group-row"><td colspan="5">🗄️ ' + loc + '</td></tr>';
+      rowsHtml += '<tr class="rack-group-row"><td colspan="6">🗄️ ' + loc + '</td></tr>';
       lastLocation = loc;
     }
     const stockClass = it.stock < 0 ? ' class="lowstock"' : '';
@@ -1491,6 +1491,7 @@ function renderValuationTable(items, totalValuation, asOfDate) {
         '<td>' + it.sku + '</td>' +
         '<td>' + it.name + '</td>' +
         '<td' + stockClass + '>' + formatCellValue(it.stock) + '</td>' +
+        '<td>' + formatCellValue(it.qtyPerKg) + '</td>' +
         '<td>₹' + formatCellValue(it.rate) + '</td>' +
         '<td>₹' + formatCellValue(it.valuation) + '</td>' +
       '</tr>';
@@ -1509,7 +1510,7 @@ function renderValuationTable(items, totalValuation, asOfDate) {
         '<div class="stat"><div class="num">₹' + formatCellValue(totalValuation) + '</div><div class="lbl">Total Valuation</div></div>' +
       '</div>' +
       '<table><thead><tr>' +
-        '<th>SKU</th><th>Item Name</th><th>Current Stock</th><th>Rate</th><th>Valuation</th>' +
+        '<th>SKU</th><th>Item Name</th><th>Current Stock</th><th>Qty Per Kg</th><th>Rate</th><th>Valuation</th>' +
       '</tr></thead><tbody>' + rowsHtml + '</tbody></table>' +
     '</div>';
 }
@@ -1545,11 +1546,11 @@ function exportValuationPDF() {
   doc.text('Total Valuation: Rs ' + formatCellValue(lastValuationData.totalValuation), 14, 28);
 
   const rows = lastValuationData.items.map(it =>
-    [it.sku, it.name, it.location || '', String(formatCellValue(it.stock)), String(formatCellValue(it.rate)), String(formatCellValue(it.valuation))]
+    [it.sku, it.name, it.location || '', String(formatCellValue(it.stock)), String(formatCellValue(it.qtyPerKg)), String(formatCellValue(it.rate)), String(formatCellValue(it.valuation))]
   );
 
   doc.autoTable({
-    head: [['SKU', 'Item Name', 'Rack/Location', 'Stock', 'Rate', 'Valuation']],
+    head: [['SKU', 'Item Name', 'Rack/Location', 'Stock', 'Qty Per Kg', 'Rate', 'Valuation']],
     body: rows,
     startY: 34,
     styles: { fontSize: 8 },
