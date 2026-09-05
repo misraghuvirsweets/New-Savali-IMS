@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Raghuvir IMS - Admin Dashboard</title>
+<!-- Client-side PDF generation for the Valuation Report's "Export as PDF" button. If these fail
+     to load (blocked CDN, offline), exportValuationPDF() detects that and tells the user to use
+     🖨️ Print → "Save as PDF" instead, rather than failing silently. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <style>
   :root{
     --maroon:#6d2932; --maroon-dark:#4e1e25; --gold:#c98a2c; --bg:#faf6f1;
@@ -52,6 +57,16 @@
   @keyframes ims-spin { to { transform: rotate(360deg); } }
   .ims-spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--maroon);border-radius:50%;animation:ims-spin .7s linear infinite;vertical-align:middle;margin-right:8px;}
   .ims-loading-row{padding:20px;text-align:center;color:#888;font-size:13px;}
+
+  /* Printing the Valuation Report: hide everything on the page except the report area itself
+     (#valuationPrintArea) - tabs, buttons, other cards, etc. all disappear from the printed
+     page/PDF. .no-print additionally hides the Print/Export buttons themselves from the output. */
+  @media print {
+    body * { visibility: hidden; }
+    #valuationPrintArea, #valuationPrintArea * { visibility: visible; }
+    #valuationPrintArea { position: absolute; left: 0; top: 0; width: 100%; padding: 0 14px; }
+    .no-print { display: none !important; }
+  }
 
   /* Stock health color coding (Current Stock vs Reorder Level) - same bands as the Supervisor
      dashboard's Low Stock Alert view. */
@@ -1440,14 +1455,21 @@ function loadValuationReport() {
   wrap.innerHTML = '<div class="empty-msg">' + loadingHtml() + '</div>';
   callApi('getValuationAsOfDate', { date: date }).then(res => {
     if (res.error) { wrap.innerHTML = '<div class="empty-msg">⚠️ ' + res.error + '</div>'; return; }
-    renderValuationTable(res.items || [], res.totalValuation || 0, res.asOfDate || date);
+    lastValuationData = { items: res.items || [], totalValuation: res.totalValuation || 0, asOfDate: res.asOfDate || date };
+    renderValuationTable(lastValuationData.items, lastValuationData.totalValuation, lastValuationData.asOfDate);
   }).catch(err => {
     wrap.innerHTML = '<div class="empty-msg">⚠️ ' + err.message + '</div>';
   });
 }
 
+// Holds the most recently loaded valuation result, so Print/Export as PDF can reuse it directly
+// instead of re-fetching from the server.
+let lastValuationData = null;
+
 // Renders the valuation table grouped rack-wise (same visual pattern as the Total Stock Report),
-// with a running grand-total valuation shown above the table.
+// with a running grand-total valuation shown above the table, and Print / Export as PDF buttons.
+// Only the #valuationPrintArea block (stats + table) is included in the printed page/PDF - the
+// buttons themselves are hidden from print output via the .no-print class.
 function renderValuationTable(items, totalValuation, asOfDate) {
   const wrap = document.getElementById('valuationTableWrap');
   if (!items.length) {
@@ -1475,14 +1497,66 @@ function renderValuationTable(items, totalValuation, asOfDate) {
   });
 
   wrap.innerHTML =
-    '<div class="stats" style="margin:0 0 10px;">' +
-      '<div class="stat"><div class="num">📅 ' + asOfDate + '</div><div class="lbl">Valuation As Of</div></div>' +
-      '<div class="stat"><div class="num">' + items.length + '</div><div class="lbl">Items with stock/value</div></div>' +
-      '<div class="stat"><div class="num">₹' + formatCellValue(totalValuation) + '</div><div class="lbl">Total Valuation</div></div>' +
+    '<div class="no-print" style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;">' +
+      '<button class="btn-secondary" onclick="printValuationReport()" style="flex:1;min-width:140px;">🖨️ Print</button>' +
+      '<button class="btn-secondary" onclick="exportValuationPDF()" style="flex:1;min-width:140px;">📄 Export as PDF</button>' +
     '</div>' +
-    '<table><thead><tr>' +
-      '<th>SKU</th><th>Item Name</th><th>Current Stock</th><th>Rate</th><th>Valuation</th>' +
-    '</tr></thead><tbody>' + rowsHtml + '</tbody></table>';
+    '<div id="valuationPrintArea">' +
+      '<h3 style="color:var(--maroon-dark);margin:0 0 10px;">🍬 Raghuvir Sweets &amp; Bakers — Valuation Report</h3>' +
+      '<div class="stats" style="margin:0 0 10px;">' +
+        '<div class="stat"><div class="num">📅 ' + asOfDate + '</div><div class="lbl">Valuation As Of</div></div>' +
+        '<div class="stat"><div class="num">' + items.length + '</div><div class="lbl">Items with stock/value</div></div>' +
+        '<div class="stat"><div class="num">₹' + formatCellValue(totalValuation) + '</div><div class="lbl">Total Valuation</div></div>' +
+      '</div>' +
+      '<table><thead><tr>' +
+        '<th>SKU</th><th>Item Name</th><th>Current Stock</th><th>Rate</th><th>Valuation</th>' +
+      '</tr></thead><tbody>' + rowsHtml + '</tbody></table>' +
+    '</div>';
+}
+
+// Opens the browser's print dialog, showing only the report content (see the @media print CSS
+// rule for #valuationPrintArea) - the person can print it directly, or choose "Save as PDF" as
+// the destination in that dialog, which works everywhere without needing any extra library.
+function printValuationReport() {
+  window.print();
+}
+
+// Generates a downloadable PDF directly (no print dialog step) using the jsPDF + AutoTable
+// libraries loaded in <head>. Falls back to a clear message pointing at 🖨️ Print if those
+// libraries failed to load (e.g. blocked CDN, offline).
+function exportValuationPDF() {
+  if (!lastValuationData || !lastValuationData.items.length) {
+    alert('Please run "🔍 Show Valuation" first.');
+    return;
+  }
+  if (typeof window.jspdf === 'undefined' || !window.jspdf.jsPDF) {
+    alert('The PDF export library has not finished loading yet (or failed to load - check your internet connection). ' +
+      'Wait a moment and try again, or use 🖨️ Print instead and choose "Save as PDF" as the destination.');
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  doc.setFontSize(14);
+  doc.text('Raghuvir Sweets & Bakers - Valuation Report', 14, 15);
+  doc.setFontSize(10);
+  doc.text('Valuation as of: ' + lastValuationData.asOfDate, 14, 22);
+  doc.text('Total Valuation: Rs ' + formatCellValue(lastValuationData.totalValuation), 14, 28);
+
+  const rows = lastValuationData.items.map(it =>
+    [it.sku, it.name, it.location || '', String(formatCellValue(it.stock)), String(formatCellValue(it.rate)), String(formatCellValue(it.valuation))]
+  );
+
+  doc.autoTable({
+    head: [['SKU', 'Item Name', 'Rack/Location', 'Stock', 'Rate', 'Valuation']],
+    body: rows,
+    startY: 34,
+    styles: { fontSize: 8 },
+    headStyles: { fillColor: [109, 41, 50] } // matches the app's maroon brand color
+  });
+
+  doc.save('Valuation_Report_' + lastValuationData.asOfDate + '.pdf');
 }
 </script>
 </body>
